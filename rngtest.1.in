@@ -1,0 +1,88 @@
+.\" Copyright (c) 2004 Henrique de Moraes Holschuh -- hmh@debian.org
+.\"
+.TH RNGTEST 1 "March 2004" "@PACKAGE@ @VERSION@"
+
+.SH NAME
+rngtest \- Check random data using FIPS 140-2 tests
+
+.SH SYNOPSIS
+.B rngtest
+[\fB\-c\fR \fIn\fR | \fB\-\-blockcount=\fIn\fR]
+[\fB\-b\fR \fIn\fR | \fB\-\-blockstats=\fIn\fR]
+[\fB\-t\fR \fIn\fR | \fB\-\-timedstats=\fIn\fR]
+[\fB\-p\fR | \fB\-\-pipe\fR]
+[\fB\-?\fR] [\fB\-\-help\fR]
+[\fB\-V\fR] [\fB\-\-version\fR]
+.RI
+
+.SH DESCRIPTION
+\fIrngtest\fR works on blocks of 20000 bits at a time, using the FIPS 140-2
+(errata of 2001-10-10) tests to verify the randomness of the block of data.
+.PP
+It takes input from \fIstdin\fR, and outputs statistics to \fIstderr\fR,
+optionally echoing blocks that passed the FIPS tests to \fIstdout\fR
+(when operating in \fIpipe mode\fR).  Errors are sent to \fIstderr\fR.
+.PP
+At startup, \fIrngtest\fR will trow away the first 32 bits of data when
+operating in \fIpipe mode\fR.  It will use the next 32 bits of data to
+bootstrap the FIPS tests (even when not operating in \fIpipe mode\fR).
+These bits not tested for randomness.
+.PP
+Statistics are dumped to \fIstderr\fR when the program exits.
+
+.SH OPTIONS
+.TP
+\fB\-p\fR, \fB\-\-pipe\fR
+Enable \fIpipe mode\fR.  All data blocks that pass the FIPS tests are
+echoed to \fIstdout\fR, and \fIrngtest\fR operates in silent mode.
+.TP
+\fB\-c\fR \fIn\fR, \fB\-\-blockcount=\fIn\fR (default: 0)
+Exit after processing n input blocks, if n is not zero.
+.TP
+\fB\-b\fR \fIn\fR, \fB\-\-blockstats=\fIn\fR (default: 0)
+Dump statistics every n blocks, if n is not zero.
+.TP
+\fB\-t\fR \fIn\fR, \fB\-\-timedstats=\fIn\fR (default: 0)
+Dump statistics every n secods, if n is not zero.
+.TP
+\fB\-?\fR, \fB\-\-help\fR
+Give a short summary of all program options.
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print program version
+
+.SH STATISTICS
+\fIrngtest\fR will dump statistics to \fIstderr\fR when it exits, and
+when told to by \fIblockstats\fR or \fItimedstats\fR.
+.PP
+\fBFIPS 140-2 successes\fR and \fBFIPS 140-2 failures\fR counts the number of
+20000-bit blocks either accepted or rejected by the FIPS 140-2 tests.  The
+other statistics show a breakdown of the FIPS 140-2 failures by FIPS 
+140-2 test.  See the FIPS 140-2 document for more information (note that these
+tests are defined on FIPS 140-1 and FIPS 140-2 errata of 2001-10-10. They
+were removed in FIPS 140-2 errata of 2002-12-03).
+.PP
+The speed statistics are taken for every 20000-bit block trasferred or
+processed.
+
+.SH EXIT STATUS
+.TP
+\fB0\fR if no errors happen, and no blocks fail the FIPS tests.
+.TP
+\fB1\fR if no errors happen, but at least one block fails the FIPS tests.
+.TP
+\fB10\fR if there are problems with the parameters.
+.TP
+\fB11\fR if an input/output error happens.
+.TP
+\fB12\fR if an operating system or resource starvation error happens.
+
+.SH SEE ALSO
+random(4), rngd(8)
+.TP
+FIPS PUB 140-2 Security Requirements for Cryptographic Modules, NIST, 
+http://csrc.nist.gov/cryptval/140-2.htm
+
+.SH AUTHORS
+Henrique de Moraes Holschuh <hmh@debian.org>
+

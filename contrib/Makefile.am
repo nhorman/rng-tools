@@ -1,3 +1,3 @@
 
-EXTRA_DIST = randstat.c rngtest.c
+EXTRA_DIST = randstat.c
 

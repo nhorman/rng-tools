@@ -5,9 +5,13 @@
 SUBDIRS		= contrib
 
 sbin_PROGRAMS	= rngd
-man_MANS	= rngd.8
+bin_PROGRAMS	= rngtest
+man_MANS	= rngd.8 rngtest.1
 
-rngd_SOURCES	= fips.h fips.c rngd.c
+common_sources  = fips.h fips.c
+rngd_SOURCES	= $(common_sources) rngd.c
+rngtest_SOURCES	= $(common_sources) exits.h stats.h stats.c rngtest.c
 
-EXTRA_DIST = autogen.sh
+
+EXTRA_DIST	= autogen.sh
 
