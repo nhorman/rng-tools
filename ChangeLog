@@ -3,6 +3,8 @@ Tue Apr  6 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	* rngd.c, rngtest.c: Add Copyright and license notices
 	  to --version output, as per the GNU guidelines;
 	  Improve --help output a little.
+	* rngtest.c: Cleanup logging, and exit with status 1
+	  when input drains before the first block is tested.
 	* rngtest.1.in: Minor text change.
 
 	Preparatory cleanup for merging the multithreaded 

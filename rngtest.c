@@ -43,15 +43,19 @@
 #include "stats.h"
 #include "exits.h"
 
+#define PROGNAME "rngtest"
+const char* logprefix = PROGNAME ": ";
+
 /*
  * argp stuff
  */
 
 const char *argp_program_version =
-	"rngtest " VERSION "\n"
+	PROGNAME " " VERSION "\n"
 	"Copyright (c) 2004 by Henrique de Moraes Holschuh\n"
 	"This is free software; see the source for copying conditions.  There is NO "
 	"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.";
+
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 error_t argp_err_exit_status = EXIT_USAGE;
 
@@ -218,7 +222,8 @@ static int xread(void *buf, size_t size)
 		} else if (!r) {
 			if (!arguments->pipemode)
 				fprintf(stderr, 
-					"rngtest: entropy source drained\n");
+					"%sentropy source drained\n", 
+					logprefix);
 			return -1;
 		}
 		off += r;
@@ -228,7 +233,7 @@ static int xread(void *buf, size_t size)
 
 	if (size) {
 		fprintf(stderr,
-			"rngtest: error reading input: %s\n",
+			"%serror reading input: %s\n", logprefix,
 			strerror(errno));
 		exitstatus = EXIT_IOERR;
 		return -1;
@@ -249,7 +254,7 @@ static int xwrite(void *buf, size_t size)
 			break;
 		} else if (!r) {
 			fprintf(stderr, 
-				"rngtest: write channel stuck\n");
+				"%swrite channel stuck\n", logprefix);
 			exitstatus = EXIT_IOERR;
 			return -1;
 		}
@@ -260,7 +265,7 @@ static int xwrite(void *buf, size_t size)
 
 	if (size) {
 		fprintf(stderr,
-			"rngtest: error writing to output: %s\n",
+			"%serror writing to output: %s\n", logprefix,
 			strerror(errno));
 		exitstatus = EXIT_IOERR;
 		return -1;
@@ -273,7 +278,7 @@ static void init_rng_stats(void)
 {
 	memset(&rng_stats, 0, sizeof(rng_stats));
 	gettimeofday(&rng_stats.progstart, 0);
-	set_stat_prefix("rngtest: ");
+	set_stat_prefix(logprefix);
 }
 
 static void dump_rng_stats(void)
@@ -311,8 +316,8 @@ static void dump_rng_stats(void)
 			&rng_stats.sink_blockfill, FIPS_RNG_BUFFER_SIZE*8));
 
 	gettimeofday(&now, 0);
-	fprintf(stderr, "rngtest: Program run time: %llu microseconds\n", 
-		elapsed_time(&rng_stats.progstart, &now));
+	fprintf(stderr, "%sProgram run time: %llu microseconds\n",
+		logprefix, elapsed_time(&rng_stats.progstart, &now));
 }
 
 /* Return 32 bits of bootstrap data */
@@ -391,13 +396,17 @@ int main(int argc, char **argv)
 	argp_parse(&argp, argc, argv, 0, 0, arguments);
 
 	if (!arguments->pipemode)
-		fprintf(stderr, "rngtest: %s starting up...\n",
+		fprintf(stderr, "%s\n\n",
 			argp_program_version);
 
 	init_sighandlers();
 
 	/* Init data structures */
 	init_rng_stats();
+
+	if (!arguments->pipemode)
+		fprintf(stderr, "%sstarting FIPS tests...\n",
+			logprefix);
 
 	/* Bootstrap FIPS tests */
 	fips_init(&fipsctx, discard_initial_data());
@@ -406,7 +415,10 @@ int main(int argc, char **argv)
 	
 	dump_rng_stats();
 
-	if ((exitstatus == EXIT_SUCCESS) && rng_stats.bad_fips_blocks)
+	if ((exitstatus == EXIT_SUCCESS) && 
+	    (rng_stats.bad_fips_blocks || !rng_stats.good_fips_blocks)) {
 		exitstatus = EXIT_FAIL;
+	}
+
 	exit(exitstatus);
 }
