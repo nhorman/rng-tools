@@ -1,6 +1,8 @@
 Fri Apr  4 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	* Makefile.am: Add header and CVS Id tag; Do some cosmetic
 	  reformating; Add rngd_SOURCES.
+	* rngd.c: move all FIPS test code to fips.h/fips.c
+	* fips.h, fips.c: add
 
 Fri Apr  3 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 
