@@ -3,7 +3,7 @@
    FIPS 140-1 spec section 4.11.1 (http://csrc.nist.gov/fips/fips1401.htm)
    The Monobit, Poker, Runs, and Long Runs tests are implemented below.
 */
-#define RNG_DEVICE "/dev/intel_rng"
+#define RNG_DEVICE "/dev/hwrandom"
 #define RNG_LOOPS 25
 
 

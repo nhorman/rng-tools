@@ -1,6 +1,6 @@
 Sat Jul  5 2003  Jeff Garzik  <jgarzik@pobox.com>
 
-	* rngd.8.in: s/intel_rng/hwrandom/
+	* contrib/rngtest.c, rngd.8.in: s/intel_rng/hwrandom/
 
 	Noticed by Olivier NICOLAS.
 
