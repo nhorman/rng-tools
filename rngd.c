@@ -162,8 +162,8 @@ static int am_daemon;
  */
 #define FIPS_THRESHOLD 2500
 
-/* These are the startup tests suggested by the FIPS 140-1 spec section
-*  4.11.1 (http://csrc.nist.gov/fips/fips1401.htm)
+/* These are the startup tests suggested by the FIPS 140-2 spec section
+*  4.9 (http://csrc.nist.gov/publications/fips/fips140-2/fips1402.pdf)
 *  The Monobit, Poker, Runs, and Long Runs tests are implemented below.
 *  This test is run at periodic intervals to verify
 *  data is sufficiently random. If the tests are failed the RNG module
@@ -189,7 +189,7 @@ static int ones, rlength = -1, current_bit, longrun;
  * rng_fips_test_store - store 8 bits of entropy in FIPS
  * 			 internal test data pool
  */
-static void rng_fips_test_store (int rng_data)
+static void rng_fips_test_store (unsigned int rng_data)
 {
 	int j;
 	static int last_bit = 0;
@@ -200,7 +200,7 @@ static void rng_fips_test_store (int rng_data)
 	/* Note in the loop below rlength is always one less than the actual
 	   run length. This makes things easier. */
 	for (j = 7; j >= 0; j--) {
-		ones += current_bit = (rng_data & 1 << j) >> j;
+		ones += current_bit = ((rng_data >> j) & 1);
 		if (current_bit != last_bit) {
 			/* If runlength is 1-6 count it in correct bucket. 0's go in
 			   runs[0-5] 1's go in runs[6-11] hence the 6*current_bit below */
@@ -212,7 +212,7 @@ static void rng_fips_test_store (int rng_data)
 			}
 
 			/* Check if we just failed longrun test */
-			if (rlength >= 33)
+			if (rlength >= 25)
 				longrun = 1;
 			rlength = 0;
 			/* flip the current run type */
@@ -240,7 +240,7 @@ static int rng_run_fips_test (unsigned char *buf)
 		runs[rlength + (6 * current_bit)]++;
 	else {
 		runs[5 + (6 * current_bit)]++;
-		if (rlength >= 33)
+		if (rlength >= 25)
 			rng_test |= 8;
 	}
 	
@@ -250,25 +250,27 @@ static int rng_run_fips_test (unsigned char *buf)
 	}
 
 	/* Ones test */
-	if ((ones >= 10346) || (ones <= 9654))
+	if ((ones >= 10275) || (ones <= 9725))
 		rng_test |= 1;
 	/* Poker calcs */
 	for (i = 0, j = 0; i < 16; i++)
 		j += poker[i] * poker[i];
-	if ((j >= 1580457) || (j <= 1562821))
+	/* 16/5000*1563176-5000 = 2.1632  */
+	/* 16/5000*1576928-5000 = 46.1696 */
+	if ((j > 1576928) || (j < 1563176))
 		rng_test |= 2;
-	if ((runs[0] < 2267) || (runs[0] > 2733) ||
-	    (runs[1] < 1079) || (runs[1] > 1421) ||
-	    (runs[2] < 502) || (runs[2] > 748) ||
-	    (runs[3] < 223) || (runs[3] > 402) ||
-	    (runs[4] < 90) || (runs[4] > 223) ||
-	    (runs[5] < 90) || (runs[5] > 223) ||
-	    (runs[6] < 2267) || (runs[6] > 2733) ||
-	    (runs[7] < 1079) || (runs[7] > 1421) ||
-	    (runs[8] < 502) || (runs[8] > 748) ||
-	    (runs[9] < 223) || (runs[9] > 402) ||
-	    (runs[10] < 90) || (runs[10] > 223) ||
-	    (runs[11] < 90) || (runs[11] > 223)) {
+	if ((runs[0] < 2315) || (runs[0] > 2685) ||
+	    (runs[1] < 1114) || (runs[1] > 1386) ||
+	    (runs[2] < 527) || (runs[2] > 723) ||
+	    (runs[3] < 240) || (runs[3] > 384) ||
+	    (runs[4] < 103) || (runs[4] > 209) ||
+	    (runs[5] < 103) || (runs[5] > 209) ||
+	    (runs[6] < 2315) || (runs[6] > 2685) ||
+	    (runs[7] < 1114) || (runs[7] > 1386) ||
+	    (runs[8] < 527) || (runs[8] > 723) ||
+	    (runs[9] < 240) || (runs[9] > 384) ||
+	    (runs[10] < 103) || (runs[10] > 209) ||
+	    (runs[11] < 103) || (runs[11] > 209)) {
 		rng_test |= 4;
 	}
 	
@@ -289,7 +291,12 @@ static void xread(int fd, void *buf, size_t size)
 	size_t off = 0;
 	ssize_t r;
 
-	while (size && (r = read(fd, buf + off, size)) > 0) {
+	while (size > 0) {
+		do {
+			r = read(fd, buf + off, size);
+		} while ((r == -1) && (errno == EINTR));
+		if (r <= 0)
+			break;
 		off += r;
 		size -= r;
 	}

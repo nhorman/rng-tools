@@ -1,3 +1,13 @@
+Sat Jul  5 2003  Sami Farin  <safari@users.sourceforge.net>
+
+	"updated" to FIPS140-2 standard, it has a bit more
+	strict constraints on randomness.. about one out of
+	1000 blocks read from /dev/urandom causes a failure.
+
+	also a bugfix:
+	checks for EINTR in xread (maybe not necessary with
+	i810 driver?) 
+
 Sat Jul  5 2003  Jeff Garzik  <jgarzik@pobox.com>
 
 	Rename to rng-tools, release version 1.0.
