@@ -28,6 +28,7 @@ AM_MAINTAINER_MODE
 
 dnl Checks for programs
 AC_PROG_CC
+AC_PROG_RANLIB
 AC_PROG_GCC_TRADITIONAL
 
 dnl Checks for header files.
