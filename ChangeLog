@@ -1,3 +1,9 @@
+Sat Jul  5 2003  Jeff Garzik  <jgarzik@pobox.com>
+
+	Rename to rng-tools, release version 1.0.
+	Rename input device to /dev/hwrandom in code and docs.
+	Rename config.h to rng-tools-config.h.
+
 Tue Mar 27 2001  Jeff Garzik  <jgarzik@mandrakesoft.com>
 
 	* rngd.c: Include config.h, pick up VERSION from
