@@ -8,8 +8,11 @@ Tue Apr  6 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	Preparatory cleanup for merging the multithreaded 
 	code later:
 	* rngd.c: split globals to rngd.h; split linux
-	  /dev/random functionality to rngd_linux.c
-	* rngd.h, rngd_linux.h, rngd_linux.c: add
+	  /dev/random functionality to rngd_linux.c;
+	  split entropy source (/dev/hwrandom) functionality
+	  to rngd_entsource.c.
+	* rngd.h, rngd_linux.h, rngd_linux.c,
+	  rngd_entsource.h, rngd_entsource.c: add
 
 Tue Apr  6 2004  Jeff Garzik  <jgarzik@pobox.com>
 

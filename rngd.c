@@ -49,6 +49,7 @@
 #include "rngd.h"
 #include "fips.h"
 #include "exits.h"
+#include "rngd_entsource.h"
 #include "rngd_linux.h"
 
 /*
@@ -57,9 +58,6 @@
 
 /* Background/daemon mode */
 int am_daemon;				/* Nonzero if we went daemon */
-
-/* Logic and contexts */
-static fips_ctx_t fipsctx;		/* Context for the FIPS tests */
 
 /* Command line arguments and processing */
 const char *argp_program_version = 
@@ -147,29 +145,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 static struct argp argp = { options, parse_opt, NULL, doc };
 
 
-static void xread(int fd, void *buf, size_t size)
-{
-	size_t off = 0;
-	ssize_t r;
-
-	while (size > 0) {
-		do {
-			r = read(fd, buf + off, size);
-		} while ((r == -1) && (errno == EINTR));
-		if (r <= 0)
-			break;
-		off += r;
-		size -= r;
-	}
-
-	if (size) {
-		message(LOG_DAEMON|LOG_ERR, "read error\n");
-		exit(1);
-	}
-}
-
-
-static void do_loop(int rng_fd, int random_step,
+static void do_loop(int random_step,
 		    double poll_timeout)
 {
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
@@ -177,7 +153,7 @@ static void do_loop(int rng_fd, int random_step,
 	int fips;
 
 	for (;;) {
-		xread(rng_fd, buf, sizeof buf);
+		xread(buf, sizeof buf);
 
 		fips = fips_run_rng_test(&fipsctx, buf);
 
@@ -196,39 +172,12 @@ static void do_loop(int rng_fd, int random_step,
 }
 
 
-/* Initialize entropy source */
-static int discard_initial_data(int fd)
-{
-	/* Trash 32 bits of what is probably stale (non-random)
-	 * initial state from the RNG.  For Intel's, 8 bits would
-	 * be enough, but since AMD's generates 32 bits at a time...
-	 * 
-	 * The kernel drivers should be doing this at device powerup,
-	 * but at least up to 2.4.24, it doesn't. */
-	unsigned char tempbuf[4];
-	xread(fd, tempbuf, sizeof tempbuf);
-
-	/* Return 32 bits of bootstrap data */
-	xread(fd, tempbuf, sizeof tempbuf);
-
-	return tempbuf[0] | (tempbuf[1] << 8) | 
-		(tempbuf[2] << 16) | (tempbuf[3] << 24);
-}
-
-
 int main(int argc, char **argv)
 {
-	int rng_fd;
-
 	argp_parse(&argp, argc, argv, 0, 0, arguments);
 
-	rng_fd = open(arguments->rng_name, O_RDONLY);
-
-	if (rng_fd < 0) {
-		message(LOG_DAEMON|LOG_ERR, "can't open RNG file %s: %s\n",
-			arguments->rng_name, strerror(errno));
-		exit(1);
-	}
+	/* Init entropy source, and open TRNG device */
+	init_entropy_source(arguments->rng_name);
 
 	/* Init entropy sink and open random device */
 	init_kernel_rng(arguments->random_name);
@@ -245,10 +194,7 @@ int main(int argc, char **argv)
 		openlog("rngd", 0, LOG_DAEMON);
 	}
 
-	/* Bootstrap FIPS tests */
-	fips_init(&fipsctx, discard_initial_data(rng_fd));
-
-	do_loop(rng_fd, arguments->random_step,
+	do_loop(arguments->random_step,
 		arguments->poll_timeout ? : -1.0);
 
 	return 0;
