@@ -38,6 +38,7 @@ struct arguments {
 	char *rng_name;
 	
 	int random_step;
+	int fill_watermark;
 	double poll_timeout;
 
 	int daemon;

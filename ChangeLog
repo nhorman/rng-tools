@@ -1,3 +1,11 @@
+Tue May 09 2004  Henrique de Moraes Holschuh <hmh@debian.org>
+
+	* rngd.h, rngd.c, rngd_linux.c, rngd.8.in: Let the user
+	  set the fill watermark explicitly, using the new -W
+	  command line option.  This gets rid of RNDGETPOOL
+	  usage, and of a hardcoded (yuck) setting of 50%.
+	  This change will make rngd work right with 2.6 kernels.
+
 Thu Apr 15 2004  Jeff Garzik  <jgarzik@pobox.com>
 
 	* Makefile.am, configure.ac: put common code in a lib

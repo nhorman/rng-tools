@@ -90,17 +90,14 @@ void random_add_entropy(void *buf, size_t size)
 
 void random_sleep(double poll_timeout)
 {
-	struct {
-		int ent_count;
-		int pool_size;
-	} pool = { 0, };
+	int ent_count;
 	struct pollfd pfd = {
 		fd:	random_fd,
 		events:	POLLOUT,
 	};
 
-	if (ioctl(random_fd, RNDGETPOOL, &pool) == 0 &&
-	    pool.ent_count/8 < pool.pool_size*4)
+	if (ioctl(random_fd, RNDGETENTCNT, &ent_count) == 0 &&
+	    ent_count < arguments->fill_watermark)
 		return;
 	
 	poll(&pfd, 1, 1000.0 * poll_timeout);

@@ -12,6 +12,7 @@ rngd \- Check and feed random data from hardware device to kernel random device
 [\fB\-o\fR, \fB\-\-random-device=\fIfile\fR]
 [\fB\-r\fR, \fB\-\-rng-device=\fIfile\fR]
 [\fB\-s\fR, \fB\-\-random-step=\fInnn\fR]
+[\fB\-W\fR, \fB\-\-fill-watermark=\fInnn\fR]
 [\fB\-t\fR, \fB\-\-timeout=\fInnn\fR]
 [\fB\-?\fR, \fB\-\-help\fR]
 [\fB\-V\fR, \fB\-\-version\fR]
@@ -54,6 +55,14 @@ Kernel device used for random number input
 .TP
 \fB\-s\fI nnn\fR, \fB\-\-random-step=\fInnn\fR
 Number of bytes written to random-device at a time (default: 64)
+.TP
+\fB\-W\fI n\fR, \fB\-\-fill\-watermark=\fInnn\fR
+Once we start doing it, feed entropy to \fIrandom-device\fR until at least
+\fIfill-watermark\fR bits of entropy are available in its entropy pool (default: 2048).
+Setting this too high will cause \fIrngd\fR to dominate the contents of the
+entropy pool.  Low values will hurt system performance during entropy 
+starves.  Do not set \fIfill-watermark\fR above the size of the
+entropy pool (usually 4096 bits).
 .TP
 \fB\-t\fI nnn\fR, \fB\-\-timeout=\fInnn\fR
 Interval written to random-device when the entropy pool is full, in seconds, or 0 to disable (default: 60)

@@ -85,6 +85,9 @@ static struct argp_option options[] = {
 	{ "random-step", 's', "nnn", 0,
 	  "Number of bytes written to random-device at a time (default: 64)" },
 
+	{ "fill-watermark", 'W', "n", 0,
+	  "Do not stop feeding entropy to random-device until at least n bits of entropy are available in the pool (default: 2048), 0 <= n <= 4096" },
+
 	{ "timeout", 't', "nnn", 0,
 	  "Interval written to random-device when the entropy pool is full, in seconds (default: 60)" },
 
@@ -96,6 +99,7 @@ static struct arguments default_arguments = {
 	.random_name	= "/dev/random",
 	.poll_timeout	= 60,
 	.random_step	= 64,
+	.fill_watermark = 2048,
 	.daemon		= 1,
 };
 struct arguments *arguments = &default_arguments;
@@ -134,6 +138,14 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		if (sscanf(arg, "%i", &arguments->random_step) == 0)
 			argp_usage(state);
 		break;
+	case 'W': {
+		int n;
+		if ((sscanf(arg, "%i", &n) == 0) || (n < 0) || (n > 4096))
+			argp_usage(state);
+		else
+			arguments->fill_watermark = n;
+		break;
+	}
 
 	default:
 		return ARGP_ERR_UNKNOWN;
