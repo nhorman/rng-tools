@@ -46,6 +46,7 @@
 #include <argp.h>
 #include <syslog.h>
 
+#include "rngd.h"
 #include "fips.h"
 
 
@@ -80,16 +81,6 @@ static struct argp_option options[] = {
 	  "Interval written to random-device when the entropy pool is full, in seconds (default: 60)" },
 
 	{ 0 },
-};
-
-struct arguments {
-	char *random_name;
-	char *rng_name;
-	
-	int random_step;
-	double poll_timeout;
-
-	int daemon;
 };
 
 static struct arguments default_arguments = {
@@ -150,15 +141,6 @@ static fips_ctx_t fipsctx;		/* Context for the FIPS tests */
 
 
 static int am_daemon;
-
-#define message(priority,fmt,args...) do { \
-	if (am_daemon) { \
-		syslog((priority), fmt, ##args); \
-	} else { \
-		fprintf(stderr, fmt, ##args); \
-	} \
-} while (0)
-
 
 
 static void xread(int fd, void *buf, size_t size)
