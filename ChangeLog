@@ -1,3 +1,17 @@
+Fri Apr  3 2004  Henrique de Moraes Holschuh <hmh@debian.org>
+
+	* autogen.sh: Add comments with the required versions
+	  of the tools.  Call aclocal before autoheader.  
+	  Use --copy for automake invocation.
+	  Identify as version 1.1-devel.
+	* configure.in: rename to configure.ac
+	* configure.ac: Add GPL header.  Convert to autoconf
+	  2.50 macros, enable AM_MAINTAINER_MODE and disable
+	  useless cross-platform compatiblilty glue that
+	  isn't used anywere
+	* acconfig.h: remove
+	* .cvsignore: update for new autotools
+
 Sat Jul  5 2003  Jeff Garzik  <jgarzik@pobox.com>
 
 	* contrib/rngtest.c, rngd.8.in: s/intel_rng/hwrandom/

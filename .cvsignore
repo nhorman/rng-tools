@@ -1,3 +1,7 @@
+autom4te.cache
+depcomp
+install-sh
+missing
 configure
 aclocal.m4
 Makefile.in
@@ -6,10 +10,12 @@ stamp-h.in
 config.log
 rng-tools-config.h
 rng-tools-config.h.in
-config.cache
 config.status
-stamp-h
+stamp-h1
 .deps
 rngd
 rng-tools-*.tar.gz
 rngd.8
+COPYING
+INSTALL
+mkinstalldirs
