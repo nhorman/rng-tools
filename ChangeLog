@@ -1,0 +1,51 @@
+Tue Mar 27 2001  Jeff Garzik  <jgarzik@mandrakesoft.com>
+
+	* rngd.c: Include config.h, pick up VERSION from
+	configure.in, via config.h.
+
+Mon Mar 26 2001  Philipp Rumpf  <prumpf@mandrakesoft.com>
+
+	* rngd.c: fail before the daemon() call if we
+	can't open /dev/random or /dev/intel_rng
+
+Mon Mar 26 2001  Philipp Rumpf  <prumpf@mandrakesoft.com>
+
+	* rngd.c: bugfixes, allow --timeout=0 to disable
+	periodical writes.
+
+Fri Mar 23 2001  Jeff Garzik  <jgarzik@mandrakesoft.com>
+
+	* rngd.c: Remove unused var.
+	Include stdlib.h for exit(3).
+
+Fri Mar 23 2001  Philipp Rumpf  <prumpf@mandrakesoft.com>
+
+	* rngd.c: fix argp_parse arguments
+
+Fri Mar 23 2001  Jeff Garzik  <jgarzik@mandrakesoft.com>
+
+	* configure.in: Change version in cvs
+
+	* Makefile.am, configure.in, rngd.8.in: Add man page.
+
+	* rngd.c: Update --help output, listing defaults.
+	Move 'arguments' local to top of file, call it
+	default_arguments.
+
+Fri Mar 23 2001  Philipp Rumpf  <prumpf@mandrakesoft.com>
+
+	* rngd.c: fix mixed-up options
+
+Fri Mar 23 2001  Philipp Rumpf  <prumpf@mandrakesoft.com>
+
+	* rngd.c: add argp support
+	* rngd.c: make random write granularity, poll timeout
+	  command line options
+	* rngd.c: optionally daemonize
+
+Fri Mar 23 2001  Jeff Garzik  <jgarzik@mandrakesoft.com>
+
+	* Makefile.am, configure.in, contrib/Makefile.am,
+	  autogen.sh, NEWS, ChangeLog, AUTHORS, README,
+	  contrib/Makefile.am: Add autoconf/automake support.
+

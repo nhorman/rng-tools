@@ -1,0 +1,15 @@
+config.h.in
+configure
+aclocal.m4
+Makefile.in
+Makefile
+stamp-h.in
+config.log
+config.h
+config.cache
+config.status
+stamp-h
+.deps
+rngd
+intel-rng-tools-*.tar.gz
+rngd.8

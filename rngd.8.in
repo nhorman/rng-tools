@@ -1,0 +1,73 @@
+.\" Copyright (C) 2001 Jeff Garzik -- jgarzik@mandrakesoft.com
+.\"
+.TH RNGD 8 "March 2001" "@PACKAGE@ @VERSION@"
+
+.SH NAME
+rngd \- Check and feed random data from hardware device to kernel random device
+
+.SH SYNOPSIS
+.B rngd
+[\fB\-b\fR, \fB\-\-background\fR]
+[\fB\-f\fR, \fB\-\-foreground\fR]
+[\fB\-o\fR, \fB\-\-random-device=\fIfile\fR]
+[\fB\-r\fR, \fB\-\-rng-device=\fIfile\fR]
+[\fB\-s\fR, \fB\-\-random-step=\fInnn\fR]
+[\fB\-t\fR, \fB\-\-timeout=\fInnn\fR]
+[\fB\-?\fR, \fB\-\-help\fR]
+[\fB\-V\fR, \fB\-\-version\fR]
+.RI
+
+.SH DESCRIPTION
+This daemon feeds data from a random number generator to the kernel's
+random number entropy pool, after first checking the data to ensure that
+it is properly random.
+.PP
+The \fB\-f\fR or \fB\-\-foreground\fR options can be used to tell
+\fBrngd\fR to avoid forking on startup.  This is typically used for
+debugging.  The \fB\-f\fR or \fB\-\-foreground\fR options, which fork and put
+\fBrngd\fR into the background automatically, are the default.
+.PP
+The \fB\-r\fR or \fB\-\-rng-device\fR options can be used to select an
+alternate source of input, besides the default /dev/intel_rng.
+The \fB\-o\fR or \fB\-\-random-device\fR options can be used to select
+an alternate entropy output device, besides the default /dev/random.
+Note that this device must support the Linux kernel /dev/random 
+ioctl API.
+.PP
+FIXME: document random-step and timeout
+
+.SH OPTIONS
+.TP
+\fB\-b\fR, \fB\-\-background\fR
+Become a daemon (default)
+.TP
+\fB\-f\fR, \fB\-\-foreground\fR
+Do not fork and become a daemon
+.TP
+\fB\-o\fI file\fR, \fB\-\-random-device=\fIfile\fR
+Kernel device used for random number output
+(default: /dev/random)
+.TP
+\fB\-r\fI file\fR, \fB\-\-rng-device=\fIfile\fR
+Kernel device used for random number input
+(default: /dev/intel_rng)
+.TP
+\fB\-s\fI nnn\fR, \fB\-\-random-step=\fInnn\fR
+Number of bytes written to random-device at a time (default: 64)
+.TP
+\fB\-t\fI nnn\fR, \fB\-\-timeout=\fInnn\fR
+Interval written to random-device when the entropy pool is full, in seconds, or 0 to disable (default: 60)
+.TP
+\fB\-?\fR, \fB\-\-help\fR
+Give a short summary of all program options.
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print program version
+
+.SH AUTHORS
+Philipp Rumpf \- prumpf@mandrakesoft.com
+.br
+Jeff Garzik \- jgarzik@mandrakesoft.com
+.br
+Matt Sottek
+
