@@ -29,7 +29,7 @@
 #define _GNU_SOURCE
 
 #ifdef HAVE_CONFIG_H
-#  include "config.h"
+#  include "rng-tools-config.h"
 #endif
 
 #include <sys/fcntl.h>
