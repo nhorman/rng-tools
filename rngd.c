@@ -48,15 +48,19 @@
 
 #include "fips.h"
 
+
 /*
  * argp stuff
  */
-
-
-const char *argp_program_version = "rngd " VERSION;
+const char *argp_program_version = 
+	"rngd " VERSION "\n"
+	"Copyright (c) 2001 by Philipp Rumpf\n"
+	"This is free software; see the source for copying conditions.  There is NO "
+	"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.";
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
-static char doc[] = "rngd";
+static char doc[] =
+	"Check and feed random data from hardware device to kernel entropy pool.\n";
 
 static struct argp_option options[] = {
 	{ "foreground",	'f', 0, 0, "Do not fork and become a daemon" },

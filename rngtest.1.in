@@ -3,7 +3,7 @@
 .TH RNGTEST 1 "March 2004" "@PACKAGE@ @VERSION@"
 
 .SH NAME
-rngtest \- Check random data using FIPS 140-2 tests
+rngtest \- Check the randomness of data using FIPS 140-2 tests
 
 .SH SYNOPSIS
 .B rngtest

@@ -47,11 +47,21 @@
  * argp stuff
  */
 
-const char *argp_program_version = "rngtest " VERSION;
+const char *argp_program_version =
+	"rngtest " VERSION "\n"
+	"Copyright (c) 2004 by Henrique de Moraes Holschuh\n"
+	"This is free software; see the source for copying conditions.  There is NO "
+	"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.";
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 error_t argp_err_exit_status = EXIT_USAGE;
 
-static char doc[] = "rngtest";
+static char doc[] =
+	"Check the randomness of data using FIPS 140-2 RNG tests.\n"
+	"\v"
+	"FIPS tests operate on 20000-bit blocks.  Data is read from stdin.  Statistics "
+	"and messages are sent to stderr.\n\n"
+	"If no errors happen nor any blocks fail the FIPS tests, the program will return "
+	"exit status 0.  If any blocks fail the tests, the exit status will be 1.\n";
 
 static struct argp_option options[] = {
 	{ "blockcount", 'c', "n", 0,
