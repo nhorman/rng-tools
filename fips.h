@@ -1,6 +1,6 @@
 /*
  * fips.h -- Performs FIPS 140-1/140-2 tests for RNGs
- * $Id: fips.h,v 1.1 2004/04/05 03:14:22 jgarzik Exp $
+ * $Id: fips.h,v 1.2 2004/04/05 03:17:42 jgarzik Exp $
  *
  * Copyright (C) 2001 Philipp Rumpf <prumpf@mandrakesoft.com>
  *
@@ -26,7 +26,36 @@
 #include <sys/types.h>
 
 /*  Size of a FIPS test buffer, do not change this */
-#define FIPS_THRESHOLD 2500
+#define FIPS_RNG_BUFFER_SIZE 2500
+
+/* Context for running FIPS tests */
+struct fips_ctx {
+	int poker[16], runs[12];
+	int ones, rlength, current_bit, last_bit, longrun;
+	unsigned int last32;
+};
+typedef struct fips_ctx fips_ctx_t;
+
+/* Initializes the context for FIPS tests.  last32 contains
+ * 32 bits of RNG data to init the continuous run test */
+extern void fips_init(fips_ctx_t *ctx, unsigned int last32);
+
+/*
+ * Return values for fips_run_rng_test.  These values are OR'ed together
+ * for all tests that failed.
+ */
+#define FIPS_RNG_MONOBIT	0x0001 /* FIPS 140-2 2001-10-10 monobit */
+#define FIPS_RNG_POKER		0x0002 /* FIPS 140-2 2001-10-10 poker */
+#define FIPS_RNG_RUNS		0x0004 /* FIPS 140-2 2001-10-10 runs */
+#define FIPS_RNG_LONGRUN	0x0008 /* FIPS 140-2 2001-10-10 long run */
+#define FIPS_RNG_CONTINUOUS_RUN 0x0010 /* FIPS 140-2 continuous run */
+
+/*
+ * Names for the FIPS tests, and bitmask
+ */
+#define FIPS_TESTS 5
+extern const char *fips_test_names[FIPS_TESTS];
+extern const unsigned int fips_test_mask[FIPS_TESTS];
 
 /*
  *  Runs the FIPS 140-1 4.11.1 and 4.11.2 tests, as updated by
@@ -42,6 +71,6 @@
  *
  *  It returns -1 if either fips_ctx or buf is NULL.
  */
-extern int fips_run_rng_test(unsigned char *buf);
+extern int fips_run_rng_test(fips_ctx_t *ctx, const void *buf);
 
 #endif /* FIPS__H */

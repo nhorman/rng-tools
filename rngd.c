@@ -134,6 +134,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 
 static struct argp argp = { options, parse_opt, NULL, doc };
 
+/* Logic and contexts */
+static fips_ctx_t fipsctx;		/* Context for the FIPS tests */
+
 
 /*
  * daemon abstraction
@@ -213,16 +216,16 @@ static void random_sleep(int fd, double poll_timeout)
 static void do_loop(int rng_fd, int random_fd, int random_step,
 		    double poll_timeout)
 {
-	unsigned char buf[FIPS_THRESHOLD];
+	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
 	unsigned char *p;
 	int fips;
 
 	for (;;) {
 		xread(rng_fd, buf, sizeof buf);
 
-		fips = rng_run_fips_test(buf);
+		fips = fips_run_rng_test(&fipsctx, buf);
 
-		if (!fips) {
+		if (fips) {
 			message(LOG_DAEMON|LOG_ERR, "failed fips test\n");
 			sleep(1);
 			continue;
@@ -235,7 +238,28 @@ static void do_loop(int rng_fd, int random_fd, int random_step,
 		}
 	}
 }
-		
+
+
+/* Initialize entropy source */
+static int discard_initial_data(int fd)
+{
+	/* Trash 32 bits of what is probably stale (non-random)
+	 * initial state from the RNG.  For Intel's, 8 bits would
+	 * be enough, but since AMD's generates 32 bits at a time...
+	 * 
+	 * The kernel drivers should be doing this at device powerup,
+	 * but at least up to 2.4.24, it doesn't. */
+	unsigned char tempbuf[4];
+	xread(fd, tempbuf, sizeof tempbuf);
+
+	/* Return 32 bits of bootstrap data */
+	xread(fd, tempbuf, sizeof tempbuf);
+
+	return tempbuf[0] | (tempbuf[1] << 8) | 
+		(tempbuf[2] << 16) | (tempbuf[3] << 24);
+}
+
+
 int main(int argc, char **argv)
 {
 	int rng_fd;
@@ -271,6 +295,9 @@ int main(int argc, char **argv)
 
 		openlog("rngd", 0, LOG_DAEMON);
 	}
+
+	/* Bootstrap FIPS tests */
+	fips_init(&fipsctx, discard_initial_data(rng_fd));
 
 	do_loop(rng_fd, random_fd, arguments->random_step,
 		arguments->poll_timeout ? : -1.0);
