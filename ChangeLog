@@ -1,3 +1,9 @@
+Sat Jul  5 2003  Jeff Garzik  <jgarzik@pobox.com>
+
+	* rngd.8.in: s/intel_rng/hwrandom/
+
+	Noticed by Olivier NICOLAS.
+
 Sat Jul  5 2003  Sami Farin  <safari@users.sourceforge.net>
 
 	"updated" to FIPS140-2 standard, it has a bit more
