@@ -26,7 +26,7 @@ optionally echoing blocks that passed the FIPS tests to \fIstdout\fR
 At startup, \fIrngtest\fR will trow away the first 32 bits of data when
 operating in \fIpipe mode\fR.  It will use the next 32 bits of data to
 bootstrap the FIPS tests (even when not operating in \fIpipe mode\fR).
-These bits not tested for randomness.
+These bits are not tested for randomness.
 .PP
 Statistics are dumped to \fIstderr\fR when the program exits.
 
