@@ -1,3 +1,7 @@
+Fri Apr  4 2004  Henrique de Moraes Holschuh <hmh@debian.org>
+	* Makefile.am: Add header and CVS Id tag; Do some cosmetic
+	  reformating; Add rngd_SOURCES.
+
 Fri Apr  3 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 
 	* autogen.sh: Add comments with the required versions
