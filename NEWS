@@ -1,1 +1,8 @@
-No news is good news.
+
+Version 1.1 (April 6, 2004):
+
+* update to recent autoconf/automake
+* add new rngtest program
+* various minor cleanups
+* much better FIPS testing
+
