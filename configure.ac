@@ -19,7 +19,6 @@ dnl Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 AC_INIT(rng-tools, 1.1-devel, [Philipp Rumpf <prumpf@mandrakesoft.com>])
 AC_PREREQ(2.52)
-AC_REVISION($Revision: 1.2 $)
 AC_CONFIG_SRCDIR([rngd.c])
 AM_INIT_AUTOMAKE([gnu])
 AC_CONFIG_HEADERS([rng-tools-config.h])
