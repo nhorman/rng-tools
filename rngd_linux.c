@@ -26,17 +26,22 @@
 
 #include "rng-tools-config.h"
 
-#include <sys/fcntl.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+#include <syslog.h>
 #include <sys/ioctl.h>
 #include <sys/poll.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/time.h>
+#include <time.h>
 #include <linux/types.h>
 #include <linux/random.h>
-#include <unistd.h>
-#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
-#include <argp.h>
-#include <syslog.h>
 
 #include "rngd.h"
 #include "fips.h"

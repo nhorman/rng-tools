@@ -34,15 +34,15 @@
 
 #include "rng-tools-config.h"
 
-#include <sys/fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/poll.h>
-#include <linux/types.h>
-#include <linux/random.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <string.h>
 #include <argp.h>
 #include <syslog.h>
 
