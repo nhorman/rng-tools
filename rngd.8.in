@@ -1,4 +1,4 @@
-.\" Copyright (C) 2001 Jeff Garzik -- jgarzik@mandrakesoft.com
+.\" Copyright (C) 2001 Jeff Garzik -- jgarzik@pobox.com
 .\"
 .TH RNGD 8 "March 2001" "@PACKAGE@ @VERSION@"
 
@@ -65,9 +65,9 @@ Give a short summary of all program options.
 Print program version
 
 .SH AUTHORS
-Philipp Rumpf \- prumpf@mandrakesoft.com
+Philipp Rumpf
 .br
-Jeff Garzik \- jgarzik@mandrakesoft.com
+Jeff Garzik \- jgarzik@pobox.com
 .br
 Matt Sottek
 

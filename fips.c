@@ -1,7 +1,7 @@
 /*
  * fips.c -- Performs FIPS 140-1/140-2 RNG tests
  *
- * Copyright (C) 2001 Philipp Rumpf <prumpf@mandrakesoft.com>
+ * Copyright (C) 2001 Philipp Rumpf
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

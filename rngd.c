@@ -9,7 +9,7 @@
  * when it's full, which makes predicting the entropy store's contents
  * harder.
  *
- * Copyright (C) 2001 Philipp Rumpf <prumpf@mandrakesoft.com>
+ * Copyright (C) 2001 Philipp Rumpf
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@
 
 
 const char *argp_program_version = "rngd " VERSION;
-const char *argp_program_bug_address = "Philipp Rumpf <prumpf@mandrakesoft.com>";
+const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 static char doc[] = "rngd";
 

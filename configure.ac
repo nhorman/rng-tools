@@ -1,6 +1,6 @@
 dnl Process this file with autoconf 2.52+ to produce a configure script.
 dnl
-dnl Copyright (C) 2001 Philipp Rumpf <prumpf@mandrakesoft.com>
+dnl Copyright (C) 2001 Philipp Rumpf
 dnl Copyright (C) 2004 Henrique de Moraes Holschuh <hmh@debian.org>
 dnl
 dnl This program is free software; you can redistribute it and/or modify
@@ -17,7 +17,7 @@ dnl You should have received a copy of the GNU General Public License
 dnl along with this program; if not, write to the Free Software
 dnl Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-AC_INIT(rng-tools, 1.1-devel, [Philipp Rumpf <prumpf@mandrakesoft.com>])
+AC_INIT(rng-tools, 1.1-devel, [Jeff Garzik <jgarzik@pobox.com>])
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR([rngd.c])
 AM_INIT_AUTOMAKE([gnu])

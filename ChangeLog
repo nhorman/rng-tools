@@ -5,6 +5,12 @@ Fri Apr  5 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	  remove uneeded includes
 	* fips.c: reword error message when build env. is 
 	  incomplete, and also reorder some includes
+	* AUTHORS, configure.ac, fips.c, fips.h, rngd.c,
+	  rngd.8.in: Update Jeff Garzik's email address, remove
+	  outdated email address for Philipp Rumpf, on request
+	  by Jeff Garzik.
+	* configure.ac, rngd.c: Change bugreport address to
+	  Jeff Garzik's.
 
 Fri Apr  4 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	* Makefile.am: Add header and CVS Id tag; Do some cosmetic
