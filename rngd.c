@@ -48,16 +48,25 @@
 
 #include "rngd.h"
 #include "fips.h"
-
+#include "exits.h"
 
 /*
- * argp stuff
+ * Globals
  */
+
+/* Background/daemon mode */
+int am_daemon;				/* Nonzero if we went daemon */
+
+/* Logic and contexts */
+static fips_ctx_t fipsctx;		/* Context for the FIPS tests */
+
+/* Command line arguments and processing */
 const char *argp_program_version = 
 	"rngd " VERSION "\n"
 	"Copyright (c) 2001 by Philipp Rumpf\n"
 	"This is free software; see the source for copying conditions.  There is NO "
 	"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.";
+
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 static char doc[] =
@@ -90,7 +99,12 @@ static struct arguments default_arguments = {
 	.random_step	= 64,
 	.daemon		= 1,
 };
+struct arguments *arguments = &default_arguments;
 
+
+/*
+ * command line processing
+ */
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
 	struct arguments *arguments = state->input;
@@ -130,17 +144,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 }
 
 static struct argp argp = { options, parse_opt, NULL, doc };
-
-/* Logic and contexts */
-static fips_ctx_t fipsctx;		/* Context for the FIPS tests */
-
-
-/*
- * daemon abstraction
- */
-
-
-static int am_daemon;
 
 
 static void xread(int fd, void *buf, size_t size)
@@ -252,7 +255,6 @@ int main(int argc, char **argv)
 {
 	int rng_fd;
 	int random_fd;
-	struct arguments *arguments = &default_arguments;
 
 	argp_parse(&argp, argc, argv, 0, 0, arguments);
 
