@@ -21,25 +21,27 @@
 #define _GNU_SOURCE
 
 #ifndef HAVE_CONFIG_H
-#error Improper build environment
+#error Invalid or missing autoconf build environment
 #endif
 
 #include "rng-tools-config.h"
-#include "fips.h"
 
+#include <unistd.h>
 #include <string.h>
+
+#include "fips.h"
 
 /*
  * Names for the FIPS tests, and bitmask
  */
-const char *fips_test_names[FIPS_TESTS] = {
+const char *fips_test_names[N_FIPS_TESTS] = {
 	"FIPS 140-2(2001-10-10) Monobit",
 	"FIPS 140-2(2001-10-10) Poker",
 	"FIPS 140-2(2001-10-10) Runs",
 	"FIPS 140-2(2001-10-10) Long run",
 	"FIPS 140-2(2001-10-10) Continuous run"
 };
-const unsigned int fips_test_mask[FIPS_TESTS] = {
+const unsigned int fips_test_mask[N_FIPS_TESTS] = {
 	FIPS_RNG_MONOBIT, FIPS_RNG_POKER, FIPS_RNG_RUNS,
 	FIPS_RNG_LONGRUN, FIPS_RNG_CONTINUOUS_RUN
 };

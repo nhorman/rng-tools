@@ -21,9 +21,6 @@
 #ifndef FIPS__H
 #define FIPS__H
 
-#include <unistd.h>
-#include <sys/types.h>
-
 /*  Size of a FIPS test buffer, do not change this */
 #define FIPS_RNG_BUFFER_SIZE 2500
 
@@ -52,9 +49,9 @@ extern void fips_init(fips_ctx_t *ctx, unsigned int last32);
 /*
  * Names for the FIPS tests, and bitmask
  */
-#define FIPS_TESTS 5
-extern const char *fips_test_names[FIPS_TESTS];
-extern const unsigned int fips_test_mask[FIPS_TESTS];
+#define N_FIPS_TESTS 5
+extern const char *fips_test_names[N_FIPS_TESTS];
+extern const unsigned int fips_test_mask[N_FIPS_TESTS];
 
 /*
  *  Runs the FIPS 140-1 4.11.1 and 4.11.2 tests, as updated by

@@ -28,9 +28,11 @@
 
 #define _GNU_SOURCE
 
-#ifdef HAVE_CONFIG_H
-#  include "rng-tools-config.h"
+#ifndef HAVE_CONFIG_H
+#error Invalid or missing autoconf build environment
 #endif
+
+#include "rng-tools-config.h"
 
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
@@ -87,11 +89,11 @@ struct arguments {
 };
 
 static struct arguments default_arguments = {
-	rng_name:	"/dev/hwrandom",
-	random_name:	"/dev/random",
-	poll_timeout:	60,
-	random_step:	64,
-	daemon:		1,
+	.rng_name	= "/dev/hwrandom",
+	.random_name	= "/dev/random",
+	.poll_timeout	= 60,
+	.random_step	= 64,
+	.daemon		= 1,
 };
 
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
