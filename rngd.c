@@ -49,6 +49,7 @@
 #include "rngd.h"
 #include "fips.h"
 #include "exits.h"
+#include "rngd_linux.h"
 
 /*
  * Globals
@@ -167,44 +168,8 @@ static void xread(int fd, void *buf, size_t size)
 	}
 }
 
-static void random_add_entropy(int fd, void *buf, size_t size)
-{
-	struct {
-		int ent_count;
-		int size;
-		unsigned char data[size];
-	} entropy;
 
-	entropy.ent_count = size * 8;
-	entropy.size = size;
-	memcpy(entropy.data, buf, size);
-	
-	if (ioctl(fd, RNDADDENTROPY, &entropy) != 0) {
-		message(LOG_DAEMON|LOG_ERR, "RNDADDENTROPY failed: %s\n",
-			strerror(errno));
-		exit(1);
-	}
-}
-
-static void random_sleep(int fd, double poll_timeout)
-{
-	struct {
-		int ent_count;
-		int pool_size;
-	} pool = { 0, };
-	struct pollfd pfd = {
-		fd:	fd,
-		events:	POLLOUT,
-	};
-
-	if (ioctl(fd, RNDGETPOOL, &pool) == 0 &&
-	    pool.ent_count/8 < pool.pool_size*4)
-		return;
-	
-	poll(&pfd, 1, 1000.0 * poll_timeout);
-}
-
-static void do_loop(int rng_fd, int random_fd, int random_step,
+static void do_loop(int rng_fd, int random_step,
 		    double poll_timeout)
 {
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
@@ -224,8 +189,8 @@ static void do_loop(int rng_fd, int random_fd, int random_step,
 
 		for (p = buf; p + random_step <= &buf[sizeof buf];
 		     p += random_step) {
-			random_add_entropy(random_fd, p, random_step);
-			random_sleep(random_fd, poll_timeout);
+			random_add_entropy(p, random_step);
+			random_sleep(poll_timeout);
 		}
 	}
 }
@@ -254,7 +219,6 @@ static int discard_initial_data(int fd)
 int main(int argc, char **argv)
 {
 	int rng_fd;
-	int random_fd;
 
 	argp_parse(&argp, argc, argv, 0, 0, arguments);
 
@@ -265,14 +229,9 @@ int main(int argc, char **argv)
 			arguments->rng_name, strerror(errno));
 		exit(1);
 	}
-	
-	random_fd = open(arguments->random_name, O_RDWR);
 
-	if (random_fd < 0) {
-		message(LOG_DAEMON|LOG_ERR, "can't open random file %s: %s\n",
-			arguments->random_name, strerror(errno));
-		exit(1);
-	}
+	/* Init entropy sink and open random device */
+	init_kernel_rng(arguments->random_name);
 
 	if (arguments->daemon) {
 		am_daemon = 1;
@@ -289,7 +248,7 @@ int main(int argc, char **argv)
 	/* Bootstrap FIPS tests */
 	fips_init(&fipsctx, discard_initial_data(rng_fd));
 
-	do_loop(rng_fd, random_fd, arguments->random_step,
+	do_loop(rng_fd, arguments->random_step,
 		arguments->poll_timeout ? : -1.0);
 
 	return 0;

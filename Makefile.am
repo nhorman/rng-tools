@@ -9,7 +9,8 @@ bin_PROGRAMS	= rngtest
 man_MANS	= rngd.8 rngtest.1
 
 common_sources  = fips.h fips.c
-rngd_SOURCES	= $(common_sources) rngd.h rngd.c
+rngd_SOURCES	= $(common_sources) rngd.h rngd.c \
+		  rngd_linux.h rngd_linux.c
 rngtest_SOURCES	= $(common_sources) exits.h stats.h stats.c rngtest.c
 
 

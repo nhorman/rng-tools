@@ -7,8 +7,9 @@ Tue Apr  6 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 
 	Preparatory cleanup for merging the multithreaded 
 	code later:
-	* rngd.c: split globals to rngd.h
-	* rngd.h: add
+	* rngd.c: split globals to rngd.h; split linux
+	  /dev/random functionality to rngd_linux.c
+	* rngd.h, rngd_linux.h, rngd_linux.c: add
 
 Tue Apr  6 2004  Jeff Garzik  <jgarzik@pobox.com>
 
