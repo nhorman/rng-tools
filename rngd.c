@@ -62,6 +62,7 @@ int am_daemon;				/* Nonzero if we went daemon */
 /* Command line arguments and processing */
 const char *argp_program_version = 
 	"rngd " VERSION "\n"
+	"Copyright 2001-2004 Jeff Garzik\n"
 	"Copyright (c) 2001 by Philipp Rumpf\n"
 	"This is free software; see the source for copying conditions.  There is NO "
 	"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.";

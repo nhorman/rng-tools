@@ -1,4 +1,9 @@
 
+Version 2 (August 24, 2004):
+
+* Fixes and cleanups from Debian (Henrique de Moraes Holschuh)
+  Assures rngd works with 2.6 kernels.
+
 Version 1.1 (April 6, 2004):
 
 * update to recent autoconf/automake
