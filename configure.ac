@@ -3,8 +3,6 @@ dnl
 dnl Copyright (C) 2001 Philipp Rumpf <prumpf@mandrakesoft.com>
 dnl Copyright (C) 2004 Henrique de Moraes Holschuh <hmh@debian.org>
 dnl
-dnl $Id: configure.ac,v 1.1 2004/04/05 03:05:47 jgarzik Exp $
-dnl
 dnl This program is free software; you can redistribute it and/or modify
 dnl it under the terms of the GNU General Public License as published by
 dnl the Free Software Foundation; either version 2 of the License, or
@@ -21,7 +19,7 @@ dnl Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 AC_INIT(rng-tools, 1.1-devel, [Philipp Rumpf <prumpf@mandrakesoft.com>])
 AC_PREREQ(2.52)
-AC_REVISION($Revision: 1.1 $)
+AC_REVISION($Revision: 1.2 $)
 AC_CONFIG_SRCDIR([rngd.c])
 AM_INIT_AUTOMAKE([gnu])
 AC_CONFIG_HEADERS([rng-tools-config.h])

@@ -1,6 +1,5 @@
 /*
  * fips.c -- Performs FIPS 140-1/140-2 RNG tests
- * $Id: fips.c,v 1.2 2004/04/05 03:17:42 jgarzik Exp $
  *
  * Copyright (C) 2001 Philipp Rumpf <prumpf@mandrakesoft.com>
  *
