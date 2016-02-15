@@ -47,6 +47,13 @@ AC_ARG_WITH([pkcs11],
 	[with_pkcs11=check]
 )
 
+AC_ARG_WITH([libargp],
+	AS_HELP_STRING([--without-libargp],
+		[Disable libargp support. Systems whose libc lacks argp can use libargp instead. (Default: check if libc lacks argp)]),
+	[with_libargp=$withval],
+	[with_libargp=check]
+)
+
 dnl Make sure anyone changing configure.ac/Makefile.am has a clue
 AM_MAINTAINER_MODE
 AM_PROG_AS
@@ -149,6 +156,38 @@ AS_IF(
 				AC_MSG_FAILURE([libgcrypt headers not found]); else
 				AC_MSG_NOTICE([libgcrypt support disabled])
 			fi]
+		)
+	]
+)
+
+dnl Determine if we need libargp: either user requested, or libc has no argp
+AS_IF(
+	[test "x$with_libargp" != "xyes"],
+	[
+		AC_LINK_IFELSE(
+			[AC_LANG_PROGRAM(
+				[#include <argp.h>],
+				[int argc=1; char *argv[]={"test"}; argp_parse(0,argc,argv,0,0,0); return 0;]
+				)],
+			[need_libargp=no],
+			[need_libargp=yes
+			 if test "x$with_libargp" = "xno"; then
+				AC_MSG_FAILURE([libargp disabled and libc does not have argp])
+			 fi]
+		)
+	],
+	[need_libargp=yes],
+)
+
+dnl Check for libargp
+AS_IF(
+	[test "x$need_libargp" = "xyes"],
+	[
+		AC_CHECK_LIB(
+			[argp],
+			[argp_parse],
+			[LIBS="$LIBS -largp"],
+			[AC_MSG_FAILURE([libargp not found])]
 		)
 	]
 )
