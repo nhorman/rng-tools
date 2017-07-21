@@ -1,4 +1,31 @@
 
+Version 5 (April 1, 2014):
+* Support RDRAND capable systems that don't have AES-NI
+* Man page spelling fixes
+* Add BUGS document
+* Don't use fixed AES key for data reduction
+* Platform: Support x32. x86-64 micro-optimizations.
+* Fix RDRAND data reduction
+* Enable RDSEED instruction
+
+Version 4 (August 2, 2012):
+* Add RDRAND instruction support
+* Add -q and -v options for quiet and verbose output
+* Add -p option for specifying PID file (text file containing daemon's PID)
+* Disable entropy source if facing continued failures, but be
+  tolerant of the occasional fault.
+* Default device is now the preferred /dev/hwrng
+* Do not use TPM device for RNG access, if /dev/hwrng is present
+  (TPM RNG is exported via the kernel, in newer kernels)
+
+Version 3 (July 3, 2010):
+
+* add rngtest program
+* imported into git repository
+* support TPM chip's hardware RNG (and thus, a framework for supporting
+  multiple entropy sources)
+* change default hardware RNG device name to "/dev/hw_random"
+
 Version 2 (August 24, 2004):
 
 * Fixes and cleanups from Debian (Henrique de Moraes Holschuh)

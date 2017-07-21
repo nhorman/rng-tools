@@ -3,14 +3,14 @@
  *
  * This program tests the input stream in stdin for randomness,
  * using the tests defined by FIPS 140-1/140-2 2001-10-10.
- * 
+ *
  * Copyright (C) 2004 Henrique de Moraes Holschuh <hmh@debian.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -18,7 +18,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Suite 500, Boston, MA  02110-1335  USA
  */
 
 #define _GNU_SOURCE
@@ -100,7 +100,7 @@ static struct arguments default_arguments = {
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
 	struct arguments *arguments = state->input;
-	
+
 	switch(key) {
 	case 'c': {
 		int n;
@@ -152,7 +152,7 @@ struct {
 	uint64_t good_fips_blocks;	/* Blocks approved by FIPS 140-2 */
 	uint64_t fips_failures[N_FIPS_TESTS]; 	/* Breakdown of block
 					   failures per FIPS test */
-	
+
 	uint64_t bytes_received;	/* Bytes read from input */
 	uint64_t bytes_sent;		/* Bytes sent to output */
 
@@ -194,7 +194,7 @@ static void init_sighandlers(void)
 
 	/* Handle SIGTERM and SIGINT the same way */
 	if (sigaction(SIGTERM, &action, NULL) < 0) {
-		fprintf(stderr, 
+		fprintf(stderr,
 			"unable to install signal handler for SIGTERM: %s",
 			strerror(errno));
 		exit(EXIT_OSERR);
@@ -221,8 +221,8 @@ static int xread(void *buf, size_t size)
 			break;
 		} else if (!r) {
 			if (!arguments->pipemode)
-				fprintf(stderr, 
-					"%sentropy source drained\n", 
+				fprintf(stderr,
+					"%sentropy source drained\n",
 					logprefix);
 			return -1;
 		}
@@ -253,7 +253,7 @@ static int xwrite(void *buf, size_t size)
 			if ((errno == EAGAIN) || (errno == EINTR)) continue;
 			break;
 		} else if (!r) {
-			fprintf(stderr, 
+			fprintf(stderr,
 				"%swrite channel stuck\n", logprefix);
 			exitstatus = EXIT_IOERR;
 			return -1;
@@ -317,7 +317,8 @@ static void dump_rng_stats(void)
 
 	gettimeofday(&now, 0);
 	fprintf(stderr, "%sProgram run time: %llu microseconds\n",
-		logprefix, elapsed_time(&rng_stats.progstart, &now));
+		logprefix,
+		(unsigned long long) elapsed_time(&rng_stats.progstart, &now));
 }
 
 /* Return 32 bits of bootstrap data */
@@ -332,7 +333,7 @@ static int discard_initial_data(void)
 	/* Bootstrap data for FIPS tests */
 	if (xread(tempbuf, sizeof tempbuf)) exit(EXIT_FAIL);
 
-	return tempbuf[0] | (tempbuf[1] << 8) | 
+	return tempbuf[0] | (tempbuf[1] << 8) |
 		(tempbuf[2] << 16) | (tempbuf[3] << 24);
 }
 
@@ -349,7 +350,7 @@ static void do_rng_fips_test_loop( void )
 		gettimeofday(&start, 0);
 		if (xread(rng_buffer, sizeof(rng_buffer))) return;
 		gettimeofday(&stop, 0);
-		update_usectimer_stat(&rng_stats.source_blockfill, 
+		update_usectimer_stat(&rng_stats.source_blockfill,
 				&start, &stop);
 
 		gettimeofday(&start, 0);
@@ -380,7 +381,7 @@ static void do_rng_fips_test_loop( void )
 		    (++runs >= arguments->blockcount)) break;
 
 		gettimeofday(&now, 0);
-		if ((arguments->blockstats && 
+		if ((arguments->blockstats &&
 		     (++statruns >= arguments->blockstats)) ||
 		    (arguments->timedstats &&
 		     (elapsed_time(&statdump, &now) > arguments->timedstats))) {
@@ -412,10 +413,10 @@ int main(int argc, char **argv)
 	fips_init(&fipsctx, discard_initial_data());
 
 	do_rng_fips_test_loop();
-	
+
 	dump_rng_stats();
 
-	if ((exitstatus == EXIT_SUCCESS) && 
+	if ((exitstatus == EXIT_SUCCESS) &&
 	    (rng_stats.bad_fips_blocks || !rng_stats.good_fips_blocks)) {
 		exitstatus = EXIT_FAIL;
 	}

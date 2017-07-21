@@ -7,7 +7,7 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Suite 500, Boston, MA  02110-1335  USA
  */
 
 #define _GNU_SOURCE
@@ -35,6 +35,8 @@
 #include <errno.h>
 #include <syslog.h>
 #include <string.h>
+#include <stddef.h>
+#include <sysfs/libsysfs.h>
 
 #include "rngd.h"
 #include "fips.h"
@@ -42,20 +44,19 @@
 #include "rngd_entsource.h"
 
 
-/* Logic and contexts */
-static int rng_fd;			/* rng data source */
-fips_ctx_t fipsctx;			/* Context for the FIPS tests */
-
+/* The overhead incured when tpm returns the random nos as per TCG spec
+ * it is 14 bytes.*/
+#define TPM_GET_RNG_OVERHEAD	14
 
 /* Read data from the entropy source */
-void xread(void *buf, size_t size)
+int xread(void *buf, size_t size, struct rng *ent_src)
 {
 	size_t off = 0;
 	ssize_t r;
 
 	while (size > 0) {
 		do {
-			r = read(rng_fd, buf + off, size);
+			r = read(ent_src->rng_fd, buf + off, size);
 		} while ((r == -1) && (errno == EINTR));
 		if (r <= 0)
 			break;
@@ -65,42 +66,177 @@ void xread(void *buf, size_t size)
 
 	if (size) {
 		message(LOG_DAEMON|LOG_ERR, "read error\n");
-		exit(1);
+		return -1;
 	}
+	return 0;
+}
+
+/* tpm rng read call to kernel has 13 bytes of overhead
+ * the logic to process this involves reading to a temporary_buf
+ * and copying the no generated to buf */
+int xread_tpm(void *buf, size_t size, struct rng *ent_src)
+{
+	size_t bytes_read = 0;
+	ssize_t r;
+	int retval;
+	unsigned char *temp_buf = NULL;
+	unsigned char rng_cmd[] = {
+		0, 193,            /* TPM_TAG_RQU_COMMAND */
+		0, 0, 0, 14,       /* length */
+		0, 0, 0, 70,       /* TPM_ORD_GetRandom */
+		0, 0, 0, 0,        /* number of bytes to return */
+	};
+	char *offset;
+
+	ent_src->rng_fd = open(ent_src->rng_name, O_RDWR);
+	if (ent_src->rng_fd == -1) {
+		message(LOG_ERR|LOG_INFO,"Unable to open file: %s",ent_src->rng_name);
+		return -1;
+	}
+
+	temp_buf = (unsigned char *) malloc(size + TPM_GET_RNG_OVERHEAD);
+	memset(temp_buf, 0, (size+TPM_GET_RNG_OVERHEAD));
+	if (temp_buf == NULL) {
+		message(LOG_ERR|LOG_INFO,"No memory");
+		close(ent_src->rng_fd);
+		return -1;
+	}
+	/* 32 bits has been reserved for random byte size */
+	rng_cmd[13] = (unsigned char)(size & 0xFF);
+	rng_cmd[12] = (unsigned char)((size >> 8) & 0xFF);
+	rng_cmd[11] = (unsigned char)((size >> 16) & 0xFF);
+	rng_cmd[10] = (unsigned char)((size >> 24) & 0xFF);
+	offset = buf;
+	while (bytes_read < size) {
+		r=0;
+		while (r < sizeof(rng_cmd)) {
+			retval = write(ent_src->rng_fd,
+				       rng_cmd + r,
+				       sizeof(rng_cmd) - r);
+			if (retval < 0) {
+				message(LOG_ERR|LOG_INFO,
+					"Error writing %s\n",
+					ent_src->rng_name);
+				retval = -1;
+				goto error_out;
+			}
+			r += retval;
+		}
+		if (r < sizeof(rng_cmd)) {
+			message(LOG_ERR|LOG_INFO,
+				"Error writing %s\n", ent_src->rng_name);
+			retval = -1;
+			goto error_out;
+		}
+		r = read(ent_src->rng_fd, temp_buf,size);
+		r = (r - TPM_GET_RNG_OVERHEAD);
+		if(r <= 0) {
+			message(LOG_ERR|LOG_INFO,
+			"Error reading from TPM, no entropy gathered");
+			retval = -1;
+			goto error_out;
+		}
+		bytes_read = bytes_read + r;
+		if (bytes_read > size) {
+			memcpy(offset,temp_buf + TPM_GET_RNG_OVERHEAD,
+				r - (bytes_read - size));
+			break;
+		}
+		memcpy(offset, temp_buf + TPM_GET_RNG_OVERHEAD, r);
+		offset = offset + r;
+	}
+	retval = 0;
+error_out:
+    close(ent_src->rng_fd);
+	free(temp_buf);
+	return retval;
 }
 
 /* Initialize entropy source */
-static int discard_initial_data(void)
+static int discard_initial_data(struct rng *ent_src)
 {
 	/* Trash 32 bits of what is probably stale (non-random)
 	 * initial state from the RNG.  For Intel's, 8 bits would
 	 * be enough, but since AMD's generates 32 bits at a time...
-	 * 
+	 *
 	 * The kernel drivers should be doing this at device powerup,
 	 * but at least up to 2.4.24, it doesn't. */
 	unsigned char tempbuf[4];
-	xread(tempbuf, sizeof tempbuf);
+	xread(tempbuf, sizeof(tempbuf), ent_src);
 
 	/* Return 32 bits of bootstrap data */
-	xread(tempbuf, sizeof tempbuf);
+	xread(tempbuf, sizeof(tempbuf), ent_src);
 
-	return tempbuf[0] | (tempbuf[1] << 8) | 
+	return tempbuf[0] | (tempbuf[1] << 8) |
 		(tempbuf[2] << 16) | (tempbuf[3] << 24);
 }
+
+#define RNG_AVAIL "/sys/devices/virtual/misc/hw_random/rng_available"
 
 /*
  * Open entropy source, and initialize it
  */
-void init_entropy_source(const char* sourcedev)
+int init_entropy_source(struct rng *ent_src)
 {
-	rng_fd = open(sourcedev, O_RDONLY);
-	if (rng_fd == -1) {
-		message(LOG_DAEMON|LOG_ERR, "can't open %s: %s",
-			sourcedev, strerror(errno));
-		exit(EXIT_FAIL);
+	struct sysfs_attribute *rngavail;
+	char buf[16];
+
+	ent_src->rng_fd = open(ent_src->rng_name, O_RDONLY);
+	if (ent_src->rng_fd == -1) {
+		message(LOG_ERR|LOG_INFO, "Unable to open file: %s", ent_src->rng_name);
+		return 1;
 	}
 
+	/* Try to read some data from the entropy source.  If it doesn't return
+ 	 * an error, assume its ok to use
+ 	 */
+	if (ent_src->xread(buf, sizeof(buf), ent_src) == 0)
+		goto source_valid;
+
+	/* RHEL7: since /dev/hwrng will exist now even if there isn't an rng backing it,
+	 * check to see if rng_available is empty, and return error if it is.
+	 */
+	rngavail = sysfs_open_attribute(RNG_AVAIL);
+	if (!rngavail) {
+		message(LOG_ERR|LOG_INFO, "Unable to open sysfs attribute: %s", RNG_AVAIL);
+		return 1;
+	}
+
+	if (sysfs_read_attribute(rngavail)) {
+		message(LOG_ERR|LOG_INFO, "Error reading sysfs attribute: %s", RNG_AVAIL);
+		sysfs_close_attribute(rngavail);
+		return 1;
+	}
+
+	if (strncmp(rngavail->value, "\n", 1) == 0) {
+		message(LOG_ERR|LOG_INFO, "hwrng: no available rng");
+		sysfs_close_attribute(rngavail);
+		return 1;
+	}
+	sysfs_close_attribute(rngavail);
+
+source_valid:
+	src_list_add(ent_src);
 	/* Bootstrap FIPS tests */
-	fips_init(&fipsctx, discard_initial_data());
+	ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
+	fips_init(ent_src->fipsctx, discard_initial_data(ent_src));
+	return 0;
 }
 
+/*
+ * Open tpm entropy source, and initialize it
+ */
+int init_tpm_entropy_source(struct rng *ent_src)
+{
+	ent_src->rng_fd = open(ent_src->rng_name, O_RDWR);
+	if (ent_src->rng_fd == -1) {
+		message(LOG_ERR|LOG_INFO,"Unable to open file: %s",ent_src->rng_name);
+		return 1;
+	}
+	src_list_add(ent_src);
+	/* Bootstrap FIPS tests */
+	ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
+	fips_init(ent_src->fipsctx, 0);
+	close(ent_src->rng_fd);
+	return 0;
+}

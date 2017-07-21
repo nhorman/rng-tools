@@ -7,7 +7,7 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Suite 500, Boston, MA  02110-1335  USA
  */
 
 #ifndef STATS__H
@@ -50,9 +50,9 @@ extern void update_stat(struct rng_stat *stat, uint64_t value);
  * The following functions format a stat dump on buf, and
  * return a pointer to the start of buf
  */
-	
+
 /* Dump simple counter */
-extern char *dump_stat_counter(char *buf, int size, 
+extern char *dump_stat_counter(char *buf, int size,
 			      const char *msg, uint64_t value);
 
 /* Dump min-max time stat */

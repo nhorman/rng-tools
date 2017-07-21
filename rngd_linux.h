@@ -7,7 +7,7 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Suite 500, Boston, MA  02110-1335  USA
  */
 
 #ifndef RNGD_LINUX__H
@@ -25,6 +25,9 @@
 
 #include <unistd.h>
 #include <stdint.h>
+
+/* The default watermark level for this platform */
+extern int default_watermark(void);
 
 /*
  * Initialize the interface to the Linux Kernel
@@ -38,7 +41,7 @@ extern void init_kernel_rng(const char* randomdev);
 extern void random_add_entropy(void *buf, size_t size);
 
 /* Sleep until the kernel is hungry for entropy */
-extern void random_sleep(double poll_timeout);
+extern void random_sleep(void);
 
 #endif /* RNGD_LINUX__H */
 
