@@ -9,11 +9,16 @@ rngd \- Check and feed random data from hardware device to kernel random device
 .B rngd
 [\fB\-b\fR, \fB\-\-background\fR]
 [\fB\-f\fR, \fB\-\-foreground\fR]
+[\fB\-i\fR, \fB\-\-ignorefail\fR]
 [\fB\-o\fR, \fB\-\-random-device=\fIfile\fR]
+[\fB\-p\fR, \fB\-\-pid-file=\fIfile\fR]
 [\fB\-r\fR, \fB\-\-rng-device=\fIfile\fR]
 [\fB\-s\fR, \fB\-\-random-step=\fInnn\fR]
 [\fB\-W\fR, \fB\-\-fill-watermark=\fInnn\fR]
-[\fB\-t\fR, \fB\-\-timeout=\fInnn\fR]
+[\fB\-d\fR, \fB\-\-no-drng=\fI1|0\fR]
+[\fB\-n\fR, \fB\-\-no-tpm=\fI1|0\fR]
+[\fB\-q\fR, \fB\-\-quiet\fR]
+[\fB\-v\fR, \fB\-\-verbose\fR]
 [\fB\-?\fR, \fB\-\-help\fR]
 [\fB\-V\fR, \fB\-\-version\fR]
 .RI
@@ -25,17 +30,16 @@ it is properly random.
 .PP
 The \fB\-f\fR or \fB\-\-foreground\fR options can be used to tell
 \fBrngd\fR to avoid forking on startup.  This is typically used for
-debugging.  The \fB\-f\fR or \fB\-\-foreground\fR options, which fork and put
+debugging.  The \fB\-b\fR or \fB\-\-background\fR options, which fork and put
 \fBrngd\fR into the background automatically, are the default.
 .PP
 The \fB\-r\fR or \fB\-\-rng-device\fR options can be used to select an
-alternate source of input, besides the default /dev/hwrandom.
+alternate source of input, besides the default /dev/hwrng.
 The \fB\-o\fR or \fB\-\-random-device\fR options can be used to select
 an alternate entropy output device, besides the default /dev/random.
 Note that this device must support the Linux kernel /dev/random 
 ioctl API.
 .PP
-FIXME: document random-step and timeout
 
 .SH OPTIONS
 .TP
@@ -45,16 +49,27 @@ Become a daemon (default)
 \fB\-f\fR, \fB\-\-foreground\fR
 Do not fork and become a daemon
 .TP
+\fB\-p\fI file\fR, \fB\-\-pid-file=\fIfile\fR
+File used for recording daemon PID, and multiple exclusion
+(default: /var/run/rngd.pid)
+.TP
+\fB\-i\fR, \fB\-\-ignorefail\fR
+Ignore repeated fips failures
+.TP
 \fB\-o\fI file\fR, \fB\-\-random-device=\fIfile\fR
 Kernel device used for random number output
 (default: /dev/random)
 .TP
 \fB\-r\fI file\fR, \fB\-\-rng-device=\fIfile\fR
 Kernel device used for random number input
-(default: /dev/hwrandom)
+(default: /dev/hwrng)
 .TP
 \fB\-s\fI nnn\fR, \fB\-\-random-step=\fInnn\fR
 Number of bytes written to random-device at a time (default: 64)
+.TP
+\fB\-e\fI nnn\fR, \fB\-\-entropy-count=\fInnn\fR
+Number of bits to consider random when adding entropy. 1<=e<=8
+(default: 8)
 .TP
 \fB\-W\fI n\fR, \fB\-\-fill\-watermark=\fInnn\fR
 Once we start doing it, feed entropy to \fIrandom-device\fR until at least
@@ -64,8 +79,17 @@ entropy pool.  Low values will hurt system performance during entropy
 starves.  Do not set \fIfill-watermark\fR above the size of the
 entropy pool (usually 4096 bits).
 .TP
-\fB\-t\fI nnn\fR, \fB\-\-timeout=\fInnn\fR
-Interval written to random-device when the entropy pool is full, in seconds, or 0 to disable (default: 60)
+\fB\-d\fI 1|0\fR, \fB\-\-no-drng=\fI1|0\fR
+Do not use drng as a source of random number input (default:0)
+.TP
+\fB\-n\fI 1|0\fR, \fB\-\-no-tpm=\fI1|0\fR
+Do not use tpm as a source of random number input (default:0)
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Suppress error messages
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Report available entropy sources, and exit
 .TP
 \fB\-?\fR, \fB\-\-help\fR
 Give a short summary of all program options.
@@ -79,4 +103,5 @@ Philipp Rumpf
 Jeff Garzik \- jgarzik@pobox.com
 .br
 Matt Sottek
-
+.br
+Brad Hill

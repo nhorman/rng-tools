@@ -7,7 +7,7 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Suite 500, Boston, MA  02110-1335  USA
  */
 
 #define _GNU_SOURCE
@@ -49,18 +49,18 @@ const unsigned int fips_test_mask[N_FIPS_TESTS] = {
 
 /* These are the startup tests suggested by the FIPS 140-1 spec section
 *  4.11.1 (http://csrc.nist.gov/fips/fips1401.htm), and updated by FIPS
-*  140-2 4.9, errata of 2001-10-10.  FIPS 140-2, errata of 2002-12-03 
+*  140-2 4.9, errata of 2001-10-10.  FIPS 140-2, errata of 2002-12-03
 *  removed all requirements for non-deterministic RNGs, and thus most of
 *  the tests we need are not mentioned in FIPS 140-2 anymore.  We also
 *  implement FIPS 140-1 4.11.2/FIPS 140-2 4.9 Continuous Run test.
-* 
+*
 *  The Monobit, Poker, Runs, and Long Runs tests are implemented below.
-*  This test must be run at periodic intervals to verify data is 
-*  sufficiently random.  If the tests are failed the RNG module shall 
-*  no longer submit data to the entropy pool, but the tests shall 
+*  This test must be run at periodic intervals to verify data is
+*  sufficiently random.  If the tests are failed the RNG module shall
+*  no longer submit data to the entropy pool, but the tests shall
 *  continue to run at the given interval.  If at a later time the RNG
 *  passes all tests it shall be re-enabled for the next period.
-*  
+*
 *  The reason for this is that it is not unlikely that at some time
 *  during normal operation one of the tests will fail.  This does not
 *  necessarily mean the RNG is not operating properly, it is just a
@@ -69,7 +69,7 @@ const unsigned int fips_test_mask[N_FIPS_TESTS] = {
 *  time until the tests are rerun and passed.
 *
 *  For the continuous run test, we need to check all bits of data, so
-*  "periodic" above shall be read as "for every back-to-back block of 
+*  "periodic" above shall be read as "for every back-to-back block of
 *  20000 bits".  We verify 32 bits to accomodate the AMD TRNG, and
 *  to reduce false positives with other TRNGs.
 */
@@ -123,9 +123,9 @@ int fips_run_rng_test (fips_ctx_t *ctx, const void *buf)
 	rngdatabuf = (unsigned char *)buf;
 
 	for (i=0; i<FIPS_RNG_BUFFER_SIZE; i += 4) {
-		int new32 = rngdatabuf[i] | 
-			    ( rngdatabuf[i+1] << 8 ) | 
-			    ( rngdatabuf[i+2] << 16 ) | 
+		int new32 = rngdatabuf[i] |
+			    ( rngdatabuf[i+1] << 8 ) |
+			    ( rngdatabuf[i+2] << 16 ) |
 			    ( rngdatabuf[i+3] << 24 );
 		if (new32 == ctx->last32) rng_test |= FIPS_RNG_CONTINUOUS_RUN;
 		ctx->last32 = new32;
@@ -143,7 +143,7 @@ int fips_run_rng_test (fips_ctx_t *ctx, const void *buf)
 		if (ctx->rlength >= 25)
 			rng_test |= FIPS_RNG_LONGRUN;
 	}
-	
+
 	if (ctx->longrun) {
 		rng_test |= FIPS_RNG_LONGRUN;
 		ctx->longrun = 0;
@@ -174,7 +174,7 @@ int fips_run_rng_test (fips_ctx_t *ctx, const void *buf)
 	    (ctx->runs[11] < 103) || (ctx->runs[11] > 209)) {
 		rng_test |= FIPS_RNG_RUNS;
 	}
-	
+
 	/* finally, clear out FIPS variables for start of next run */
 	memset (ctx->poker, 0, sizeof (ctx->poker));
 	memset (ctx->runs, 0, sizeof (ctx->runs));

@@ -43,7 +43,7 @@ Exit after processing n input blocks, if n is not zero.
 Dump statistics every n blocks, if n is not zero.
 .TP
 \fB\-t\fR \fIn\fR, \fB\-\-timedstats=\fIn\fR (default: 0)
-Dump statistics every n secods, if n is not zero.
+Dump statistics every n seconds, if n is not zero.
 .TP
 \fB\-?\fR, \fB\-\-help\fR
 Give a short summary of all program options.
@@ -62,7 +62,7 @@ other statistics show a breakdown of the FIPS 140-2 failures by FIPS
 tests are defined on FIPS 140-1 and FIPS 140-2 errata of 2001-10-10. They
 were removed in FIPS 140-2 errata of 2002-12-03).
 .PP
-The speed statistics are taken for every 20000-bit block trasferred or
+The speed statistics are taken for every 20000-bit block transferred or
 processed.
 
 .SH EXIT STATUS
@@ -81,7 +81,7 @@ processed.
 random(4), rngd(8)
 .TP
 FIPS PUB 140-2 Security Requirements for Cryptographic Modules, NIST, 
-http://csrc.nist.gov/cryptval/140-2.htm
+http://csrc.nist.gov/groups/STM/cmvp/standards.html
 
 .SH AUTHORS
 Henrique de Moraes Holschuh <hmh@debian.org>
