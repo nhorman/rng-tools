@@ -46,7 +46,6 @@
 #include "exits.h"
 #include "rngd_entsource.h"
 
-#if defined(__i386__) || defined(__x86_64__)
 
 /* Struct for CPUID return values */
 struct cpuid {
@@ -357,22 +356,3 @@ int init_drng_entropy_source(struct rng *ent_src)
 	fips_init(ent_src->fipsctx, 0);
 	return 0;
 }
-
-#else /* Not i386 or x86-64 */
-
-int init_drng_entropy_source(struct rng *ent_src)
-{
-	(void)ent_src;
-	return 1;
-}
-
-int xread_drng(void *buf, size_t size, struct rng *ent_src)
-{
-	(void)buf;
-	(void)size;
-	(void)ent_src;
-
-	return -1;
-}
-
-#endif /* Not i386 or x86-64 */

@@ -34,11 +34,15 @@ AC_ARG_WITH([libgcrypt],
 
 dnl Make sure anyone changing configure.ac/Makefile.am has a clue
 AM_MAINTAINER_MODE
+AM_PROG_AS
 
 dnl Checks for programs
 AC_PROG_CC
 AC_PROG_RANLIB
 AC_PROG_GCC_TRADITIONAL
+AC_CANONICAL_HOST
+AM_CONDITIONAL([RDRAND], [test $host_cpu = x86_64])
+AS_IF([test $host_cpu = x86_64], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
 
 dnl Checks for header files.
 dnl AC_HEADER_STDC

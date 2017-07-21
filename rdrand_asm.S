@@ -18,8 +18,6 @@
  *
  */
 
-#if defined(__i386__) || defined(__x86_64__)
-
 #define ENTRY(x)	  \
 	.balign	64	; \
 	.globl	x	; \
@@ -348,8 +346,6 @@ ENDPROC(x86_aes_expand_key)
 aes_round_keys:
 	.space	11*16
 	.size	aes_round_keys, .-aes_round_keys
-
-#endif /* i386 or x86_64 */
 
 /*
  * This is necessary to keep the whole executable

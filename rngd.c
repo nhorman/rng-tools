@@ -134,11 +134,13 @@ static struct rng rng_default = {
 	.xread		= xread,
 };
 
+#ifdef HAVE_RDRAND
 static struct rng rng_drng = {
 	.rng_name	= "drng",
 	.rng_fd  	= -1,
 	.xread  	= xread_drng,
 };
+#endif
 
 static struct rng rng_tpm = {
 	.rng_name	= "/dev/tpm0",
@@ -324,8 +326,10 @@ int main(int argc, char **argv)
 	argp_parse(&argp, argc, argv, 0, 0, arguments);
 
 	/* Init entropy sources, and open TRNG device */
+#ifdef HAVE_RDRAND
 	if (arguments->enable_drng)
 		rc_drng = init_drng_entropy_source(&rng_drng);
+#endif
 	rc_rng = init_entropy_source(&rng_default);
 	if (arguments->enable_tpm && rc_rng)
 		rc_tpm = init_tpm_entropy_source(&rng_tpm);
