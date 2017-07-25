@@ -16,6 +16,10 @@ if RDRAND
 rngd_SOURCES	+= rngd_rdrand.c rdrand_asm.S
 endif
 
+if DARN
+rngd_SOURCES	+= rngd_darn.c
+endif
+
 rngd_LDADD	= librngd.a
 rngd_LDFLAGS	= -lsysfs
 
