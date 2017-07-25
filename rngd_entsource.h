@@ -44,6 +44,11 @@ extern int xread(void *buf, size_t size, struct rng *ent_src);
 #ifdef HAVE_RDRAND
 extern int xread_drng(void *buf, size_t size, struct rng *ent_src);
 #endif
+
+#ifdef HAVE_DARN
+extern int xread_darn(void *buf, size_t size, struct rng *ent_src);
+#endif
+
 extern int xread_tpm(void *buf, size_t size, struct rng *ent_src);
 
 #endif /* RNGD_ENTSOURCE__H */

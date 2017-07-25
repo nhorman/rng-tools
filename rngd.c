@@ -142,6 +142,14 @@ static struct rng rng_drng = {
 };
 #endif
 
+#ifdef HAVE_DARN
+static struct rng rng_darn = {
+	.rng_name	= "darn",
+	.rng_fd		= -1,
+	.xread		= xread_darn,
+};
+#endif
+
 static struct rng rng_tpm = {
 	.rng_name	= "/dev/tpm0",
 	.rng_fd		= -1,
@@ -329,6 +337,10 @@ int main(int argc, char **argv)
 #ifdef HAVE_RDRAND
 	if (arguments->enable_drng)
 		rc_drng = init_drng_entropy_source(&rng_drng);
+#endif
+#ifdef HAVE_DARN
+	if (arguments->enable_drng)
+		rc_drng = init_darn_entropy_source(&rng_darn);
 #endif
 	rc_rng = init_entropy_source(&rng_default);
 	if (arguments->enable_tpm && rc_rng)
