@@ -46,6 +46,7 @@ struct arguments {
 	int random_step;
 	int fill_watermark;
 
+	bool debug;
 	bool quiet;
 	bool daemon;
 	bool list;
@@ -83,8 +84,10 @@ extern bool am_daemon;			/* True if we went daemon */
 	if (am_daemon) { \
 		syslog((priority), fmt, ##args); \
 	} else { \
-		fprintf(stderr, fmt, ##args); \
-		fprintf(stderr, "\n"); \
+		if ((LOG_PRI(priority) != LOG_DEBUG) || (arguments->debug == true)) {\
+			fprintf(stderr, fmt, ##args); \
+			fprintf(stderr, "\n"); \
+		} \
 	} \
 } while (0)
 

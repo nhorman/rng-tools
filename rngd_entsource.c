@@ -65,7 +65,7 @@ int xread(void *buf, size_t size, struct rng *ent_src)
 	}
 
 	if (size) {
-		message(LOG_DAEMON|LOG_ERR, "read error\n");
+		message(LOG_DAEMON|LOG_DEBUG, "read error\n");
 		return -1;
 	}
 	return 0;

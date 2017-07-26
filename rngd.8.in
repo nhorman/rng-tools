@@ -9,6 +9,7 @@ rngd \- Check and feed random data from hardware device to kernel random device
 .B rngd
 [\fB\-b\fR, \fB\-\-background\fR]
 [\fB\-f\fR, \fB\-\-foreground\fR]
+[\fB\-d\fR, \fB\-\-debug\fR]
 [\fB\-l\fR, \fB\-\-list\fR]
 [\fB\-x\fR, \fB\-\-exclude\fR]
 [\fB\-i\fR, \fB\-\-ignorefail\fR]
@@ -47,6 +48,9 @@ Become a daemon (default)
 .TP
 \fB\-f\fR, \fB\-\-foreground\fR
 Do not fork and become a daemon
+.TP
+\fB\-d\fR, \fB\-\-debug\fR
+Enable debug messages
 .TP
 \fB\-l\fR, \fB\-\-list\fR
 List the indexes and names of available entropy sources

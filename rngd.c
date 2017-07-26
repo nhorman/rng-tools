@@ -79,6 +79,8 @@ static char doc[] =
 	"Check and feed random data from hardware device to kernel entropy pool.\n";
 
 static struct argp_option options[] = {
+	{ "debug", 'd', 0, 0, "Enable debug output" },
+
 	{ "foreground",	'f', 0, 0, "Do not fork and become a daemon" },
 
 	{ "ignorefail", 'i', 0, 0, "Ignore repeated fips failures" },
@@ -180,6 +182,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
 	long int idx;
 	switch(key) {
+	case 'd':
+		arguments->debug = true;
+		break;
 	case 'o':
 		arguments->random_name = arg;
 		break;
