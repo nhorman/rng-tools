@@ -252,8 +252,6 @@ int init_darn_entropy_source(struct rng *ent_src)
 
 	if (init_gcrypt())
 		return 1;
-	ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
-	fips_init(ent_src->fipsctx, 0);
 	message(LOG_DAEMON|LOG_INFO, "Enabling power DARN rng support\n");
 	return 0;
 }

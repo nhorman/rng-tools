@@ -337,6 +337,24 @@ static void term_signal(int signo)
 	server_running = false;
 }
 
+static int discard_initial_data(struct rng *ent_src)
+{
+	/* Trash 32 bits of what is probably stale (non-random)
+	 * initial state from the RNG.  For Intel's, 8 bits would
+	 * be enough, but since AMD's generates 32 bits at a time...
+	 *
+	 * The kernel drivers should be doing this at device powerup,
+	 * but at least up to 2.4.24, it doesn't. */
+	unsigned char tempbuf[4];
+	ent_src->xread(tempbuf, sizeof(tempbuf), ent_src);
+
+	/* Return 32 bits of bootstrap data */
+	ent_src->xread(tempbuf, sizeof(tempbuf), ent_src);
+
+	return tempbuf[0] | (tempbuf[1] << 8) |
+		(tempbuf[2] << 16) | (tempbuf[3] << 24);
+}
+
 int main(int argc, char **argv)
 {
 	int i;
@@ -357,6 +375,8 @@ int main(int argc, char **argv)
 		if (entropy_sources[i].disabled == false) {
 			if (!entropy_sources[i].init(&entropy_sources[i])) {
 				ent_sources++;
+				entropy_sources[i].fipsctx = malloc(sizeof(fips_ctx_t));
+				fips_init(entropy_sources[i].fipsctx, discard_initial_data(&entropy_sources[i]));
 			} else {
 				message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %d: %s\n",
 					i, entropy_sources[i].rng_name);

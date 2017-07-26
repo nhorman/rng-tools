@@ -152,25 +152,6 @@ error_out:
 	return retval;
 }
 
-/* Initialize entropy source */
-static int discard_initial_data(struct rng *ent_src)
-{
-	/* Trash 32 bits of what is probably stale (non-random)
-	 * initial state from the RNG.  For Intel's, 8 bits would
-	 * be enough, but since AMD's generates 32 bits at a time...
-	 *
-	 * The kernel drivers should be doing this at device powerup,
-	 * but at least up to 2.4.24, it doesn't. */
-	unsigned char tempbuf[4];
-	xread(tempbuf, sizeof(tempbuf), ent_src);
-
-	/* Return 32 bits of bootstrap data */
-	xread(tempbuf, sizeof(tempbuf), ent_src);
-
-	return tempbuf[0] | (tempbuf[1] << 8) |
-		(tempbuf[2] << 16) | (tempbuf[3] << 24);
-}
-
 #define RNG_AVAIL "/sys/devices/virtual/misc/hw_random/rng_available"
 
 /*
@@ -218,7 +199,6 @@ int init_entropy_source(struct rng *ent_src)
 source_valid:
 	/* Bootstrap FIPS tests */
 	ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
-	fips_init(ent_src->fipsctx, discard_initial_data(ent_src));
 	return 0;
 }
 
@@ -234,7 +214,6 @@ int init_tpm_entropy_source(struct rng *ent_src)
 	}
 	/* Bootstrap FIPS tests */
 	ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
-	fips_init(ent_src->fipsctx, 0);
 	close(ent_src->rng_fd);
 	return 0;
 }
