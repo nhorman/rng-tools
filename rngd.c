@@ -85,6 +85,8 @@ static struct argp_option options[] = {
 
 	{ "background", 'b', 0, 0, "Become a daemon (default)" },
 
+	{ "exclude", 'x', "n", 0, "Disable the numbered entropy source specified" },
+
 	{ "list", 'l', 0, 0, "List the operational entropy sources on this system and exit" },
 
 	{ "random-device", 'o', "file", 0,
@@ -181,9 +183,19 @@ static struct rng entropy_sources[ENT_MAX] = {
  */
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
+	long int idx;
 	switch(key) {
 	case 'o':
 		arguments->random_name = arg;
+		break;
+	case 'x':
+		idx = strtol(arg, NULL, 10);
+		if ((idx == LONG_MAX) || (idx > ENT_MAX)) {
+			printf("exclude index is out of range: %d\n", idx);
+			return -ERANGE;
+		}
+		entropy_sources[idx].disabled = true;
+		printf("Disabling %d: %s\n", idx, entropy_sources[idx].rng_name);
 		break;
 	case 'l':
 		arguments->list = true;
@@ -359,6 +371,7 @@ int main(int argc, char **argv)
 	/* Init entropy sources */
 	for (i=0; i < ENT_MAX; i++) {
 		if ((entropy_sources[i].init) &&
+		    (entropy_sources[i].disabled == false) &&
 		     !entropy_sources[i].init(&entropy_sources[i])) {
 			ent_sources++;
 		} else
