@@ -120,40 +120,56 @@ static struct arguments default_arguments = {
 	.random_step	= 64,
 	.daemon		= true,
 	.ignorefail	= false,
-	.enable_drng	= true,
-	.enable_tpm	= true,
 	.quiet		= false,
 	.verbose	= false,
 	.entropy_count	= 8,
 };
 struct arguments *arguments = &default_arguments;
 
-static struct rng rng_default = {
-	.rng_name	= "/dev/hwrng",
-	.rng_fd		= -1,
-	.xread		= xread,
-};
+static enum {
+	ENT_HWRNG = 0,
+	ENT_TPM = 1,
+	ENT_RDRAND,
+	ENT_DARN,
+	ENT_MAX
+} entropy_indexes;
 
+static struct rng entropy_sources[ENT_MAX] = {
+	/* Note, the special char dev must be the first entry */
+	{
+		.rng_name	= "Hardware RNG Device",
+		.rng_fname      = "/dev/hwrng",
+		.rng_fd         = -1,
+		.xread          = xread,
+		.init           = init_entropy_source,
+	},
+	{
+		.rng_name	= "TPM RNG Device",
+		.rng_fname      = "/dev/tpm0",
+		.rng_fd         = -1,
+		.xread          = xread_tpm,
+		.init           = init_tpm_entropy_source,
+	},
+	{
+		.rng_name       = "Intel RDRAND Instruction RNG",
+		.rng_fd         = -1,
 #ifdef HAVE_RDRAND
-static struct rng rng_drng = {
-	.rng_name	= "drng",
-	.rng_fd  	= -1,
-	.xread  	= xread_drng,
-};
+		.xread          = xread_drng,
+		.init           = init_drng_entropy_source,
+#else
+		.init		= NULL,
 #endif
-
+	},
+	{
+		.rng_name       = "Power9 DARN Instruction RNG",
+		.rng_fd         = -1,
 #ifdef HAVE_DARN
-static struct rng rng_darn = {
-	.rng_name	= "darn",
-	.rng_fd		= -1,
-	.xread		= xread_darn,
-};
+		.xread          = xread_darn,
+		.init           = init_darn_entropy_source,
+#else
+		.init		= NULL,
 #endif
-
-static struct rng rng_tpm = {
-	.rng_name	= "/dev/tpm0",
-	.rng_fd		= -1,
-	.xread		= xread_tpm,
+	},
 };
 
 struct rng *rng_list;
@@ -171,7 +187,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		arguments->pid_file = arg;
 		break;
 	case 'r':
-		rng_default.rng_name = arg;
+		entropy_sources[ENT_HWRNG].rng_fname = arg;
 		break;
 	case 'f':
 		arguments->daemon = false;
@@ -205,7 +221,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		if ((sscanf(arg,"%i", &n) == 0) || ((n | 1)!=1))
 			argp_usage(state);
 		else
-			arguments->enable_drng = false;
+			entropy_sources[ENT_RDRAND].init = NULL;
 		break;
 	}
 	case 'n': {
@@ -213,7 +229,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		if ((sscanf(arg,"%i", &n) == 0) || ((n | 1)!=1))
 			argp_usage(state);
 		else
-			arguments->enable_tpm = false;
+			entropy_sources[ENT_TPM].init = NULL;
 		break;
 	}
 	case 'e': {
@@ -320,10 +336,9 @@ static void term_signal(int signo)
 
 int main(int argc, char **argv)
 {
-	int rc_rng = 1;
-	int rc_drng = 1;
-	int rc_tpm = 1;
-	int pid_fd = -1;
+	int i;
+	int ent_sources = 0;
+	pid_t pid_fd;
 
 	openlog("rngd", 0, LOG_DAEMON);
 
@@ -333,20 +348,17 @@ int main(int argc, char **argv)
 	/* Parsing of commandline parameters */
 	argp_parse(&argp, argc, argv, 0, 0, arguments);
 
-	/* Init entropy sources, and open TRNG device */
-#ifdef HAVE_RDRAND
-	if (arguments->enable_drng)
-		rc_drng = init_drng_entropy_source(&rng_drng);
-#endif
-#ifdef HAVE_DARN
-	if (arguments->enable_drng)
-		rc_drng = init_darn_entropy_source(&rng_darn);
-#endif
-	rc_rng = init_entropy_source(&rng_default);
-	if (arguments->enable_tpm && rc_rng)
-		rc_tpm = init_tpm_entropy_source(&rng_tpm);
+	/* Init entropy sources */
+	for (i=0; i < ENT_MAX; i++) {
+		entropy_sources[i].operational = 0;
+		if ((entropy_sources[i].init) &&
+		     !entropy_sources[i].init(&entropy_sources[i])) {
+			ent_sources++;
+			entropy_sources[i].operational = 1;
+		}
+	}
 
-	if (rc_rng && rc_drng && rc_tpm) {
+	if (!ent_sources) {
 		if (!arguments->quiet) {
 			message(LOG_DAEMON|LOG_ERR,
 				"can't open any entropy source");
@@ -358,21 +370,10 @@ int main(int argc, char **argv)
 
 	if (arguments->verbose) {
 		printf("Available entropy sources:\n");
-		if (!rc_rng)
-			printf("\tIntel/AMD hardware rng\n");
-		if (!rc_drng)
-			printf("\tDRNG\n");
-		if (!rc_tpm)
-			printf("\tTPM\n");
-		return 1;
-	}
-
-	if (rc_rng
-		&& (rc_drng || !arguments->enable_drng)
-		&& (rc_tpm || !arguments->enable_tpm)) {
-		if (!arguments->quiet)
-			message(LOG_DAEMON|LOG_ERR,
-		"No entropy source available, shutting down\n");
+		for (i=0; i < ENT_MAX; i++) 
+			if (entropy_sources[i].init)
+				printf("%d: %s\n", i, entropy_sources[i].rng_name);
+			
 		return 1;
 	}
 

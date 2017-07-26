@@ -59,12 +59,15 @@ extern struct arguments *arguments;
 /* structures to store rng information */
 struct rng {
 	char *rng_name;
+	char *rng_fname;
 	int rng_fd;
 	bool disabled;
 	int failures;
 	int success;
 
 	int (*xread) (void *buf, size_t size, struct rng *ent_src);
+	int (*init) (struct rng *ent_src);
+	int operational;
 	fips_ctx_t *fipsctx;
 
 	struct rng *next;

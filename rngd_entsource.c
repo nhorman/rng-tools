@@ -88,9 +88,9 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 	};
 	char *offset;
 
-	ent_src->rng_fd = open(ent_src->rng_name, O_RDWR);
+	ent_src->rng_fd = open(ent_src->rng_fname, O_RDWR);
 	if (ent_src->rng_fd == -1) {
-		message(LOG_ERR|LOG_INFO,"Unable to open file: %s",ent_src->rng_name);
+		message(LOG_ERR|LOG_INFO,"Unable to open file: %s",ent_src->rng_fname);
 		return -1;
 	}
 
@@ -181,9 +181,9 @@ int init_entropy_source(struct rng *ent_src)
 	struct sysfs_attribute *rngavail;
 	char buf[16];
 
-	ent_src->rng_fd = open(ent_src->rng_name, O_RDONLY);
+	ent_src->rng_fd = open(ent_src->rng_fname, O_RDONLY);
 	if (ent_src->rng_fd == -1) {
-		message(LOG_ERR|LOG_INFO, "Unable to open file: %s", ent_src->rng_name);
+		message(LOG_ERR|LOG_INFO, "Unable to open file: %s", ent_src->rng_fname);
 		return 1;
 	}
 
@@ -228,9 +228,9 @@ source_valid:
  */
 int init_tpm_entropy_source(struct rng *ent_src)
 {
-	ent_src->rng_fd = open(ent_src->rng_name, O_RDWR);
+	ent_src->rng_fd = open(ent_src->rng_fname, O_RDWR);
 	if (ent_src->rng_fd == -1) {
-		message(LOG_ERR|LOG_INFO,"Unable to open file: %s",ent_src->rng_name);
+		message(LOG_ERR|LOG_INFO,"Unable to open file: %s",ent_src->rng_fname);
 		return 1;
 	}
 	src_list_add(ent_src);
