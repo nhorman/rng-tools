@@ -89,7 +89,6 @@ extern bool am_daemon;			/* True if we went daemon */
 	} \
 } while (0)
 
-extern void src_list_add(struct rng *ent_src);
 extern int write_pid_file(const char *pid_fn);
 #endif /* RNGD__H */
 

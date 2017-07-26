@@ -175,7 +175,6 @@ static struct rng entropy_sources[ENT_MAX] = {
 	},
 };
 
-struct rng *rng_list;
 
 /*
  * command line processing
@@ -279,18 +278,23 @@ static void do_loop(int random_step)
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
 	int retval = 0;
 	int no_work = 0;
+	int i;
 
 	while (no_work < 100) {
 		struct rng *iter;
 		bool work_done;
 
 		work_done = false;
-		for (iter = rng_list; iter; iter = iter->next)
+		for (i=0; i < ENT_MAX; i++)
 		{
 			int rc;
+			iter = &entropy_sources[i];
 
 			if (!server_running)
 				return;
+
+			if (!iter->operational)
+				continue;
 
 		retry_same:
 			if (iter->disabled)
