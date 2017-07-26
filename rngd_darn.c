@@ -24,6 +24,10 @@
 
 #include "rng-tools-config.h"
 
+#ifndef HAVE_LIBGCRYPT
+#error power DARN support requires libgcrypt!
+#endif
+
 #include <unistd.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -36,9 +40,7 @@
 #include <stddef.h>
 #include <limits.h>
 #include <sysfs/libsysfs.h>
-#ifdef HAVE_LIBGCRYPT
 #include <gcrypt.h>
-#endif
 
 
 #include "rngd.h"
@@ -57,10 +59,8 @@ static uint64_t get_darn();
 #define SYSFS_CPU_MODALIAS "/sys/devices/system/cpu/modalias"
 #define AES_BLOCK 16
 #define CHUNK_SIZE AES_BLOCK * 8
-#ifdef HAVE_LIBGCRYPT
 static gcry_cipher_hd_t gcry_cipher_hd;
 static unsigned char iv_buf[AES_BLOCK];
-#endif
 
 static unsigned char darn_rand_buf[CHUNK_SIZE];
 static size_t darn_buf_avail = 0;
@@ -68,7 +68,6 @@ static size_t darn_buf_ptr = CHUNK_SIZE - 1;
 
 static int init_gcrypt()
 {
-#ifdef HAVE_LIBGCRYPT
 	unsigned char key[AES_BLOCK];
 	unsigned char xkey[AES_BLOCK];
 	int i;
@@ -113,14 +112,10 @@ static int init_gcrypt()
 		return 1;
 	}
 	return 0;
-#else
-	return 1;
-#endif
 }
 
 static int refill_rand()
 {
-#ifdef HAVE_LIBGCRYPT
 	gcry_error_t gcry_error;
 
 	if (darn_buf_avail)
@@ -139,9 +134,6 @@ static int refill_rand()
 	darn_buf_avail = CHUNK_SIZE;
 	darn_buf_ptr = 0;
 	return 0;
-#else
-	return 1;
-#endif
 }
 
 static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t copied)
