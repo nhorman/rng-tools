@@ -55,16 +55,23 @@
 	_x < _y ? _x : _y; })
 
 static uint64_t get_darn();
+static int refill_rand();
+static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t copied);
 
 #define SYSFS_CPU_MODALIAS "/sys/devices/system/cpu/modalias"
 #define AES_BLOCK 16
 #define CHUNK_SIZE AES_BLOCK * 8
+#define THRESH_BITS 14
+
 static gcry_cipher_hd_t gcry_cipher_hd;
 static unsigned char iv_buf[AES_BLOCK];
 
 static unsigned char darn_rand_buf[CHUNK_SIZE];
 static size_t darn_buf_avail = 0;
 static size_t darn_buf_ptr = CHUNK_SIZE - 1;
+
+static size_t rekey_thresh = (1 << THRESH_BITS);
+static size_t rand_bytes_served = 0;
 
 static int init_gcrypt()
 {
@@ -111,6 +118,14 @@ static int init_gcrypt()
 		gcry_cipher_close(gcry_cipher_hd);
 		return 1;
 	}
+
+	rand_bytes_served = 0;
+	if (refill_rand())
+		return 1;
+	if (copy_avail_rand_to_buf((unsigned char *)&rekey_thresh, sizeof(size_t), 0) < sizeof(size_t))
+		return 1;
+	rekey_thresh &= ((1 << THRESH_BITS)-1);
+	
 	return 0;
 }
 
@@ -120,6 +135,13 @@ static int refill_rand()
 
 	if (darn_buf_avail)
 		return 0;
+
+	if (rand_bytes_served >= rekey_thresh) {
+		message(LOG_DAEMON|LOG_DEBUG, "rekeying DARN rng\n");
+		gcry_cipher_close(gcry_cipher_hd);
+		if (init_gcrypt())
+			return 1;
+	}
 
 	gcry_error = gcry_cipher_encrypt(gcry_cipher_hd, darn_rand_buf,
 					CHUNK_SIZE, NULL, 0);
@@ -145,7 +167,7 @@ static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t cop
 
 	darn_buf_avail -= to_copy;
 	darn_buf_ptr += to_copy;
-
+	rand_bytes_served += to_copy;
 	return to_copy;
 }
 
