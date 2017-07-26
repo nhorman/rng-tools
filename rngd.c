@@ -378,16 +378,6 @@ int main(int argc, char **argv)
 			entropy_sources[i].disabled = true;
 	}
 
-	if (!ent_sources) {
-		if (!arguments->quiet) {
-			message(LOG_DAEMON|LOG_ERR,
-				"can't open any entropy source");
-			message(LOG_DAEMON|LOG_ERR,
-				"Maybe RNG device modules are not loaded\n");
-		}
-		return 1;
-	}
-
 	if (arguments->list) {
 		printf("Available entropy sources:\n");
 		for (i=0; i < ENT_MAX; i++) 
@@ -397,6 +387,15 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	if (!ent_sources) {
+		if (!arguments->quiet) {
+			message(LOG_DAEMON|LOG_ERR,
+				"can't open any entropy source");
+			message(LOG_DAEMON|LOG_ERR,
+				"Maybe RNG device modules are not loaded\n");
+		}
+		return 1;
+	}
 	/* Init entropy sink and open random device */
 	init_kernel_rng(arguments->random_name);
 
