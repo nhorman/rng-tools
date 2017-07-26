@@ -293,9 +293,6 @@ static void do_loop(int random_step)
 			if (!server_running)
 				return;
 
-			if (!iter->operational)
-				continue;
-
 		retry_same:
 			if (iter->disabled)
 				continue;	/* failed, no work */
@@ -361,12 +358,11 @@ int main(int argc, char **argv)
 
 	/* Init entropy sources */
 	for (i=0; i < ENT_MAX; i++) {
-		entropy_sources[i].operational = 0;
 		if ((entropy_sources[i].init) &&
 		     !entropy_sources[i].init(&entropy_sources[i])) {
 			ent_sources++;
-			entropy_sources[i].operational = 1;
-		}
+		} else
+			entropy_sources[i].disabled = true;
 	}
 
 	if (!ent_sources) {
@@ -382,7 +378,7 @@ int main(int argc, char **argv)
 	if (arguments->list) {
 		printf("Available entropy sources:\n");
 		for (i=0; i < ENT_MAX; i++) 
-			if (entropy_sources[i].init && entropy_sources[i].operational)
+			if (entropy_sources[i].init && entropy_sources[i].disabled == false)
 				printf("%d: %s\n", i, entropy_sources[i].rng_name);
 			
 		return 1;

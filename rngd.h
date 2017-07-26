@@ -67,7 +67,6 @@ struct rng {
 
 	int (*xread) (void *buf, size_t size, struct rng *ent_src);
 	int (*init) (struct rng *ent_src);
-	int operational;
 	fips_ctx_t *fipsctx;
 
 	struct rng *next;
