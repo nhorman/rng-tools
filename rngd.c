@@ -108,12 +108,6 @@ static struct argp_option options[] = {
 
 	{ "version" ,'v', 0, 0, "List rngd version" },
 
-	{ "no-drng", 'd', "1|0", 0,
-	  "Do not use drng as a source of random number input (default: 0)" },
-	
-	{ "no-tpm", 'n', "1|0", 0,
-	  "Do not use tpm as a source of random number input (default: 0)" },
-
 	{ "entropy-count", 'e', "n", 0, "Number of entropy bits to support (default: 8), 1 <= n <= 8" },
 
 	{ 0 },
@@ -148,6 +142,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.xread          = xread,
 		.init           = init_entropy_source,
 	},
+	/* must be at index 1 */
 	{
 		.rng_name	= "TPM RNG Device",
 		.rng_fname      = "/dev/tpm0",
@@ -162,7 +157,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.xread          = xread_drng,
 		.init           = init_drng_entropy_source,
 #else
-		.init		= NULL,
+		.disabled	= true,
 #endif
 	},
 	{
@@ -172,7 +167,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.xread          = xread_darn,
 		.init           = init_darn_entropy_source,
 #else
-		.init		= NULL,
+		.disabled	= true,
 #endif
 	},
 };
@@ -233,22 +228,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	case 'v':
 		printf("%s\n", argp_program_version);
 		return -EAGAIN;
-	case 'd': {
-		int n;
-		if ((sscanf(arg,"%i", &n) == 0) || ((n | 1)!=1))
-			argp_usage(state);
-		else
-			entropy_sources[ENT_RDRAND].init = NULL;
-		break;
-	}
-	case 'n': {
-		int n;
-		if ((sscanf(arg,"%i", &n) == 0) || ((n | 1)!=1))
-			argp_usage(state);
-		else
-			entropy_sources[ENT_TPM].init = NULL;
-		break;
-	}
 	case 'e': {
 		int e;
 		if ((sscanf(arg,"%i", &e) == 0) || (e < 0) || (e > 8))
@@ -370,14 +349,14 @@ int main(int argc, char **argv)
 
 	/* Init entropy sources */
 	for (i=0; i < ENT_MAX; i++) {
-		if ((entropy_sources[i].init) &&
-		    (entropy_sources[i].disabled == false) &&
-		     !entropy_sources[i].init(&entropy_sources[i])) {
-			ent_sources++;
-		} else {
-			message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %d: %s\n",
-				i, entropy_sources[i].rng_name);
-			entropy_sources[i].disabled = true;
+		if (entropy_sources[i].disabled == false) {
+			if (!entropy_sources[i].init(&entropy_sources[i])) {
+				ent_sources++;
+			} else {
+				message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %d: %s\n",
+					i, entropy_sources[i].rng_name);
+				entropy_sources[i].disabled = true;
+			}
 		}
 	}
 

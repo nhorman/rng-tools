@@ -17,8 +17,6 @@ rngd \- Check and feed random data from hardware device to kernel random device
 [\fB\-r\fR, \fB\-\-rng-device=\fIfile\fR]
 [\fB\-s\fR, \fB\-\-random-step=\fInnn\fR]
 [\fB\-W\fR, \fB\-\-fill-watermark=\fInnn\fR]
-[\fB\-d\fR, \fB\-\-no-drng=\fI1|0\fR]
-[\fB\-n\fR, \fB\-\-no-tpm=\fI1|0\fR]
 [\fB\-q\fR, \fB\-\-quiet\fR]
 [\fB\-?\fR, \fB\-\-help\fR]
 [\fB\-V\fR, \fB\-\-version\fR]
@@ -86,12 +84,6 @@ entropy pool.  Low values will hurt system performance during entropy
 starves.  Do not set \fIfill-watermark\fR above the size of the
 entropy pool (usually 4096 bits).
 .TP
-\fB\-d\fI 1|0\fR, \fB\-\-no-drng=\fI1|0\fR
-Do not use drng as a source of random number input (default:0)
-.TP
-\fB\-n\fI 1|0\fR, \fB\-\-no-tpm=\fI1|0\fR
-Do not use tpm as a source of random number input (default:0)
-.TP
 \fB\-q\fR, \fB\-\-quiet\fR
 Suppress error messages
 .TP
@@ -109,3 +101,4 @@ Jeff Garzik \- jgarzik@pobox.com
 Matt Sottek
 .br
 Brad Hill
+
