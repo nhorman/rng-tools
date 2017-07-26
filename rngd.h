@@ -47,8 +47,8 @@ struct arguments {
 	int fill_watermark;
 
 	bool quiet;
-	bool verbose;
 	bool daemon;
+	bool list;
 	bool ignorefail;
 	bool enable_drng;
 	bool enable_tpm;

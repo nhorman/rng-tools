@@ -9,6 +9,7 @@ rngd \- Check and feed random data from hardware device to kernel random device
 .B rngd
 [\fB\-b\fR, \fB\-\-background\fR]
 [\fB\-f\fR, \fB\-\-foreground\fR]
+[\fB\-l\fR, \fB\-\-list\fR]
 [\fB\-i\fR, \fB\-\-ignorefail\fR]
 [\fB\-o\fR, \fB\-\-random-device=\fIfile\fR]
 [\fB\-p\fR, \fB\-\-pid-file=\fIfile\fR]
@@ -18,7 +19,6 @@ rngd \- Check and feed random data from hardware device to kernel random device
 [\fB\-d\fR, \fB\-\-no-drng=\fI1|0\fR]
 [\fB\-n\fR, \fB\-\-no-tpm=\fI1|0\fR]
 [\fB\-q\fR, \fB\-\-quiet\fR]
-[\fB\-v\fR, \fB\-\-verbose\fR]
 [\fB\-?\fR, \fB\-\-help\fR]
 [\fB\-V\fR, \fB\-\-version\fR]
 .RI
@@ -48,6 +48,9 @@ Become a daemon (default)
 .TP
 \fB\-f\fR, \fB\-\-foreground\fR
 Do not fork and become a daemon
+.TP
+\fB\-l\fR, \fB\-\-list\fR
+List the indexes and names of available entropy sources
 .TP
 \fB\-p\fI file\fR, \fB\-\-pid-file=\fIfile\fR
 File used for recording daemon PID, and multiple exclusion
@@ -87,9 +90,6 @@ Do not use tpm as a source of random number input (default:0)
 .TP
 \fB\-q\fR, \fB\-\-quiet\fR
 Suppress error messages
-.TP
-\fB\-v\fR, \fB\-\-verbose\fR
-Report available entropy sources, and exit
 .TP
 \fB\-?\fR, \fB\-\-help\fR
 Give a short summary of all program options.

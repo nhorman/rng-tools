@@ -68,6 +68,7 @@ bool ignorefail = false; /* true if we ignore MAX_RNG_FAILURES */
 const char *argp_program_version =
 	"rngd " VERSION "\n"
 	"Copyright 2001-2004 Jeff Garzik\n"
+	"Copyright 2017 Neil Horman\n"
 	"Copyright (c) 2001 by Philipp Rumpf\n"
 	"This is free software; see the source for copying conditions.  There is NO "
 	"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.";
@@ -83,6 +84,8 @@ static struct argp_option options[] = {
 	{ "ignorefail", 'i', 0, 0, "Ignore repeated fips failures" },
 
 	{ "background", 'b', 0, 0, "Become a daemon (default)" },
+
+	{ "list", 'l', 0, 0, "List the operational entropy sources on this system and exit" },
 
 	{ "random-device", 'o', "file", 0,
 	  "Kernel device used for random number output (default: /dev/random)" },
@@ -101,7 +104,7 @@ static struct argp_option options[] = {
 
 	{ "quiet", 'q', 0, 0, "Suppress error messages" },
 
-	{ "verbose" ,'v', 0, 0, "Report available entropy sources" },
+	{ "version" ,'v', 0, 0, "List rngd version" },
 
 	{ "no-drng", 'd', "1|0", 0,
 	  "Do not use drng as a source of random number input (default: 0)" },
@@ -119,9 +122,9 @@ static struct arguments default_arguments = {
 	.pid_file	= "/var/run/rngd.pid",
 	.random_step	= 64,
 	.daemon		= true,
+	.list		= false,
 	.ignorefail	= false,
 	.quiet		= false,
-	.verbose	= false,
 	.entropy_count	= 8,
 };
 struct arguments *arguments = &default_arguments;
@@ -183,6 +186,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	case 'o':
 		arguments->random_name = arg;
 		break;
+	case 'l':
+		arguments->list = true;
+		break;
 	case 'p':
 		arguments->pid_file = arg;
 		break;
@@ -214,8 +220,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		arguments->quiet = true;
 		break;
 	case 'v':
-		arguments->verbose = true;
-		break;
+		printf("%s\n", argp_program_version);
+		return -EAGAIN;
 	case 'd': {
 		int n;
 		if ((sscanf(arg,"%i", &n) == 0) || ((n | 1)!=1))
@@ -346,7 +352,8 @@ int main(int argc, char **argv)
 	arguments->fill_watermark = default_watermark();
 
 	/* Parsing of commandline parameters */
-	argp_parse(&argp, argc, argv, 0, 0, arguments);
+	if (argp_parse(&argp, argc, argv, 0, 0, arguments) < 0)
+		return 1;
 
 	/* Init entropy sources */
 	for (i=0; i < ENT_MAX; i++) {
@@ -368,10 +375,10 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (arguments->verbose) {
+	if (arguments->list) {
 		printf("Available entropy sources:\n");
 		for (i=0; i < ENT_MAX; i++) 
-			if (entropy_sources[i].init)
+			if (entropy_sources[i].init && entropy_sources[i].operational)
 				printf("%d: %s\n", i, entropy_sources[i].rng_name);
 			
 		return 1;
