@@ -374,8 +374,11 @@ int main(int argc, char **argv)
 		    (entropy_sources[i].disabled == false) &&
 		     !entropy_sources[i].init(&entropy_sources[i])) {
 			ent_sources++;
-		} else
+		} else {
+			message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %d: %s\n",
+				i, entropy_sources[i].rng_name);
 			entropy_sources[i].disabled = true;
+		}
 	}
 
 	if (arguments->list) {
