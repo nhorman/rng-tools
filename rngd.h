@@ -46,9 +46,10 @@ struct arguments {
 	int random_step;
 	int fill_watermark;
 
+	bool debug;
 	bool quiet;
-	bool verbose;
 	bool daemon;
+	bool list;
 	bool ignorefail;
 	bool enable_drng;
 	bool enable_tpm;
@@ -59,12 +60,14 @@ extern struct arguments *arguments;
 /* structures to store rng information */
 struct rng {
 	char *rng_name;
+	char *rng_fname;
 	int rng_fd;
 	bool disabled;
 	int failures;
 	int success;
 
 	int (*xread) (void *buf, size_t size, struct rng *ent_src);
+	int (*init) (struct rng *ent_src);
 	fips_ctx_t *fipsctx;
 
 	struct rng *next;
@@ -81,12 +84,13 @@ extern bool am_daemon;			/* True if we went daemon */
 	if (am_daemon) { \
 		syslog((priority), fmt, ##args); \
 	} else { \
-		fprintf(stderr, fmt, ##args); \
-		fprintf(stderr, "\n"); \
+		if ((LOG_PRI(priority) != LOG_DEBUG) || (arguments->debug == true)) {\
+			fprintf(stderr, fmt, ##args); \
+			fprintf(stderr, "\n"); \
+		} \
 	} \
 } while (0)
 
-extern void src_list_add(struct rng *ent_src);
 extern int write_pid_file(const char *pid_fn);
 #endif /* RNGD__H */
 

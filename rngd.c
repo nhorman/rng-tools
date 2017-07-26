@@ -68,6 +68,7 @@ bool ignorefail = false; /* true if we ignore MAX_RNG_FAILURES */
 const char *argp_program_version =
 	"rngd " VERSION "\n"
 	"Copyright 2001-2004 Jeff Garzik\n"
+	"Copyright 2017 Neil Horman\n"
 	"Copyright (c) 2001 by Philipp Rumpf\n"
 	"This is free software; see the source for copying conditions.  There is NO "
 	"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.";
@@ -78,11 +79,17 @@ static char doc[] =
 	"Check and feed random data from hardware device to kernel entropy pool.\n";
 
 static struct argp_option options[] = {
+	{ "debug", 'd', 0, 0, "Enable debug output" },
+
 	{ "foreground",	'f', 0, 0, "Do not fork and become a daemon" },
 
 	{ "ignorefail", 'i', 0, 0, "Ignore repeated fips failures" },
 
 	{ "background", 'b', 0, 0, "Become a daemon (default)" },
+
+	{ "exclude", 'x', "n", 0, "Disable the numbered entropy source specified" },
+
+	{ "list", 'l', 0, 0, "List the operational entropy sources on this system and exit" },
 
 	{ "random-device", 'o', "file", 0,
 	  "Kernel device used for random number output (default: /dev/random)" },
@@ -101,13 +108,7 @@ static struct argp_option options[] = {
 
 	{ "quiet", 'q', 0, 0, "Suppress error messages" },
 
-	{ "verbose" ,'v', 0, 0, "Report available entropy sources" },
-
-	{ "no-drng", 'd', "1|0", 0,
-	  "Do not use drng as a source of random number input (default: 0)" },
-	
-	{ "no-tpm", 'n', "1|0", 0,
-	  "Do not use tpm as a source of random number input (default: 0)" },
+	{ "version" ,'v', 0, 0, "List rngd version" },
 
 	{ "entropy-count", 'e', "n", 0, "Number of entropy bits to support (default: 8), 1 <= n <= 8" },
 
@@ -119,59 +120,91 @@ static struct arguments default_arguments = {
 	.pid_file	= "/var/run/rngd.pid",
 	.random_step	= 64,
 	.daemon		= true,
+	.list		= false,
 	.ignorefail	= false,
-	.enable_drng	= true,
-	.enable_tpm	= true,
 	.quiet		= false,
-	.verbose	= false,
 	.entropy_count	= 8,
 };
 struct arguments *arguments = &default_arguments;
 
-static struct rng rng_default = {
-	.rng_name	= "/dev/hwrng",
-	.rng_fd		= -1,
-	.xread		= xread,
-};
+static enum {
+	ENT_HWRNG = 0,
+	ENT_TPM = 1,
+	ENT_RDRAND,
+	ENT_DARN,
+	ENT_MAX
+} entropy_indexes;
 
+static struct rng entropy_sources[ENT_MAX] = {
+	/* Note, the special char dev must be the first entry */
+	{
+		.rng_name	= "Hardware RNG Device",
+		.rng_fname      = "/dev/hwrng",
+		.rng_fd         = -1,
+		.xread          = xread,
+		.init           = init_entropy_source,
+	},
+	/* must be at index 1 */
+	{
+		.rng_name	= "TPM RNG Device",
+		.rng_fname      = "/dev/tpm0",
+		.rng_fd         = -1,
+		.xread          = xread_tpm,
+		.init           = init_tpm_entropy_source,
+	},
+	{
+		.rng_name       = "Intel RDRAND Instruction RNG",
+		.rng_fd         = -1,
 #ifdef HAVE_RDRAND
-static struct rng rng_drng = {
-	.rng_name	= "drng",
-	.rng_fd  	= -1,
-	.xread  	= xread_drng,
-};
+		.xread          = xread_drng,
+		.init           = init_drng_entropy_source,
+#else
+		.disabled	= true,
 #endif
-
+	},
+	{
+		.rng_name       = "Power9 DARN Instruction RNG",
+		.rng_fd         = -1,
 #ifdef HAVE_DARN
-static struct rng rng_darn = {
-	.rng_name	= "darn",
-	.rng_fd		= -1,
-	.xread		= xread_darn,
-};
+		.xread          = xread_darn,
+		.init           = init_darn_entropy_source,
+#else
+		.disabled	= true,
 #endif
-
-static struct rng rng_tpm = {
-	.rng_name	= "/dev/tpm0",
-	.rng_fd		= -1,
-	.xread		= xread_tpm,
+	},
 };
 
-struct rng *rng_list;
 
 /*
  * command line processing
  */
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
+	long int idx;
 	switch(key) {
+	case 'd':
+		arguments->debug = true;
+		break;
 	case 'o':
 		arguments->random_name = arg;
+		break;
+	case 'x':
+		idx = strtol(arg, NULL, 10);
+		if ((idx == LONG_MAX) || (idx > ENT_MAX)) {
+			printf("exclude index is out of range: %d\n", idx);
+			return -ERANGE;
+		}
+		entropy_sources[idx].disabled = true;
+		printf("Disabling %d: %s\n", idx, entropy_sources[idx].rng_name);
+		break;
+	case 'l':
+		arguments->list = true;
 		break;
 	case 'p':
 		arguments->pid_file = arg;
 		break;
 	case 'r':
-		rng_default.rng_name = arg;
+		entropy_sources[ENT_HWRNG].rng_fname = arg;
 		break;
 	case 'f':
 		arguments->daemon = false;
@@ -198,24 +231,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		arguments->quiet = true;
 		break;
 	case 'v':
-		arguments->verbose = true;
-		break;
-	case 'd': {
-		int n;
-		if ((sscanf(arg,"%i", &n) == 0) || ((n | 1)!=1))
-			argp_usage(state);
-		else
-			arguments->enable_drng = false;
-		break;
-	}
-	case 'n': {
-		int n;
-		if ((sscanf(arg,"%i", &n) == 0) || ((n | 1)!=1))
-			argp_usage(state);
-		else
-			arguments->enable_tpm = false;
-		break;
-	}
+		printf("%s\n", argp_program_version);
+		return -EAGAIN;
 	case 'e': {
 		int e;
 		if ((sscanf(arg,"%i", &e) == 0) || (e < 0) || (e > 8))
@@ -257,15 +274,17 @@ static void do_loop(int random_step)
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
 	int retval = 0;
 	int no_work = 0;
+	int i;
 
 	while (no_work < 100) {
 		struct rng *iter;
 		bool work_done;
 
 		work_done = false;
-		for (iter = rng_list; iter; iter = iter->next)
+		for (i=0; i < ENT_MAX; i++)
 		{
 			int rc;
+			iter = &entropy_sources[i];
 
 			if (!server_running)
 				return;
@@ -318,12 +337,29 @@ static void term_signal(int signo)
 	server_running = false;
 }
 
+static int discard_initial_data(struct rng *ent_src)
+{
+	/* Trash 32 bits of what is probably stale (non-random)
+	 * initial state from the RNG.  For Intel's, 8 bits would
+	 * be enough, but since AMD's generates 32 bits at a time...
+	 *
+	 * The kernel drivers should be doing this at device powerup,
+	 * but at least up to 2.4.24, it doesn't. */
+	unsigned char tempbuf[4];
+	ent_src->xread(tempbuf, sizeof(tempbuf), ent_src);
+
+	/* Return 32 bits of bootstrap data */
+	ent_src->xread(tempbuf, sizeof(tempbuf), ent_src);
+
+	return tempbuf[0] | (tempbuf[1] << 8) |
+		(tempbuf[2] << 16) | (tempbuf[3] << 24);
+}
+
 int main(int argc, char **argv)
 {
-	int rc_rng = 1;
-	int rc_drng = 1;
-	int rc_tpm = 1;
-	int pid_fd = -1;
+	int i;
+	int ent_sources = 0;
+	pid_t pid_fd;
 
 	openlog("rngd", 0, LOG_DAEMON);
 
@@ -331,22 +367,34 @@ int main(int argc, char **argv)
 	arguments->fill_watermark = default_watermark();
 
 	/* Parsing of commandline parameters */
-	argp_parse(&argp, argc, argv, 0, 0, arguments);
+	if (argp_parse(&argp, argc, argv, 0, 0, arguments) < 0)
+		return 1;
 
-	/* Init entropy sources, and open TRNG device */
-#ifdef HAVE_RDRAND
-	if (arguments->enable_drng)
-		rc_drng = init_drng_entropy_source(&rng_drng);
-#endif
-#ifdef HAVE_DARN
-	if (arguments->enable_drng)
-		rc_drng = init_darn_entropy_source(&rng_darn);
-#endif
-	rc_rng = init_entropy_source(&rng_default);
-	if (arguments->enable_tpm && rc_rng)
-		rc_tpm = init_tpm_entropy_source(&rng_tpm);
+	/* Init entropy sources */
+	for (i=0; i < ENT_MAX; i++) {
+		if (entropy_sources[i].disabled == false) {
+			if (!entropy_sources[i].init(&entropy_sources[i])) {
+				ent_sources++;
+				entropy_sources[i].fipsctx = malloc(sizeof(fips_ctx_t));
+				fips_init(entropy_sources[i].fipsctx, discard_initial_data(&entropy_sources[i]));
+			} else {
+				message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %d: %s\n",
+					i, entropy_sources[i].rng_name);
+				entropy_sources[i].disabled = true;
+			}
+		}
+	}
 
-	if (rc_rng && rc_drng && rc_tpm) {
+	if (arguments->list) {
+		printf("Available entropy sources:\n");
+		for (i=0; i < ENT_MAX; i++) 
+			if (entropy_sources[i].init && entropy_sources[i].disabled == false)
+				printf("%d: %s\n", i, entropy_sources[i].rng_name);
+			
+		return 1;
+	}
+
+	if (!ent_sources) {
 		if (!arguments->quiet) {
 			message(LOG_DAEMON|LOG_ERR,
 				"can't open any entropy source");
@@ -355,27 +403,6 @@ int main(int argc, char **argv)
 		}
 		return 1;
 	}
-
-	if (arguments->verbose) {
-		printf("Available entropy sources:\n");
-		if (!rc_rng)
-			printf("\tIntel/AMD hardware rng\n");
-		if (!rc_drng)
-			printf("\tDRNG\n");
-		if (!rc_tpm)
-			printf("\tTPM\n");
-		return 1;
-	}
-
-	if (rc_rng
-		&& (rc_drng || !arguments->enable_drng)
-		&& (rc_tpm || !arguments->enable_tpm)) {
-		if (!arguments->quiet)
-			message(LOG_DAEMON|LOG_ERR,
-		"No entropy source available, shutting down\n");
-		return 1;
-	}
-
 	/* Init entropy sink and open random device */
 	init_kernel_rng(arguments->random_name);
 

@@ -65,7 +65,7 @@ int xread(void *buf, size_t size, struct rng *ent_src)
 	}
 
 	if (size) {
-		message(LOG_DAEMON|LOG_ERR, "read error\n");
+		message(LOG_DAEMON|LOG_DEBUG, "read error\n");
 		return -1;
 	}
 	return 0;
@@ -88,9 +88,9 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 	};
 	char *offset;
 
-	ent_src->rng_fd = open(ent_src->rng_name, O_RDWR);
+	ent_src->rng_fd = open(ent_src->rng_fname, O_RDWR);
 	if (ent_src->rng_fd == -1) {
-		message(LOG_ERR|LOG_INFO,"Unable to open file: %s",ent_src->rng_name);
+		message(LOG_DAEMON|LOG_DEBUG,"Unable to open file: %s",ent_src->rng_fname);
 		return -1;
 	}
 
@@ -152,25 +152,6 @@ error_out:
 	return retval;
 }
 
-/* Initialize entropy source */
-static int discard_initial_data(struct rng *ent_src)
-{
-	/* Trash 32 bits of what is probably stale (non-random)
-	 * initial state from the RNG.  For Intel's, 8 bits would
-	 * be enough, but since AMD's generates 32 bits at a time...
-	 *
-	 * The kernel drivers should be doing this at device powerup,
-	 * but at least up to 2.4.24, it doesn't. */
-	unsigned char tempbuf[4];
-	xread(tempbuf, sizeof(tempbuf), ent_src);
-
-	/* Return 32 bits of bootstrap data */
-	xread(tempbuf, sizeof(tempbuf), ent_src);
-
-	return tempbuf[0] | (tempbuf[1] << 8) |
-		(tempbuf[2] << 16) | (tempbuf[3] << 24);
-}
-
 #define RNG_AVAIL "/sys/devices/virtual/misc/hw_random/rng_available"
 
 /*
@@ -181,9 +162,9 @@ int init_entropy_source(struct rng *ent_src)
 	struct sysfs_attribute *rngavail;
 	char buf[16];
 
-	ent_src->rng_fd = open(ent_src->rng_name, O_RDONLY);
+	ent_src->rng_fd = open(ent_src->rng_fname, O_RDONLY);
 	if (ent_src->rng_fd == -1) {
-		message(LOG_ERR|LOG_INFO, "Unable to open file: %s", ent_src->rng_name);
+		message(LOG_DAEMON|LOG_DEBUG, "Unable to open file: %s", ent_src->rng_fname);
 		return 1;
 	}
 
@@ -198,28 +179,26 @@ int init_entropy_source(struct rng *ent_src)
 	 */
 	rngavail = sysfs_open_attribute(RNG_AVAIL);
 	if (!rngavail) {
-		message(LOG_ERR|LOG_INFO, "Unable to open sysfs attribute: %s", RNG_AVAIL);
+		message(LOG_DAEMON|LOG_DEBUG, "Unable to open sysfs attribute: %s", RNG_AVAIL);
 		return 1;
 	}
 
 	if (sysfs_read_attribute(rngavail)) {
-		message(LOG_ERR|LOG_INFO, "Error reading sysfs attribute: %s", RNG_AVAIL);
+		message(LOG_DAEMON|LOG_DEBUG, "Error reading sysfs attribute: %s", RNG_AVAIL);
 		sysfs_close_attribute(rngavail);
 		return 1;
 	}
 
 	if (strncmp(rngavail->value, "\n", 1) == 0) {
-		message(LOG_ERR|LOG_INFO, "hwrng: no available rng");
+		message(LOG_DAEMON|LOG_DEBUG, "hwrng: no available rng");
 		sysfs_close_attribute(rngavail);
 		return 1;
 	}
 	sysfs_close_attribute(rngavail);
 
 source_valid:
-	src_list_add(ent_src);
 	/* Bootstrap FIPS tests */
 	ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
-	fips_init(ent_src->fipsctx, discard_initial_data(ent_src));
 	return 0;
 }
 
@@ -228,15 +207,13 @@ source_valid:
  */
 int init_tpm_entropy_source(struct rng *ent_src)
 {
-	ent_src->rng_fd = open(ent_src->rng_name, O_RDWR);
+	ent_src->rng_fd = open(ent_src->rng_fname, O_RDWR);
 	if (ent_src->rng_fd == -1) {
-		message(LOG_ERR|LOG_INFO,"Unable to open file: %s",ent_src->rng_name);
+		message(LOG_DAEMON|LOG_DEBUG,"Unable to open file: %s",ent_src->rng_fname);
 		return 1;
 	}
-	src_list_add(ent_src);
 	/* Bootstrap FIPS tests */
 	ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
-	fips_init(ent_src->fipsctx, 0);
 	close(ent_src->rng_fd);
 	return 0;
 }

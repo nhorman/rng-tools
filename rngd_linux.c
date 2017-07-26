@@ -48,8 +48,6 @@
 #include "exits.h"
 #include "rngd_linux.h"
 
-extern struct rng *rng_list;
-
 /* Kernel output device */
 static int random_fd;
 
@@ -145,19 +143,4 @@ void random_sleep(void)
 	};
 
 	poll(&pfd, 1, -1);
-}
-
-void src_list_add(struct rng *ent_src)
-{
-	if (rng_list) {
-		struct rng *iter;
-
-		iter = rng_list;
-		while (iter->next) {
-			iter = iter->next;
-		}
-		iter->next = ent_src;
-	} else {
-		rng_list = ent_src;
-	}
 }

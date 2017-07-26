@@ -350,9 +350,5 @@ int init_drng_entropy_source(struct rng *ent_src)
 	if (init_aesni(key) && init_gcrypt(key))
 		return 1;	/* We need one crypto or the other... */
 
-	src_list_add(ent_src);
-	/* Bootstrap FIPS tests */
-	ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
-	fips_init(ent_src->fipsctx, 0);
 	return 0;
 }
