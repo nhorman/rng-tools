@@ -28,18 +28,9 @@
 #error power DARN support requires libgcrypt!
 #endif
 
-#include <unistd.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <syslog.h>
-#include <string.h>
-#include <stddef.h>
 #include <limits.h>
-#include <sysfs/libsysfs.h>
+#include <sys/auxv.h>
 #include <gcrypt.h>
 
 
@@ -58,7 +49,6 @@ static uint64_t get_darn();
 static int refill_rand();
 static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t copied);
 
-#define SYSFS_CPU_MODALIAS "/sys/devices/system/cpu/modalias"
 #define AES_BLOCK 16
 #define CHUNK_SIZE AES_BLOCK * 8
 #define THRESH_BITS 14
@@ -214,41 +204,10 @@ int xread_darn(void *buf, size_t size, struct rng *ent_src)
  */
 int init_darn_entropy_source(struct rng *ent_src)
 {
-	struct sysfs_attribute *cpu;
-	char *ptr;
-	unsigned long flags;
 
-	cpu = sysfs_open_attribute(SYSFS_CPU_MODALIAS);
-	if (!cpu)
-		return 1;
-	if (sysfs_read_attribute(cpu)) {
-		sysfs_close_attribute(cpu);
+	if (!(getauxval(AT_HWCAP2) & PPC_FEATURE2_DARN)) {
 		return 1;
 	}
-
-	/*
-	 * Check the modalias string for power9, as only that power ISA 
-	 * currently supports DARN
-	 */
-	if (!strstr(cpu->value, "power9")) {
-		sysfs_close_attribute(cpu);
-		return 1;
-	}
-
-	/*
-	 * Pull out bit 22 from the cpu feature flags, as
-	 * that marks if the cpu supports DARN
-	 */
-	ptr = strrchr(cpu->value, ',');
-	*ptr = 0;
-	ptr = strrchr(cpu->value, ',');
-	ptr += 3; /*skip leading zeros and comma*/
-	flags = strtoul(ptr, NULL, 16);	
-	if (!(flags & 0x20)) {
-		sysfs_close_attribute(cpu);
-		return 1;
-	}
-	sysfs_close_attribute(cpu);
 
 	if (init_gcrypt())
 		return 1;
