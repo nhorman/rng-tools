@@ -185,7 +185,7 @@ static uint64_t get_darn()
 	 * programming guide
 	 */
 	for (i=0; i < 10; i++){
-		asm("darn %0, 1" : "=r" (darn_val) );
+		asm volatile("darn %0, 1" : "=r" (darn_val) );
 		if (darn_val != ULONG_MAX)
 			break;
 	}
