@@ -191,11 +191,11 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	case 'x':
 		idx = strtol(arg, NULL, 10);
 		if ((idx == LONG_MAX) || (idx > ENT_MAX)) {
-			printf("exclude index is out of range: %d\n", idx);
+			printf("exclude index is out of range: %lu\n", idx);
 			return -ERANGE;
 		}
 		entropy_sources[idx].disabled = true;
-		printf("Disabling %d: %s\n", idx, entropy_sources[idx].rng_name);
+		printf("Disabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
 		break;
 	case 'l':
 		arguments->list = true;
