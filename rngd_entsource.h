@@ -36,7 +36,13 @@ extern fips_ctx_t tpm_fipsctx;	/* Context for the tpm FIPS tests */
  * sourcedev is the path to the entropy source
  */
 extern int init_entropy_source(struct rng *);
+#ifdef HAVE_RDRAND
 extern int init_drng_entropy_source(struct rng *);
+#endif
+#ifdef HAVE_DARN
+extern int init_darn_entropy_source(struct rng *);
+#endif
+
 extern int init_tpm_entropy_source(struct rng *);
 
 /* Read data from the entropy source */
