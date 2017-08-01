@@ -51,6 +51,7 @@
 #include "fips.h"
 #include "exits.h"
 #include "rngd_entsource.h"
+#include "rngd_darn.h"
 #include "rngd_linux.h"
 
 /*
