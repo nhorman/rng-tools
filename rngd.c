@@ -133,6 +133,7 @@ static enum {
 	ENT_TPM = 1,
 	ENT_RDRAND,
 	ENT_DARN,
+	ENT_NISTBEACON,
 	ENT_MAX
 } entropy_indexes;
 
@@ -172,6 +173,15 @@ static struct rng entropy_sources[ENT_MAX] = {
 #else
 		.disabled	= true,
 #endif
+	},
+	{
+		.rng_name	= "NIST Network Entropy Beacon",
+		.rng_fd		= -1,
+#ifdef HAVE_NISTBEACON
+		.xread		= xread_nist,
+		.init		= init_nist_entropy_source,
+#endif
+		.disabled	= true,
 	},
 };
 
@@ -373,7 +383,7 @@ int main(int argc, char **argv)
 
 	/* Init entropy sources */
 	for (i=0; i < ENT_MAX; i++) {
-		if (entropy_sources[i].disabled == false) {
+		if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
 			if (!entropy_sources[i].init(&entropy_sources[i])) {
 				ent_sources++;
 				entropy_sources[i].fipsctx = malloc(sizeof(fips_ctx_t));
