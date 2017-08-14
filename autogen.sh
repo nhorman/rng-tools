@@ -7,5 +7,6 @@ set -e
 
 aclocal
 autoheader
+cp ./README.md ./README
 automake --gnu --add-missing --copy
 autoconf
