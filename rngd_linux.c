@@ -116,19 +116,20 @@ void init_kernel_rng(const char* randomdev)
 	}
 }
 
+struct entropy {
+	int ent_count;
+	int size;
+};
+
 void random_add_entropy(void *buf, size_t size)
 {
-	struct {
-		int ent_count;
-		int size;
-		unsigned char data[size];
-	} entropy;
+	struct entropy *ent = alloca(sizeof(struct entropy) + size);
 
-	entropy.ent_count = size * arguments->entropy_count;
-	entropy.size = size;
-	memcpy(entropy.data, buf, size);
+	ent->ent_count = size * arguments->entropy_count;
+	ent->size = size;
+	memcpy(ent + 1, buf, size);
 
-	if (ioctl(random_fd, RNDADDENTROPY, &entropy) != 0) {
+	if (ioctl(random_fd, RNDADDENTROPY, ent) != 0) {
 		message(LOG_DAEMON|LOG_ERR, "RNDADDENTROPY failed: %s\n",
 			strerror(errno));
 		exit(1);
