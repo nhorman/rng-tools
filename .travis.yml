@@ -5,5 +5,10 @@ compiler:
   - clang
   - gcc
 
+addons:
+  apt:
+    packages:
+      libsysfs-dev
+
 script: ./autogen.sh && ./configure && make
 
