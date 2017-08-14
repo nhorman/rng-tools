@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/nhorman/rng-tools.svg?branch=master)](https://travis-ci.org/nhorman/rng-tools)
 
 This is a random number generator daemon.
 
