@@ -162,7 +162,7 @@ int init_entropy_source(struct rng *ent_src)
 	struct sysfs_attribute *rngavail;
 	char buf[16];
 
-	ent_src->rng_fd = open(ent_src->rng_fname, O_RDONLY);
+	ent_src->rng_fd = open(ent_src->rng_fname, O_RDONLY | O_NOCTTY);
 	if (ent_src->rng_fd == -1) {
 		message(LOG_DAEMON|LOG_DEBUG, "Unable to open file: %s", ent_src->rng_fname);
 		return 1;
