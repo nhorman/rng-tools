@@ -42,9 +42,8 @@ AC_PROG_RANLIB
 AC_PROG_GCC_TRADITIONAL
 AC_CANONICAL_HOST
 
-echo $host_cpu
-AM_CONDITIONAL([RDRAND], [test $host_cpu = x86_64])
-AS_IF([test $host_cpu = x86_64], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
+AM_CONDITIONAL([RDRAND], [test $host_cpu = x86_64 -o $host_cpu = i686])
+AS_IF([test $host_cpu = x86_64 -o $host_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
 
 AM_CONDITIONAL([DARN], [test $host_cpu = powerpc64le])
 AS_IF([test $host_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
