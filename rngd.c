@@ -46,6 +46,7 @@
 #include <argp.h>
 #include <syslog.h>
 #include <signal.h>
+#include <limits.h>
 
 #include "rngd.h"
 #include "fips.h"
