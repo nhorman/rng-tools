@@ -90,6 +90,8 @@ static struct argp_option options[] = {
 
 	{ "exclude", 'x', "n", 0, "Disable the numbered entropy source specified" },
 
+	{ "include", 'n', "n", 0, "Enable the numbered entropy source specified" },
+
 	{ "list", 'l', 0, 0, "List the operational entropy sources on this system and exit" },
 
 	{ "random-device", 'o', "file", 0,
@@ -207,6 +209,15 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		}
 		entropy_sources[idx].disabled = true;
 		printf("Disabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
+		break;
+	case 'n':
+		idx = strtol(arg, NULL, 10);
+		if ((idx == LONG_MAX) || (idx > ENT_MAX)) {
+			printf("enable index is out of range: %lu\n", idx);
+			return -ERANGE;
+		}
+		entropy_sources[idx].disabled = false;
+		printf("Enabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
 		break;
 	case 'l':
 		arguments->list = true;
