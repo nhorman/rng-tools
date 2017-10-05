@@ -392,7 +392,21 @@ int main(int argc, char **argv)
 	if (argp_parse(&argp, argc, argv, 0, 0, arguments) < 0)
 		return 1;
 
+	if (arguments->list) {
+		int found = 0;
+		printf("Entropy sources that are available but disabled\n");
+		for (i=0; i < ENT_MAX; i++) 
+			if (entropy_sources[i].init && entropy_sources[i].disabled == true) {
+				found = 1;
+				printf("%d: %s\n", i, entropy_sources[i].rng_name);
+			}
+		if (!found)
+			printf("None");
+		printf("\nInitalizing available sources\n");
+	}
+
 	/* Init entropy sources */
+	
 	for (i=0; i < ENT_MAX; i++) {
 		if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
 			if (!entropy_sources[i].init(&entropy_sources[i])) {
@@ -412,7 +426,6 @@ int main(int argc, char **argv)
 		for (i=0; i < ENT_MAX; i++) 
 			if (entropy_sources[i].init && entropy_sources[i].disabled == false)
 				printf("%d: %s\n", i, entropy_sources[i].rng_name);
-			
 		return 1;
 	}
 
