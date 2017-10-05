@@ -66,6 +66,17 @@
 #define NIST_BUF_SIZE 512
 #define NIST_CERT "/home/nhorman/Downloads/beacon.cer"
 
+static char nist_pubkey[] =
+"-----BEGIN PUBLIC KEY-----\n"
+"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryY9m2YHOui12tk93ntM\n"
+"ZAL2uvlXr7jTaxx5WJ1PM6SJllJ3IopuwUQGLxUEDNinFWE2xlF5sayoR+CRZGDG\n"
+"6Hjtw2fBRcsQKiIpaws6CdusRaRMM7Wjajm3vk96gD7Mwcqo+uxuq9186UeNPLeA\n"
+"xMmFlcQcSD4pJgKrZKgHtOk0/t2kz9cgJ343aN0LuV7w91LvfXwdeCtcHM4nyt3g\n"
+"V+UyxAe6wPoOSsM6Px/YLHWqAqXMfSgEQrd920LyNb+VgNcPyqhLySDyfcUNtr1B\n"
+"S09nTcw1CaE6sTmtSNLiJCuWzhlzsjcFh5uMoElAaFzN1ilWCRk/02/B/SWYPGxW\n"
+"IQIDAQAB\n"
+"-----END PUBLIC KEY-----";
+
 static int get_nist_record();
 
 int read_nist_pubkey();
@@ -418,7 +429,8 @@ int read_nist_pubkey()
 	RSA *rsa = RSA_new();
 
 	pkey = EVP_PKEY_new();
-	bfp = BIO_new_file("/home/nhorman/Downloads/beacon.pem", "r");
+	bfp = BIO_new_mem_buf(nist_pubkey, -1);
+
 
 	rsa = PEM_read_bio_RSA_PUBKEY(bfp, &rsa, NULL,  NULL);
 
