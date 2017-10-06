@@ -60,7 +60,7 @@
 
 /* Background/daemon mode */
 bool am_daemon;				/* True if we went daemon */
-
+bool msg_squash = false;		/* True if we want no messages on the console */
 bool server_running = true;		/* set to false, to stop daemon */
 
 bool ignorefail = false; /* true if we ignore MAX_RNG_FAILURES */
@@ -403,6 +403,7 @@ int main(int argc, char **argv)
 		if (!found)
 			printf("None");
 		printf("\nInitalizing available sources\n");
+		msg_squash = true;
 	}
 
 	/* Init entropy sources */
@@ -422,6 +423,7 @@ int main(int argc, char **argv)
 	}
 
 	if (arguments->list) {
+		msg_squash = false;
 		printf("Available entropy sources:\n");
 		for (i=0; i < ENT_MAX; i++) 
 			if (entropy_sources[i].init && entropy_sources[i].disabled == false)
