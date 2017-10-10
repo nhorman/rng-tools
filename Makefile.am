@@ -24,8 +24,7 @@ if DARN
 rngd_SOURCES	+= rngd_darn.c
 endif
 
-rngd_LDADD	= librngd.a
-rngd_LDFLAGS	= -lsysfs ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS}
+rngd_LDADD	= librngd.a -lsysfs ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS}
 
 rngd_CFLAGS	= ${libxml2_CFLAGS} ${openssl_CFLAGS}
 
