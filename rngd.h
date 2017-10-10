@@ -76,6 +76,7 @@ struct rng {
 /* Background/daemon mode */
 extern bool am_daemon;			/* True if we went daemon */
 
+extern bool msg_squash;
 
 /*
  * Routines and macros
@@ -83,7 +84,7 @@ extern bool am_daemon;			/* True if we went daemon */
 #define message(priority,fmt,args...) do { \
 	if (am_daemon) { \
 		syslog((priority), fmt, ##args); \
-	} else { \
+	} else if (!msg_squash) { \
 		if ((LOG_PRI(priority) != LOG_DEBUG) || (arguments->debug == true)) {\
 			fprintf(stderr, fmt, ##args); \
 			fprintf(stderr, "\n"); \

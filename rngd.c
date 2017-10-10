@@ -60,7 +60,7 @@
 
 /* Background/daemon mode */
 bool am_daemon;				/* True if we went daemon */
-
+bool msg_squash = false;		/* True if we want no messages on the console */
 bool server_running = true;		/* set to false, to stop daemon */
 
 bool ignorefail = false; /* true if we ignore MAX_RNG_FAILURES */
@@ -89,6 +89,8 @@ static struct argp_option options[] = {
 	{ "background", 'b', 0, 0, "Become a daemon (default)" },
 
 	{ "exclude", 'x', "n", 0, "Disable the numbered entropy source specified" },
+
+	{ "include", 'n', "n", 0, "Enable the numbered entropy source specified" },
 
 	{ "list", 'l', 0, 0, "List the operational entropy sources on this system and exit" },
 
@@ -133,6 +135,7 @@ static enum {
 	ENT_TPM = 1,
 	ENT_RDRAND,
 	ENT_DARN,
+	ENT_NISTBEACON,
 	ENT_MAX
 } entropy_indexes;
 
@@ -173,6 +176,15 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.disabled	= true,
 #endif
 	},
+	{
+		.rng_name	= "NIST Network Entropy Beacon",
+		.rng_fd		= -1,
+#ifdef HAVE_NISTBEACON
+		.xread		= xread_nist,
+		.init		= init_nist_entropy_source,
+#endif
+		.disabled	= true,
+	},
 };
 
 
@@ -197,6 +209,15 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		}
 		entropy_sources[idx].disabled = true;
 		printf("Disabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
+		break;
+	case 'n':
+		idx = strtol(arg, NULL, 10);
+		if ((idx == LONG_MAX) || (idx > ENT_MAX)) {
+			printf("enable index is out of range: %lu\n", idx);
+			return -ERANGE;
+		}
+		entropy_sources[idx].disabled = false;
+		printf("Enabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
 		break;
 	case 'l':
 		arguments->list = true;
@@ -371,9 +392,24 @@ int main(int argc, char **argv)
 	if (argp_parse(&argp, argc, argv, 0, 0, arguments) < 0)
 		return 1;
 
+	if (arguments->list) {
+		int found = 0;
+		printf("Entropy sources that are available but disabled\n");
+		for (i=0; i < ENT_MAX; i++) 
+			if (entropy_sources[i].init && entropy_sources[i].disabled == true) {
+				found = 1;
+				printf("%d: %s\n", i, entropy_sources[i].rng_name);
+			}
+		if (!found)
+			printf("None");
+		printf("\nInitalizing available sources\n");
+		msg_squash = true;
+	}
+
 	/* Init entropy sources */
+	
 	for (i=0; i < ENT_MAX; i++) {
-		if (entropy_sources[i].disabled == false) {
+		if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
 			if (!entropy_sources[i].init(&entropy_sources[i])) {
 				ent_sources++;
 				entropy_sources[i].fipsctx = malloc(sizeof(fips_ctx_t));
@@ -387,11 +423,11 @@ int main(int argc, char **argv)
 	}
 
 	if (arguments->list) {
+		msg_squash = false;
 		printf("Available entropy sources:\n");
 		for (i=0; i < ENT_MAX; i++) 
 			if (entropy_sources[i].init && entropy_sources[i].disabled == false)
 				printf("%d: %s\n", i, entropy_sources[i].rng_name);
-			
 		return 1;
 	}
 

@@ -31,6 +31,12 @@ AC_ARG_WITH([libgcrypt],
 	[],
 	[with_libgcrypt=check]
 )
+AC_ARG_WITH([nistbeacon],
+	AS_HELP_STRING([--without-nistbeacon],
+		[Disable nistbeacon support. ]),
+	[],
+	[with_nistbeacon=check]
+)
 
 dnl Make sure anyone changing configure.ac/Makefile.am has a clue
 AM_MAINTAINER_MODE
@@ -47,6 +53,18 @@ AS_IF([test $host_cpu = x86_64 -o $host_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,
 
 AM_CONDITIONAL([DARN], [test $host_cpu = powerpc64le])
 AS_IF([test $host_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
+
+AS_IF(
+	[ test "x$with_nistbeacon" != "xno"],
+	[
+		PKG_CHECK_MODULES([libcurl], [libcurl], [], [AC_MSG_ERROR([libcurl is required])])
+		PKG_CHECK_MODULES([libxml2], [libxml-2.0], [], [AC_MSG_ERROR([libxml2 is required])])
+		PKG_CHECK_MODULES([openssl], [openssl], [], [AC_MSG_ERROR([openssl is required])])
+		AC_DEFINE([HAVE_NISTBEACON],1,[Enable NISTBEACON])
+	]
+)
+
+AM_CONDITIONAL([NISTBEACON], [test "x$with_nistbeacon" != "xno"])
 
 dnl Checks for header files.
 dnl AC_HEADER_STDC
