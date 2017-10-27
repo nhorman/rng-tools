@@ -53,7 +53,9 @@ Do not fork and become a daemon
 Enable debug messages
 .TP
 \fB\-l\fR, \fB\-\-list\fR
-List the indexes and names of available entropy sources
+List the indexes and names of available entropy sources. Exit code when listing
+sources is 0 if at least 1 entropy source was found and initialized, 1
+otherwise.
 .TP
 \fB\-x\fR, \fB\-\-exclude\fR
 Disable entropy sources based on index reported from --list option
@@ -107,4 +109,5 @@ Jeff Garzik \- jgarzik@pobox.com
 Matt Sottek
 .br
 Brad Hill
-
+.br
+Neil Horman - nhorman@tuxdriver.com

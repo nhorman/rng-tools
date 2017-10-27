@@ -423,12 +423,15 @@ int main(int argc, char **argv)
 	}
 
 	if (arguments->list) {
+		int rc = 1;
 		msg_squash = false;
 		printf("Available entropy sources:\n");
 		for (i=0; i < ENT_MAX; i++) 
-			if (entropy_sources[i].init && entropy_sources[i].disabled == false)
+			if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
+				rc = 1;
 				printf("%d: %s\n", i, entropy_sources[i].rng_name);
-		return 1;
+			}
+		return rc;
 	}
 
 	if (!ent_sources) {
