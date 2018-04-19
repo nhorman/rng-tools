@@ -97,8 +97,8 @@ BIO *bfp;
 
 struct nist_data_block {
 	char *version;
-	int frequency;
-	long timestamp;
+	uint32_t frequency;
+	uint64_t timestamp;
 	char *seedvalue;
 	size_t seedvaluelen;
 	char *previoushash;
@@ -355,8 +355,8 @@ static int validate_nist_block()
 
 
 	EVP_VerifyUpdate(mdctx, block.version, strlen(block.version));
-	EVP_VerifyUpdate(mdctx, &block.frequency, sizeof(int));
-	EVP_VerifyUpdate(mdctx, &block.timestamp, sizeof(long));
+	EVP_VerifyUpdate(mdctx, &block.frequency, sizeof(uint32_t));
+	EVP_VerifyUpdate(mdctx, &block.timestamp, sizeof(uint64_t));
 	EVP_VerifyUpdate(mdctx, block.seedvalue, block.seedvaluelen);
 	EVP_VerifyUpdate(mdctx, block.previoushash, block.previoushashlen);
 	EVP_VerifyUpdate(mdctx, &block.errorcode, block.errorcodelen);
