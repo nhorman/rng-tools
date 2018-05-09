@@ -285,6 +285,8 @@ static int update_kernel_random(int random_step,
 
 	for (p = buf; p + random_step <= &buf[FIPS_RNG_BUFFER_SIZE];
 		 p += random_step) {
+		if (!server_running)
+			return 0;
 		random_add_entropy(p, random_step);
 		random_sleep();
 	}
@@ -308,10 +310,10 @@ static void do_loop(int random_step)
 			int rc;
 			iter = &entropy_sources[i];
 
+		retry_same:
 			if (!server_running)
 				return;
 
-		retry_same:
 			if (iter->disabled)
 				continue;	/* failed, no work */
 
