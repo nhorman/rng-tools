@@ -2,7 +2,7 @@
 ## Toplevel Makefile.am for rng-tools
 ##
 
-SUBDIRS		= contrib
+SUBDIRS		= contrib tests
 
 sbin_PROGRAMS	 = rngd
 bin_PROGRAMS	 = rngtest
