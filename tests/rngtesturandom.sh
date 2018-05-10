@@ -6,6 +6,7 @@
 cat /dev/urandom | rngtest -c 100 --pipe >/dev/null
 if [ $? -ne 0 ]
 then
+	cat tests/test-suite.log
 	exit 1
 fi
 
