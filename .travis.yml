@@ -16,3 +16,5 @@ addons:
 
 script: ./autogen.sh && ./configure && make && make check
 
+after_script: 
+        - pwd && cat tests/rngtesturandom.sh.log && cat tests/rngtestzero.sh.log
