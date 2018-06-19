@@ -390,9 +390,20 @@ static int get_nist_record()
 	CURL *curl;
 	CURLcode res;
 	int rc = 1;
+	struct timeval ct;
 	time_t rec = time(NULL);
 
+	if (block.frequency != 0) {
+		if (gettimeofday(&ct, NULL)) {
+			message(LOG_DAEMON|LOG_ERR, "Gettimeofday failed\n");
+			goto out;
+		}
 
+		if (block.timestamp + block.frequency >= ct.tv_sec) {
+			message(LOG_DAEMON|LOG_ERR, "Multiple nist reads in same frequency period\n");
+			goto out;
+		}
+	}
 
 	curl = curl_easy_init();
 
@@ -455,7 +466,7 @@ int init_nist_entropy_source(struct rng *ent_src)
 	int rc;
 	memset(&block, 0, sizeof (struct nist_data_block));
 
-	rc = get_nist_record();
+	rc = refill_rand();
 	if (!rc) {
 		message(LOG_DAEMON|LOG_WARNING, "WARNING: NIST Randomness beacon "
 						"is sent in clear text over the internet.  "
