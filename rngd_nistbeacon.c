@@ -184,6 +184,14 @@ static void dup_val(char **v, size_t *len, xmlTextReaderPtr reader)
 	}
 }
 
+/*
+ * The seed, previous and current hash values are ascii representations
+ * of large ( > 8 byte) values.  Because of that, each byte in the ascii
+ * representation only represent 4 bits of the actual value.  So to really work
+ * with it we have to drop the most significant 4 bits of each byte, and
+ * compress adjacent half words to form a proper real byte of the value.  Note
+ * length of the value is the length of the string, not the real hash
+ */
 static void dup_val_compress(char **v, size_t *len, xmlTextReaderPtr reader)
 {
 	int i,j;
@@ -191,20 +199,43 @@ static void dup_val_compress(char **v, size_t *len, xmlTextReaderPtr reader)
 	dup_val(v, len, reader);
 
         if (*len > 1) {
+		/* for each byte in value ... */
 		for(i=0;i<*len;i++){
+			/*
+			 * the output index is half the input index,
+			 * with trucation intended
+			 */
 			j=i/2;
+			/* odd bytes in input represent the upper 4 bits 
+			 * of the output bytes */
 			if (!(i & 0x1)) {
+				/*
+				 * odd bytes in input represent the upper
+				 * 4 bits of the output word
+				 */
 				(*v)[j] = (*v)[i] << 4;
 			} else {
+				/* 
+				 * even bytes are the lower 4 bits
+				 */
 				(*v)[j] |= (*v)[i];
 			}
 		}
 
+		/*
+		 * the output len is half the input len
+		 */
 		*len /= 2;
 	}
 
 }
 
+/*
+ * Because Microsoft forgot to make the output
+ * signature arrive in network byte order, some values
+ * always have to be byte reversed so openssl can digest 
+ * them
+ */
 char *reverse(char **srcp, size_t len)
 {
 	int i,j;
