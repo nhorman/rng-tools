@@ -404,9 +404,9 @@ int main(int argc, char **argv)
 			}
 		if (!found)
 			printf("None");
-		printf("\nInitalizing available sources\n");
 		msg_squash = true;
-	}
+	} else
+		printf("\nInitalizing available sources\n");
 
 	/* Init entropy sources */
 	
@@ -428,7 +428,7 @@ int main(int argc, char **argv)
 	if (arguments->list) {
 		int rc = 1;
 		msg_squash = false;
-		printf("Available entropy sources:\n");
+		printf("Available and enabled entropy sources:\n");
 		for (i=0; i < ENT_MAX; i++) 
 			if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
 				rc = 1;
