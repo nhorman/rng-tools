@@ -29,6 +29,10 @@ if DARN
 rngd_SOURCES	+= rngd_darn.c
 endif
 
+if JITTER
+rngd_SOURCES	+= rngd_jitter.c
+endif
+
 rngd_LDADD	= librngd.a -lsysfs $(JSUBLIB) ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS}
 
 rngd_CFLAGS	= ${libxml2_CFLAGS} ${openssl_CFLAGS}

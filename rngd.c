@@ -136,6 +136,7 @@ static enum {
 	ENT_RDRAND,
 	ENT_DARN,
 	ENT_NISTBEACON,
+	ENT_JITTER,
 	ENT_MAX
 } entropy_indexes;
 
@@ -184,6 +185,17 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.init		= init_nist_entropy_source,
 #endif
 		.disabled	= true,
+	},
+	{
+		.rng_name	= "JITTER Entropy generator",
+		.rng_fd		= -1,
+#ifdef HAVE_JITTER
+		.xread		= xread_jitter,
+		.init		= init_jitter_entropy_source,
+		.close		= close_jitter_entropy_source,
+#else
+		.disabled	= true,
+#endif
 	},
 };
 
@@ -473,6 +485,10 @@ int main(int argc, char **argv)
 		ignorefail = true;
 
 	do_loop(arguments->random_step);
+
+	for (i=0; i < ENT_MAX; i++)
+		if (entropy_sources[i].close && entropy_sources[i].disabled == false) 
+			entropy_sources[i].close(&entropy_sources[i]);
 
 	if (pid_fd >= 0)
 		unlink(arguments->pid_file);
