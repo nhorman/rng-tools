@@ -1,8 +1,13 @@
 ##
 ## Toplevel Makefile.am for rng-tools
 ##
+if JITTER
+ JSUBDIR = jitterentropy-library
+ JSUBLIB = ./jitterentropy-library/libjitterentropy.a
+ AM_CPPFLAGS = -I./jitterentropy-library
+endif
 
-SUBDIRS		= contrib tests
+SUBDIRS		= contrib tests $(JSUBDIR) 
 
 sbin_PROGRAMS	 = rngd
 bin_PROGRAMS	 = rngtest
@@ -24,7 +29,7 @@ if DARN
 rngd_SOURCES	+= rngd_darn.c
 endif
 
-rngd_LDADD	= librngd.a -lsysfs ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS}
+rngd_LDADD	= librngd.a -lsysfs $(JSUBLIB) ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS}
 
 rngd_CFLAGS	= ${libxml2_CFLAGS} ${openssl_CFLAGS}
 
