@@ -310,18 +310,18 @@ static void do_loop(int random_step)
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
 	int retval = 0;
 	int no_work = 0;
-	int i;
+	static int i = 0;
 
 	while (no_work < 100) {
 		struct rng *iter;
 		bool work_done;
 
 		work_done = false;
-		for (i=0; i < ENT_MAX; i++)
+		for (;i=(++i % ENT_MAX);)
 		{
 			int rc;
+			printf("I is %d\n", i);
 			iter = &entropy_sources[i];
-
 		retry_same:
 			if (!server_running)
 				return;
