@@ -136,6 +136,7 @@ static enum {
 	ENT_RDRAND,
 	ENT_DARN,
 	ENT_NISTBEACON,
+	ENT_JENT,
 	ENT_MAX
 } entropy_indexes;
 
@@ -184,6 +185,16 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.init		= init_nist_entropy_source,
 #endif
 		.disabled	= true,
+	},
+	{
+		.rng_name	= "CPU Jitter RNG",
+		.rng_fd		= -1,
+#ifdef HAVE_JENT
+		.xread		= xread_jent,
+		.init		= init_jent_entropy_source,
+#else
+		.disabled	= true,
+#endif
 	},
 };
 

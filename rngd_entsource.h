@@ -45,6 +45,9 @@ extern int init_darn_entropy_source(struct rng *);
 #ifdef HAVE_NISTBEACON
 extern int init_nist_entropy_source(struct rng *);
 #endif
+#ifdef HAVE_JENT
+extern int init_jent_entropy_source(struct rng *);
+#endif
 
 
 extern int init_tpm_entropy_source(struct rng *);
@@ -62,5 +65,9 @@ extern int xread_darn(void *buf, size_t size, struct rng *ent_src);
 extern int xread_nist(void *buf, size_t size, struct rng *ent_src);
 
 extern int xread_tpm(void *buf, size_t size, struct rng *ent_src);
+
+#ifdef HAVE_JENT
+extern int xread_jent(void *buf, size_t size, struct rng *ent_src);
+#endif
 
 #endif /* RNGD_ENTSOURCE__H */

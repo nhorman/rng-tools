@@ -37,6 +37,12 @@ AC_ARG_WITH([nistbeacon],
 	[],
 	[with_nistbeacon=check]
 )
+AC_ARG_WITH([jent],
+	AS_HELP_STRING([--without-jent],
+		[Disable CPU Jitter RNG support. ]),
+	[],
+	[with_jent=check]
+)
 
 dnl Make sure anyone changing configure.ac/Makefile.am has a clue
 AM_MAINTAINER_MODE
@@ -65,6 +71,24 @@ AS_IF(
 )
 
 AM_CONDITIONAL([NISTBEACON], [test "x$with_nistbeacon" != "xno"])
+
+AS_IF(
+	[ test "x$with_jent" != "xno"],
+	[
+		AC_DEFINE([HAVE_JENT],1,[Enable JENT])
+	]
+)
+
+AM_CONDITIONAL([JENT], [test "x$with_jent" != "xno"])
+libjitterentropy_prefix="."
+AC_ARG_WITH(libjitterentropy-prefix,
+  AC_HELP_STRING([--with-libjitterentropy-prefix=PFX],
+    [prefix where static CPU Jitter RNG library is installed (optional)]),
+    [libjitterentropy_prefix="$withval"])
+if test x"${libjitterentropy_prefix}" != x ; then
+  CPPFLAGS+="-I${libjitterentropy_prefix}"
+  AC_SUBST(libjitterentropy_prefix)
+fi
 
 dnl Checks for header files.
 dnl AC_HEADER_STDC
