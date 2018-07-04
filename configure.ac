@@ -54,8 +54,8 @@ AS_IF([test $host_cpu = x86_64 -o $host_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,
 AM_CONDITIONAL([DARN], [test $host_cpu = powerpc64le])
 AS_IF([test $host_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
 
-AM_CONDITIONAL([JITTER], [test -d jitterentropy-library])
-AS_IF([test -d jitterentropy-library], [AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],[])
+AM_CONDITIONAL([JITTER], [test -f jitterentropy-library/Makefile])
+AS_IF([test -f jitterentropy-library/Makefile], [AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],[AC_MSG_NOTICE([Disabling JITTER entropy source])])
 
 AS_IF(
 	[ test "x$with_nistbeacon" != "xno"],
