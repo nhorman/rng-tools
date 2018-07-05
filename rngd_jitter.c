@@ -36,15 +36,10 @@ struct rand_data *ec = NULL;
 int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 {
 	size_t ret;
-	size_t total = 0;
-	size_t len = size;
-	while (total != size) {
-		ret = jent_read_entropy(ec, buf, len);
-		if (ret < 0)
-			return 1;
-		buf += size;
-		total+=size;
-		len-=ret;
+	ret = jent_read_entropy(ec, buf, size);
+	if (ret < 0) {
+		message(LOG_DAEMON|LOG_DEBUG, "JITTER rng fails with code %d\n", ret);
+		return 1;
 	}
 	return 0;
 }
