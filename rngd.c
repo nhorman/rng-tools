@@ -136,6 +136,7 @@ static enum {
 	ENT_RDRAND,
 	ENT_DARN,
 	ENT_NISTBEACON,
+	ENT_JITTER,
 	ENT_MAX
 } entropy_indexes;
 
@@ -184,6 +185,17 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.init		= init_nist_entropy_source,
 #endif
 		.disabled	= true,
+	},
+	{
+		.rng_name	= "JITTER Entropy generator",
+		.rng_fd		= -1,
+#ifdef HAVE_JITTER
+		.xread		= xread_jitter,
+		.init		= init_jitter_entropy_source,
+		.close		= close_jitter_entropy_source,
+#else
+		.disabled	= true,
+#endif
 	},
 };
 
@@ -298,18 +310,18 @@ static void do_loop(int random_step)
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
 	int retval = 0;
 	int no_work = 0;
-	int i;
+	static int i = 0;
 
 	while (no_work < 100) {
 		struct rng *iter;
 		bool work_done;
 
 		work_done = false;
-		for (i=0; i < ENT_MAX; i++)
+		for (;i=(++i % ENT_MAX);)
 		{
 			int rc;
+			printf("I is %d\n", i);
 			iter = &entropy_sources[i];
-
 		retry_same:
 			if (!server_running)
 				return;
@@ -404,9 +416,9 @@ int main(int argc, char **argv)
 			}
 		if (!found)
 			printf("None");
-		printf("\nInitalizing available sources\n");
 		msg_squash = true;
-	}
+	} else
+		printf("\nInitalizing available sources\n");
 
 	/* Init entropy sources */
 	
@@ -428,7 +440,7 @@ int main(int argc, char **argv)
 	if (arguments->list) {
 		int rc = 1;
 		msg_squash = false;
-		printf("Available entropy sources:\n");
+		printf("Available and enabled entropy sources:\n");
 		for (i=0; i < ENT_MAX; i++) 
 			if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
 				rc = 1;
@@ -473,6 +485,10 @@ int main(int argc, char **argv)
 		ignorefail = true;
 
 	do_loop(arguments->random_step);
+
+	for (i=0; i < ENT_MAX; i++)
+		if (entropy_sources[i].close && entropy_sources[i].disabled == false) 
+			entropy_sources[i].close(&entropy_sources[i]);
 
 	if (pid_fd >= 0)
 		unlink(arguments->pid_file);
