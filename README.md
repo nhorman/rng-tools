@@ -2,17 +2,9 @@
 
 This is a random number generator daemon.
 
-It monitors a hardware random number generator, and supplies entropy
-from that to the system kernel's /dev/random machinery.
+It monitors a set of entropy sources, and supplies entropy
+from them to the system kernel's /dev/random machinery.
 
-It is hoped that future contributions will enable entropy gathering
-from other sources, such as audio hardware or video hardware or CPU
-instruction pointers, to provide entropy even in cases where a true
-hardware RNG is not present.
+Operation is fully documented in the man page, and should be fairly intuitive
 
-Home page:
-	http://sourceforge.net/projects/gkernel/
-
-GIT repository:
-	git://git.kernel.org/pub/scm/utils/kernel/rng-tools/rng-tools.git
 
