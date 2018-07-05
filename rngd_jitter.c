@@ -31,7 +31,7 @@
 #include "exits.h"
 #include "rngd_entsource.h"
 
-struct rand_data *ec = NULL;
+static struct rand_data *ec = NULL;
 
 int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 {
