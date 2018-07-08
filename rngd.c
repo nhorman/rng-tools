@@ -215,7 +215,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 'x':
 		idx = strtol(arg, NULL, 10);
-		if ((idx == LONG_MAX) || (idx > ENT_MAX)) {
+		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
 			printf("exclude index is out of range: %lu\n", idx);
 			return -ERANGE;
 		}
@@ -224,7 +224,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 'n':
 		idx = strtol(arg, NULL, 10);
-		if ((idx == LONG_MAX) || (idx > ENT_MAX)) {
+		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
 			printf("enable index is out of range: %lu\n", idx);
 			return -ERANGE;
 		}
@@ -310,18 +310,23 @@ static void do_loop(int random_step)
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
 	int retval = 0;
 	int no_work = 0;
-	static int i = 0;
+	int i = 0;
 
 	while (no_work < 100) {
 		struct rng *iter;
 		bool work_done;
 
 		work_done = false;
-		for (;i=(++i % ENT_MAX);)
+		for (;;)
 		{
 			int rc;
-			printf("I is %d\n", i);
+			if (i >= ENT_MAX) {
+				i = 0;
+				break;
+			}
+			/*printf("I is %d\n", i);*/
 			iter = &entropy_sources[i];
+			++i;
 		retry_same:
 			if (!server_running)
 				return;
@@ -361,6 +366,8 @@ static void do_loop(int random_step)
 
 		if (!work_done)
 			no_work++;
+		else
+			no_work = 0;
 	}
 
 	if (!arguments->quiet)
