@@ -308,13 +308,12 @@ static int update_kernel_random(int random_step,
 static void do_loop(int random_step)
 {
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
-	int retval = 0;
-	int no_work = 0;
-	int i = 0;
+	int no_work;
+	bool work_done;
 
-	while (no_work < 100) {
+	for (no_work = 0; no_work < 100; no_work = (work_done ? 0 : no_work+1)) {
 		struct rng *iter;
-		bool work_done;
+		int i, retval;
 
 		work_done = false;
 		for (i = 0; i < ENT_MAX; ++i)
@@ -361,11 +360,6 @@ static void do_loop(int random_step)
 				iter->disabled = true;
 			}
 		}
-
-		if (!work_done)
-			no_work++;
-		else
-			no_work = 0;
 	}
 
 	if (!arguments->quiet)
