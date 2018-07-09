@@ -215,7 +215,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 'x':
 		idx = strtol(arg, NULL, 10);
-		if ((idx == LONG_MAX) || (idx > ENT_MAX)) {
+		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
 			printf("exclude index is out of range: %lu\n", idx);
 			return -ERANGE;
 		}
@@ -224,7 +224,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 'n':
 		idx = strtol(arg, NULL, 10);
-		if ((idx == LONG_MAX) || (idx > ENT_MAX)) {
+		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
 			printf("enable index is out of range: %lu\n", idx);
 			return -ERANGE;
 		}
@@ -308,19 +308,18 @@ static int update_kernel_random(int random_step,
 static void do_loop(int random_step)
 {
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
-	int retval = 0;
-	int no_work = 0;
-	static int i = 0;
+	int no_work;
+	bool work_done;
 
-	while (no_work < 100) {
+	for (no_work = 0; no_work < 100; no_work = (work_done ? 0 : no_work+1)) {
 		struct rng *iter;
-		bool work_done;
+		int i, retval;
 
 		work_done = false;
-		for (;i=(++i % ENT_MAX);)
+		for (i = 0; i < ENT_MAX; ++i)
 		{
 			int rc;
-			printf("I is %d\n", i);
+			/*printf("I is %d\n", i);*/
 			iter = &entropy_sources[i];
 		retry_same:
 			if (!server_running)
@@ -344,23 +343,23 @@ static void do_loop(int random_step)
 						iter->failures--;
 					iter->success = 0;
 				}
-				break;	/* succeeded, work done */
+				/* succeeded */
+				continue;
 			}
 
 			iter->failures++;
 			if (iter->failures <= MAX_RNG_FAILURES/4) {
 				/* FIPS tests have false positives */
 				goto retry_same;
-			} else if (iter->failures >= MAX_RNG_FAILURES && !ignorefail) {
+			}
+
+			if (iter->failures >= MAX_RNG_FAILURES && !ignorefail) {
 				if (!arguments->quiet)
 					message(LOG_DAEMON|LOG_ERR,
 					"too many FIPS failures, disabling entropy source\n");
 				iter->disabled = true;
 			}
 		}
-
-		if (!work_done)
-			no_work++;
 	}
 
 	if (!arguments->quiet)
