@@ -317,16 +317,11 @@ static void do_loop(int random_step)
 		bool work_done;
 
 		work_done = false;
-		for (;;)
+		for (i = 0; i < ENT_MAX; ++i)
 		{
 			int rc;
-			if (i >= ENT_MAX) {
-				i = 0;
-				break;
-			}
 			/*printf("I is %d\n", i);*/
 			iter = &entropy_sources[i];
-			++i;
 		retry_same:
 			if (!server_running)
 				return;
@@ -349,14 +344,17 @@ static void do_loop(int random_step)
 						iter->failures--;
 					iter->success = 0;
 				}
-				break;	/* succeeded, work done */
+				/* succeeded */
+				continue;
 			}
 
 			iter->failures++;
 			if (iter->failures <= MAX_RNG_FAILURES/4) {
 				/* FIPS tests have false positives */
 				goto retry_same;
-			} else if (iter->failures >= MAX_RNG_FAILURES && !ignorefail) {
+			}
+
+			if (iter->failures >= MAX_RNG_FAILURES && !ignorefail) {
 				if (!arguments->quiet)
 					message(LOG_DAEMON|LOG_ERR,
 					"too many FIPS failures, disabling entropy source\n");
