@@ -48,6 +48,7 @@ extern int init_nist_entropy_source(struct rng *);
 #ifdef HAVE_JITTER
 extern int init_jitter_entropy_source(struct rng *);
 extern void close_jitter_entropy_source(struct rng *);
+extern void cache_jitter_entropy_data(struct rng *);
 #endif
 
 

@@ -193,6 +193,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.xread		= xread_jitter,
 		.init		= init_jitter_entropy_source,
 		.close		= close_jitter_entropy_source,
+		.cache		= cache_jitter_entropy_data,
 #else
 		.disabled	= true,
 #endif
@@ -285,7 +286,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 static struct argp argp = { options, parse_opt, NULL, doc };
 
 
-static int update_kernel_random(int random_step,
+static int update_kernel_random(struct rng *rng, int random_step,
 	unsigned char *buf, fips_ctx_t *fipsctx_in)
 {
 	unsigned char *p;
@@ -300,6 +301,8 @@ static int update_kernel_random(int random_step,
 		if (!server_running)
 			return 0;
 		random_add_entropy(p, random_step);
+		if ((rng->disabled == false) && rng->cache)
+			rng->cache(rng);
 		random_sleep();
 	}
 	return 0;
@@ -334,7 +337,7 @@ static void do_loop(int random_step)
 
 			work_done = true;
 
-			rc = update_kernel_random(random_step,
+			rc = update_kernel_random(iter, random_step,
 					     buf, iter->fipsctx);
 			if (rc == 0) {
 				iter->success++;
