@@ -486,8 +486,10 @@ int main(int argc, char **argv)
 	do_loop(arguments->random_step);
 
 	for (i=0; i < ENT_MAX; i++)
-		if (entropy_sources[i].close && entropy_sources[i].disabled == false) 
+		if (entropy_sources[i].close && entropy_sources[i].disabled == false) {
 			entropy_sources[i].close(&entropy_sources[i]);
+			free(entropy_sources[i].fipsctx);
+	}
 
 	if (pid_fd >= 0)
 		unlink(arguments->pid_file);
