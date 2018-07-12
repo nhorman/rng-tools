@@ -193,7 +193,6 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.xread		= xread_jitter,
 		.init		= init_jitter_entropy_source,
 		.close		= close_jitter_entropy_source,
-		.cache		= cache_jitter_entropy_data,
 #else
 		.disabled	= true,
 #endif
@@ -301,8 +300,6 @@ static int update_kernel_random(struct rng *rng, int random_step,
 		if (!server_running)
 			return 0;
 		random_add_entropy(p, random_step);
-		if ((rng->disabled == false) && rng->cache)
-			rng->cache(rng);
 		random_sleep();
 	}
 	return 0;
@@ -360,6 +357,8 @@ static void do_loop(int random_step)
 				if (!arguments->quiet)
 					message(LOG_DAEMON|LOG_ERR,
 					"too many FIPS failures, disabling entropy source\n");
+				if (iter->close)
+					iter->close(iter);
 				iter->disabled = true;
 			}
 		}
@@ -391,6 +390,16 @@ static int discard_initial_data(struct rng *ent_src)
 
 	return tempbuf[0] | (tempbuf[1] << 8) |
 		(tempbuf[2] << 16) | (tempbuf[3] << 24);
+}
+
+void close_all_entropy_sources()
+{
+	int i;
+	for (i=0; i < ENT_MAX; i++)
+		if (entropy_sources[i].close && entropy_sources[i].disabled == false) {
+			entropy_sources[i].close(&entropy_sources[i]);
+			free(entropy_sources[i].fipsctx);
+	}
 }
 
 int main(int argc, char **argv)
@@ -448,6 +457,8 @@ int main(int argc, char **argv)
 				rc = 1;
 				printf("%d: %s\n", i, entropy_sources[i].rng_name);
 			}
+
+		close_all_entropy_sources();
 		return rc;
 	}
 
@@ -488,11 +499,7 @@ int main(int argc, char **argv)
 
 	do_loop(arguments->random_step);
 
-	for (i=0; i < ENT_MAX; i++)
-		if (entropy_sources[i].close && entropy_sources[i].disabled == false) {
-			entropy_sources[i].close(&entropy_sources[i]);
-			free(entropy_sources[i].fipsctx);
-	}
+	close_all_entropy_sources();
 
 	if (pid_fd >= 0)
 		unlink(arguments->pid_file);
