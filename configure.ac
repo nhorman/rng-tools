@@ -22,6 +22,7 @@ AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR([rngd.c])
 AM_INIT_AUTOMAKE([gnu])
 AC_CONFIG_HEADERS([rng-tools-config.h])
+AC_CONFIG_MACRO_DIRS([m4])
 
 dnl Parse options
 
@@ -47,6 +48,8 @@ AC_PROG_CC
 AC_PROG_RANLIB
 AC_PROG_GCC_TRADITIONAL
 AC_CANONICAL_HOST
+
+AX_PTHREAD
 
 AM_CONDITIONAL([RDRAND], [test $host_cpu = x86_64 -o $host_cpu = i686])
 AS_IF([test $host_cpu = x86_64 -o $host_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
