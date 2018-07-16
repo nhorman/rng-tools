@@ -61,6 +61,7 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 {
 	static int data = 0;
 	struct thread_data *current = &tdata[data];
+	struct thread_data *start = current;
 	ssize_t request = size;
 	size_t idx = 0;
 	size_t need = size;
@@ -98,10 +99,13 @@ next:
 		/* Move to the next thread */
 		data = ((data+1) % num_threads);	
 		current = &tdata[data];
+		if (start == current)
+			goto out;
 		pthread_mutex_lock(&current->mtx);
 	}
 
 	pthread_mutex_unlock(&current->mtx);
+out:
 	return 0;
 
 }
