@@ -172,7 +172,7 @@ static inline int gcrypt_mangle(unsigned char *tmp)
 #endif
 }
 
-int xread_drng(void *buf, size_t size, struct rng *ent_src)
+int xread_drng_with_aes(void *buf, size_t size, struct rng *ent_src)
 {
 	static unsigned char rdrand_buf[CHUNK_SIZE * RDRAND_ROUNDS]
 		__attribute__((aligned(128)));
@@ -237,6 +237,16 @@ int xread_drng(void *buf, size_t size, struct rng *ent_src)
 		size -= chunk;
 	}
 
+	return 0;
+}
+
+int xread_drng(void *buf, size_t size, struct rng *ent_src)
+{
+
+	if (ent_src->rng_options[DRNG_OPT_AES].int_val)
+		return xread_drng_with_aes(buf, size, ent_src);
+
+	x86_rdrand_bytes(buf, size);
 	return 0;
 }
 
