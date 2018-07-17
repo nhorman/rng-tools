@@ -328,6 +328,8 @@ static void do_loop(int random_step)
 			if (iter->disabled)
 				continue;	/* failed, no work */
 
+			message(LOG_DAEMON|LOG_DEBUG, "Reading entropy from %s\n", iter->rng_name);
+
 			retval = iter->xread(buf, sizeof buf, iter);
 			if (retval)
 				continue;	/* failed, no work */
