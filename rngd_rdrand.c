@@ -350,5 +350,10 @@ int init_drng_entropy_source(struct rng *ent_src)
 	if (init_aesni(key) && init_gcrypt(key))
 		return 1;	/* We need one crypto or the other... */
 
+	if (have_rdseed)
+		message(LOG_DAEMON|LOG_INFO, "Enabling RDSEED rng support\n");
+	else
+		message(LOG_DAEMON|LOG_INFO, "Enabling RDRAND rng support\n");
+
 	return 0;
 }

@@ -33,9 +33,10 @@ if JITTER
 rngd_SOURCES	+= rngd_jitter.c
 endif
 
-rngd_LDADD	= librngd.a -lsysfs $(JSUBLIB) ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS}
+rngd_LDADD	= librngd.a -lsysfs $(JSUBLIB) ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS} $(PTHREAD_LIBS)
 
-rngd_CFLAGS	= ${libxml2_CFLAGS} ${openssl_CFLAGS}
+rngd_CFLAGS	= ${libxml2_CFLAGS} ${openssl_CFLAGS} $(PTHREAD_CFLAGS)
+rngd_LDFLAGS	= $(PTHREAD_CFLAGS)
 
 rngtest_SOURCES	= exits.h stats.h stats.c rngtest.c
 rngtest_LDADD	= librngd.a

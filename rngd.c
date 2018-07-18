@@ -285,7 +285,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 static struct argp argp = { options, parse_opt, NULL, doc };
 
 
-static int update_kernel_random(int random_step,
+static int update_kernel_random(struct rng *rng, int random_step,
 	unsigned char *buf, fips_ctx_t *fipsctx_in)
 {
 	unsigned char *p;
@@ -328,13 +328,15 @@ static void do_loop(int random_step)
 			if (iter->disabled)
 				continue;	/* failed, no work */
 
+			message(LOG_DAEMON|LOG_DEBUG, "Reading entropy from %s\n", iter->rng_name);
+
 			retval = iter->xread(buf, sizeof buf, iter);
 			if (retval)
 				continue;	/* failed, no work */
 
 			work_done = true;
 
-			rc = update_kernel_random(random_step,
+			rc = update_kernel_random(iter, random_step,
 					     buf, iter->fipsctx);
 			if (rc == 0) {
 				iter->success++;
@@ -357,6 +359,8 @@ static void do_loop(int random_step)
 				if (!arguments->quiet)
 					message(LOG_DAEMON|LOG_ERR,
 					"too many FIPS failures, disabling entropy source\n");
+				if (iter->close)
+					iter->close(iter);
 				iter->disabled = true;
 			}
 		}
@@ -388,6 +392,16 @@ static int discard_initial_data(struct rng *ent_src)
 
 	return tempbuf[0] | (tempbuf[1] << 8) |
 		(tempbuf[2] << 16) | (tempbuf[3] << 24);
+}
+
+void close_all_entropy_sources()
+{
+	int i;
+	for (i=0; i < ENT_MAX; i++)
+		if (entropy_sources[i].close && entropy_sources[i].disabled == false) {
+			entropy_sources[i].close(&entropy_sources[i]);
+			free(entropy_sources[i].fipsctx);
+	}
 }
 
 int main(int argc, char **argv)
@@ -445,6 +459,8 @@ int main(int argc, char **argv)
 				rc = 1;
 				printf("%d: %s\n", i, entropy_sources[i].rng_name);
 			}
+
+		close_all_entropy_sources();
 		return rc;
 	}
 
@@ -485,9 +501,7 @@ int main(int argc, char **argv)
 
 	do_loop(arguments->random_step);
 
-	for (i=0; i < ENT_MAX; i++)
-		if (entropy_sources[i].close && entropy_sources[i].disabled == false) 
-			entropy_sources[i].close(&entropy_sources[i]);
+	close_all_entropy_sources();
 
 	if (pid_fd >= 0)
 		unlink(arguments->pid_file);
