@@ -143,7 +143,7 @@ static enum {
 } entropy_indexes;
 
 
-struct rng_option drng_options[] = {
+static struct rng_option drng_options[] = {
 	[DRNG_OPT_AES] = {
 		.key = "use_aes",
 		.int_val = 1,
@@ -151,6 +151,16 @@ struct rng_option drng_options[] = {
 	{
 		.key = NULL,
 	},
+};
+
+static struct rng_option darn_options[] = {
+	[DARN_OPT_AES] = {
+		.key = "use_aes",
+		.int_val = 1,
+	},
+	{
+		.key = NULL,
+	}
 };
 
 static struct rng entropy_sources[ENT_MAX] = {
@@ -192,7 +202,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 #else
 		.disabled	= true,
 #endif
-		.rng_options	= NULL,
+		.rng_options	= darn_options,
 	},
 	{
 		.rng_name	= "NIST Network Entropy Beacon",

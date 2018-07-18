@@ -128,6 +128,12 @@ if all entropy is drawn directly from rdrand instruction (default 1)
 .B
 DARN [Index 3]
 Entropy drawn from the DARN instruction (ppc64 only)
+.TP
+Options
+
+\fBuse_aes - \fR select if the power darn instruction is used to directly fill
+the entropy poll, or if it is used as a periodic seed to an aes based cprng
+(default 1)
 
 .TP
 .B

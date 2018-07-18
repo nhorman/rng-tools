@@ -65,6 +65,14 @@ enum {
 	DRNG_OPT_MAX,
 };
 
+/*
+ * DARN Options
+ */
+enum {
+	DARN_OPT_AES = 0,
+	DARN_OPT_MAX,
+};
+
 struct rng_option { 
 	char *key;
 	int int_val;

@@ -46,7 +46,7 @@
 	_x < _y ? _x : _y; })
 
 static uint64_t get_darn();
-static int refill_rand();
+static int refill_rand(struct rng *ent_src);
 static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t copied);
 
 #define AES_BLOCK 16
@@ -63,7 +63,7 @@ static size_t darn_buf_ptr = CHUNK_SIZE - 1;
 static size_t rekey_thresh = (1 << THRESH_BITS);
 static size_t rand_bytes_served = 0;
 
-static int init_gcrypt()
+static int init_gcrypt(struct rng *ent_src)
 {
 	unsigned char key[AES_BLOCK];
 	unsigned char xkey[AES_BLOCK];
@@ -110,7 +110,7 @@ static int init_gcrypt()
 	}
 
 	rand_bytes_served = 0;
-	if (refill_rand())
+	if (refill_rand(ent_src))
 		return 1;
 	if (copy_avail_rand_to_buf((unsigned char *)&rekey_thresh, sizeof(size_t), 0) < sizeof(size_t))
 		return 1;
@@ -119,28 +119,36 @@ static int init_gcrypt()
 	return 0;
 }
 
-static int refill_rand()
+static int refill_rand(struct rng *ent_src)
 {
 	gcry_error_t gcry_error;
+	int i;
 
 	if (darn_buf_avail)
 		return 0;
+	if (ent_src->options[DARN_USE_AES].int_val) {
+		if (rand_bytes_served >= rekey_thresh) {
+			message(LOG_DAEMON|LOG_DEBUG, "rekeying DARN rng\n");
+			gcry_cipher_close(gcry_cipher_hd);
+			if (init_gcrypt(ent_src))
+				return 1;
+		}
 
-	if (rand_bytes_served >= rekey_thresh) {
-		message(LOG_DAEMON|LOG_DEBUG, "rekeying DARN rng\n");
-		gcry_cipher_close(gcry_cipher_hd);
-		if (init_gcrypt())
+		gcry_error = gcry_cipher_encrypt(gcry_cipher_hd, darn_rand_buf,
+						CHUNK_SIZE, NULL, 0);
+
+		if (gcry_error) {
+			message(LOG_DAEMON | LOG_ERR,
+				"gcry_cipher_encrypt_error: %s\n",
+				gcry_strerror(gcry_error));
 			return 1;
-	}
-
-	gcry_error = gcry_cipher_encrypt(gcry_cipher_hd, darn_rand_buf,
-					CHUNK_SIZE, NULL, 0);
-
-	if (gcry_error) {
-		message(LOG_DAEMON | LOG_ERR,
-			"gcry_cipher_encrypt_error: %s\n",
-			gcry_strerror(gcry_error));
-		return 1;
+		}
+	} else {
+		uint64_t *ptr = (uint64_t *)darn_rand_buf;
+		for (i = 0; i < CHUNK_SIZE/sizeof(uint64_t); i++) {
+			*ptr = get_darn();
+			ptr++;
+		}
 	}
 
 	darn_buf_avail = CHUNK_SIZE;
@@ -191,7 +199,7 @@ int xread_darn(void *buf, size_t size, struct rng *ent_src)
 	size_t copied = 0;
 
 	while (copied < size) {
-		if (refill_rand()) {
+		if (refill_rand(ent_src)) {
 			return 1;
 		}
 		copied += copy_avail_rand_to_buf(buf, size, copied);
@@ -209,7 +217,7 @@ int init_darn_entropy_source(struct rng *ent_src)
 		return 1;
 	}
 
-	if (init_gcrypt())
+	if (init_gcrypt(ent_src))
 		return 1;
 	message(LOG_DAEMON|LOG_INFO, "Enabling power DARN rng support\n");
 	return 0;
