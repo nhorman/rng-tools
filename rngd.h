@@ -73,6 +73,15 @@ enum {
 	DARN_OPT_MAX,
 };
 
+/*
+ * JITTER options
+ */
+enum {
+	JITTER_OPT_THREADS = 0,
+	JITTER_OPT_BUF_SZ = 1,
+	JITTER_OPT_REFILL = 2,
+};
+
 struct rng_option { 
 	char *key;
 	int int_val;

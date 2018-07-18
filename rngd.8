@@ -147,6 +147,13 @@ entity.
 .B
 JITTER [Index 5]
 Entropy gathered by measuring timing variance of operations on the local cpu
+.TP
+Options
+\fBthread_count - \fR Set the number of threads that the jitter entropy source will spawn
+
+\fBbuffer_size - \fR Set the size of the buffer cache that each thread maintains 
+
+\fBrefill_thresh - \fR Set the low watermark for the cache that triggers its corresponding thread to start refill operations 
 
 
 .SH AUTHORS

@@ -163,6 +163,21 @@ static struct rng_option darn_options[] = {
 	}
 };
 
+static struct rng_option jitter_options[] = {
+	[JITTER_OPT_THREADS] = {
+		.key = "thread_count",
+		.int_val = 4,
+	},
+	[JITTER_OPT_BUF_SZ] = {
+		.key = "buffer_size",
+		.int_val = 16535,
+	},
+	[JITTER_OPT_REFILL] = {
+		.key = "refill_thresh",
+		.int_val = 16535,
+	},
+};
+
 static struct rng entropy_sources[ENT_MAX] = {
 	/* Note, the special char dev must be the first entry */
 	{
@@ -224,7 +239,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 #else
 		.disabled	= true,
 #endif
-		.rng_options	= NULL,
+		.rng_options	= jitter_options,
 	},
 };
 
