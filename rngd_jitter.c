@@ -66,6 +66,7 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 	size_t idx = 0;
 	size_t need = size;
 	char *bptr = buf;
+	int rc = 1;
 
 	while (need) {
 		/* if the current thread is refilling its buffer
@@ -103,10 +104,11 @@ next:
 			goto out;
 		pthread_mutex_lock(&current->mtx);
 	}
+	rc = 0;
 
 	pthread_mutex_unlock(&current->mtx);
 out:
-	return 0;
+	return rc;
 
 }
 
