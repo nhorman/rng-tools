@@ -1,4 +1,4 @@
-.\" Copyright (C) 2001 Jeff Garzik -- jgarzik@pobox.com
+.\" Copyright (C) 2017 - Neil Horman <nhorman@tuxdriver.com>
 .\"
 .TH RNGD 8 "March 2001" "@PACKAGE@ @VERSION@"
 
@@ -100,6 +100,61 @@ Give a short summary of all program options.
 .TP
 \fB\-V\fR, \fB\-\-version\fR
 Print program version
+
+.SH
+ENTROPY SOURCES
+.TP
+.B
+Hardware RNG [Index 0]
+The Hardware RNG is a generic entropy source that draws entropy from a hardware
+rng attached by default to /dev/hwrng
+
+.TP
+.B
+TPM [Index 1]
+Entropy drawn from on board TPM device
+
+.TP
+.B
+RDRAND/RDSEED [Index 2]
+Entropy drawn from the RDRAND and RDSEED instructions (x86 only)
+.TP
+Options
+
+\fBuse_aes - \fR select if rdrand is used to seed a cprng to produce entropy, or
+if all entropy is drawn directly from rdrand instruction (default 1)
+
+.TP
+.B
+DARN [Index 3]
+Entropy drawn from the DARN instruction (ppc64 only)
+.TP
+Options
+
+\fBuse_aes - \fR select if the power darn instruction is used to directly fill
+the entropy poll, or if it is used as a periodic seed to an aes based cprng
+(default 1)
+
+.TP
+.B
+NIST Entropy Beacon [Index 4]
+Entropy gathered from the NIST network entropy beacon.  Note that this entropy
+source is disabled by default as it should never be used for cryptographic
+purposes, or any use case in which random data should be known only by a single
+entity.
+
+.TP
+.B
+JITTER [Index 5]
+Entropy gathered by measuring timing variance of operations on the local cpu
+.TP
+Options
+\fBthread_count - \fR Set the number of threads that the jitter entropy source will spawn
+
+\fBbuffer_size - \fR Set the size of the buffer cache that each thread maintains 
+
+\fBrefill_thresh - \fR Set the low watermark for the cache that triggers its corresponding thread to start refill operations 
+
 
 .SH AUTHORS
 Philipp Rumpf
