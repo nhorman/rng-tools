@@ -57,6 +57,36 @@ struct arguments {
 };
 extern struct arguments *arguments;
 
+/*
+ * DRNG (RDRAND) Options
+ */
+enum {
+	DRNG_OPT_AES = 0,
+	DRNG_OPT_MAX,
+};
+
+/*
+ * DARN Options
+ */
+enum {
+	DARN_OPT_AES = 0,
+	DARN_OPT_MAX,
+};
+
+/*
+ * JITTER options
+ */
+enum {
+	JITTER_OPT_THREADS = 0,
+	JITTER_OPT_BUF_SZ = 1,
+	JITTER_OPT_REFILL = 2,
+};
+
+struct rng_option { 
+	char *key;
+	int int_val;
+};
+
 /* structures to store rng information */
 struct rng {
 	char *rng_name;
@@ -70,8 +100,7 @@ struct rng {
 	int (*init) (struct rng *ent_src);
 	void (*close) (struct rng *end_src);
 	fips_ctx_t *fipsctx;
-
-	struct rng *next;
+	struct rng_option *rng_options;
 };
 
 /* Background/daemon mode */

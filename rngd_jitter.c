@@ -34,7 +34,7 @@
 
 static struct rand_data *ec = NULL;
 
-static int num_threads = 1;
+static int num_threads = 0;
 struct thread_data {
 	int core_id;
 	struct rand_data *ec;
@@ -48,14 +48,12 @@ struct thread_data {
 };
 
 #define MAX_THREADS 4 
-static struct thread_data tdata[MAX_THREADS];
-static pthread_t threads[MAX_THREADS];
+static struct thread_data *tdata;
+static pthread_t *threads;
 
 /*
  * These must be powers of 2
  */
-#define CACHE_REFILL_THRESH 16384 
-#define CACHE_SIZE 16384 
 
 int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 {
@@ -89,7 +87,7 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 		need -= request;
 
 		/* Trigger a refill if this thread is low */
-		if (current->avail < CACHE_REFILL_THRESH) {
+		if (current->avail < ent_src->rng_options[JITTER_OPT_REFILL].int_val) {
 			current->refill = 1;
 			pthread_cond_signal(&current->cond);
 		}
@@ -107,6 +105,7 @@ next:
 	rc = 0;
 
 	pthread_mutex_unlock(&current->mtx);
+	rc = 0;
 out:
 	return rc;
 
@@ -147,18 +146,39 @@ static void *thread_entropy_task(void *data)
 			break;
 
 		/* We are awake because we need to refil the buffer */
-		need = CACHE_SIZE - me->avail;
+		need = me->buf_sz - me->avail;
 		ret = jent_read_entropy(me->ec, me->buf_ptr, need);	
 		if (ret == 0)
 			message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
 		me->idx = 0;
-		me->avail = CACHE_SIZE;
+		me->avail = me->buf_sz;
 		me->refill = 0;
 
 	} while (me->buf_ptr);
 
 	pthread_mutex_unlock(&me->mtx);
 	pthread_exit(NULL);
+}
+
+int validate_jitter_options(struct rng *ent_src)
+{
+	int threads = ent_src->rng_options[JITTER_OPT_THREADS].int_val;
+	int buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
+	int refill = ent_src->rng_options[JITTER_OPT_REFILL].int_val;
+
+
+	/* Need at least one thread to do this work */
+	if (!threads) {
+		message(LOG_DAEMON|LOG_DEBUG, "JITTER Requires a minimum of 1 thread, setting threads to 1\n");
+		ent_src->rng_options[JITTER_OPT_THREADS].int_val = 1;
+	}
+
+	/* buf_sz should be the same size or larger than the refill threshold */
+	if (buf_sz < refill) {
+		message(LOG_DAEMON|LOG_DEBUG, "JITTER buffer size must be larger than refill threshold\n");
+		return 1;
+	}
+	return 0;
 }
 
 /*
@@ -176,6 +196,9 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		return 1;
 	}
 
+	if (validate_jitter_options(ent_src))
+		return 1;
+
 	/*
  	 * Determine the number of threads we want to run
  	 * 2 threads for two or more cpus
@@ -186,10 +209,15 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	cpusize = CPU_ALLOC_SIZE(i);
 	CPU_ZERO_S(cpusize, cpus);
 	sched_getaffinity(0, cpusize, cpus);
-	for (i=0; (1 << i) <= MAX_THREADS; i++) {
-		if (CPU_COUNT_S(cpusize, cpus) >= (1 << i))
-			num_threads = (1 << i);
-	}
+	num_threads = CPU_COUNT_S(cpusize, cpus);
+
+	if (num_threads >= ent_src->rng_options[JITTER_OPT_THREADS].int_val)
+		num_threads = ent_src->rng_options[JITTER_OPT_THREADS].int_val;
+	else
+		message(LOG_DAEMON|LOG_DEBUG, "Limiting thread count to %d active cpus\n", num_threads);
+
+	tdata = calloc(num_threads, sizeof(struct thread_data));
+	threads = calloc(num_threads, sizeof(pthread_t));
 
 	message(LOG_DAEMON|LOG_DEBUG, "JITTER starts %d threads\n", num_threads);
 
@@ -201,11 +229,10 @@ int init_jitter_entropy_source(struct rng *ent_src)
 			core_id++;
 		tdata[i].core_id = core_id;
 		core_id++;
-		tdata[i].buf_ptr = calloc(1, CACHE_SIZE);
+		tdata[i].buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
+		tdata[i].buf_ptr = calloc(1, tdata[i].buf_sz);
 		tdata[i].ec = jent_entropy_collector_alloc(1, 0);
 		tdata[i].refill = 1;
-		/* Divide the buffer into num_threads equal chunks */
-		tdata[i].buf_sz = CACHE_SIZE;
 		pthread_mutex_init(&tdata[i].mtx, NULL);
 		pthread_cond_init(&tdata[i].cond, NULL);
 		pthread_create(&threads[i], NULL, thread_entropy_task, &tdata[i]);
@@ -244,6 +271,8 @@ void close_jitter_entropy_source(struct rng *ent_src)
 		jent_entropy_collector_free(tdata[i].ec);
 	}	
 
+	free(tdata);
+	free(threads);
 	return;
 }
 

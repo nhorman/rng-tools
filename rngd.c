@@ -94,6 +94,8 @@ static struct argp_option options[] = {
 
 	{ "list", 'l', 0, 0, "List the operational entropy sources on this system and exit" },
 
+	{ "option", 'O', "options", 0, "rng specific options in the form source:key:value"},
+
 	{ "random-device", 'o', "file", 0,
 	  "Kernel device used for random number output (default: /dev/random)" },
 
@@ -140,6 +142,42 @@ static enum {
 	ENT_MAX
 } entropy_indexes;
 
+
+static struct rng_option drng_options[] = {
+	[DRNG_OPT_AES] = {
+		.key = "use_aes",
+		.int_val = 1,
+	},
+	{
+		.key = NULL,
+	},
+};
+
+static struct rng_option darn_options[] = {
+	[DARN_OPT_AES] = {
+		.key = "use_aes",
+		.int_val = 1,
+	},
+	{
+		.key = NULL,
+	}
+};
+
+static struct rng_option jitter_options[] = {
+	[JITTER_OPT_THREADS] = {
+		.key = "thread_count",
+		.int_val = 4,
+	},
+	[JITTER_OPT_BUF_SZ] = {
+		.key = "buffer_size",
+		.int_val = 16535,
+	},
+	[JITTER_OPT_REFILL] = {
+		.key = "refill_thresh",
+		.int_val = 16535,
+	},
+};
+
 static struct rng entropy_sources[ENT_MAX] = {
 	/* Note, the special char dev must be the first entry */
 	{
@@ -148,6 +186,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_fd         = -1,
 		.xread          = xread,
 		.init           = init_entropy_source,
+		.rng_options	= NULL,
 	},
 	/* must be at index 1 */
 	{
@@ -156,6 +195,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_fd         = -1,
 		.xread          = xread_tpm,
 		.init           = init_tpm_entropy_source,
+		.rng_options	= NULL,
 	},
 	{
 		.rng_name       = "Intel RDRAND Instruction RNG",
@@ -166,6 +206,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 #else
 		.disabled	= true,
 #endif
+		.rng_options	= drng_options,
 	},
 	{
 		.rng_name       = "Power9 DARN Instruction RNG",
@@ -176,6 +217,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 #else
 		.disabled	= true,
 #endif
+		.rng_options	= darn_options,
 	},
 	{
 		.rng_name	= "NIST Network Entropy Beacon",
@@ -185,6 +227,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.init		= init_nist_entropy_source,
 #endif
 		.disabled	= true,
+		.rng_options	= NULL,
 	},
 	{
 		.rng_name	= "JITTER Entropy generator",
@@ -196,6 +239,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 #else
 		.disabled	= true,
 #endif
+		.rng_options	= jitter_options,
 	},
 };
 
@@ -205,7 +249,12 @@ static struct rng entropy_sources[ENT_MAX] = {
  */
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
+	char *optkey;
 	long int idx;
+	long int val;
+	char *search, *last_search;
+	struct rng_option *options;
+
 	switch(key) {
 	case 'd':
 		arguments->debug = true;
@@ -213,6 +262,55 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	case 'o':
 		arguments->random_name = arg;
 		break;
+	case 'O':
+
+		search = strchr(arg, ':');
+		if (!search) {
+			printf("Invalid rng option format\n");
+			return -ERANGE;
+		}
+
+		idx = strtoul(arg, &search, 10);
+		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
+			printf("option index out of range: %lu\n", idx);
+			return -ERANGE;
+		}
+
+		last_search = search + 1;
+		search = strchr(last_search, ':');
+		if (!search) {
+			printf("Available options for %s\n", entropy_sources[idx].rng_name);
+			options = entropy_sources[idx].rng_options;
+			while (options && options->key) {
+				printf("key: [%s]\tdefault value: [%d]\n", options->key, options->int_val);
+				options++;
+			}
+			return -ERANGE;
+		}
+		*search = '\0';
+		optkey = strdupa(last_search);
+		*search = ':';
+
+		last_search = search + 1;
+
+		val = strtoul(last_search, NULL, 10);
+		if (val == LONG_MAX) {
+			printf("rng option was not parsable\n");
+			return -ERANGE;
+		}
+
+		options = entropy_sources[idx].rng_options;
+		while (options && options->key) {
+			if (!strcmp(optkey, options->key)) {
+				options->int_val = val;
+				return 0;
+			}
+			options++;
+		}
+		printf("Option %s not found for source idx %d\n", key, idx);
+		return -ERANGE;
+		break;
+
 	case 'x':
 		idx = strtol(arg, NULL, 10);
 		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
