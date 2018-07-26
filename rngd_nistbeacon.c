@@ -88,8 +88,6 @@ void cleanup_nist_work();
 static size_t nist_buf_avail = 0;
 static size_t nist_buf_ptr = 0;
 static char nist_rand_buf[NIST_BUF_SIZE];
-static X509 *nist_cert;
-static RSA *pubkey;
 static EVP_PKEY *pkey;
 static char errbuf[120];
 int cfp;
@@ -99,15 +97,15 @@ struct nist_data_block {
 	char *version;
 	uint32_t frequency;
 	uint64_t timestamp;
-	char *seedvalue;
+	unsigned char *seedvalue;
 	size_t seedvaluelen;
-	char *previoushash;
+	unsigned char *previoushash;
 	size_t previoushashlen;
 	unsigned int errorcode;
 	size_t errorcodelen;
-	char *sigvalue;
+	unsigned char *sigvalue;
 	size_t sigvaluelen;
-	char *sighash;
+	unsigned char *sighash;
 	size_t sighashlen;
 };
 
@@ -144,8 +142,6 @@ static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t cop
 
 int xread_nist(void *buf, size_t size, struct rng *ent_src)
 {
-	uint64_t *darn_ptr =(uint64_t *)buf;
-	uint64_t darn_val;
 	size_t copied = 0;
 
 	while (copied < size) {
@@ -156,29 +152,20 @@ int xread_nist(void *buf, size_t size, struct rng *ent_src)
 	}
 	return 0;
 }
-static void dup_val_noconvert(char **v, size_t *len, xmlTextReaderPtr reader)
-{
-	char *val = xmlTextReaderReadInnerXml(reader);
 
-	if (val && strlen(val) >= 1) {
-		*v = strdup(val);
-		*len = strlen(val);
-	}
-}
-
-static void dup_val(char **v, size_t *len, xmlTextReaderPtr reader)
+static void dup_val(unsigned char **v, size_t *len, xmlTextReaderPtr reader)
 {
 	int i;
 	char tmp;
-	char *val = xmlTextReaderReadInnerXml(reader);
+	char *val = (char *)xmlTextReaderReadInnerXml(reader);
 
 	if (val && strlen(val) >= 1) {
 		*len = strlen(val);
-		*v = strdup(val);
+		*(char **)v = strdup(val);
 		for (i=0; i < *len; i++) {
 			tmp = (*v)[i+1];
 			(*v)[i+1] = '\0';
-			(*v)[i] = strtol(&((*v)[i]), NULL, 16);
+			((char *)(*v))[i] = strtol(&((((char *)*v))[i]), NULL, 16);
 			(*v)[i+1] = tmp;
 		}
 	}
@@ -192,7 +179,7 @@ static void dup_val(char **v, size_t *len, xmlTextReaderPtr reader)
  * compress adjacent half words to form a proper real byte of the value.  Note
  * length of the value is the length of the string, not the real hash
  */
-static void dup_val_compress(char **v, size_t *len, xmlTextReaderPtr reader)
+static void dup_val_compress(unsigned char **v, size_t *len, xmlTextReaderPtr reader)
 {
 	int i,j;
 
@@ -236,11 +223,11 @@ static void dup_val_compress(char **v, size_t *len, xmlTextReaderPtr reader)
  * always have to be byte reversed so openssl can digest 
  * them
  */
-char *reverse(char **srcp, size_t len)
+unsigned char *reverse(unsigned char **srcp, size_t len)
 {
 	int i,j;
-	char *src = *srcp;
-	char *result = malloc(len);
+	unsigned char *src = *srcp;
+	unsigned char *result = malloc(len);
 
 	if (!result)
 		return NULL;
@@ -284,30 +271,30 @@ static size_t parse_nist_xml_block(char *ptr, size_t size, size_t nemb, void *us
 	}
 
 	while (ret == 1) {
-		name = xmlTextReaderConstName(reader);
+		name = (const char *)xmlTextReaderConstName(reader);
 		if (name) {
 			if (!strcmp(name, "version")) {
-				char *val = xmlTextReaderReadInnerXml(reader);
-				if (val && strlen(val)) {
-					block.version = malloc(strlen(val) + 1);
-					memset(block.version, 0, strlen(val) + 1);
-					strcpy(block.version, val);
+				unsigned char *val = xmlTextReaderReadInnerXml(reader);
+				if (val && strlen((char *)val)) {
+					block.version = malloc(strlen((char *)val) + 1);
+					memset(block.version, 0, strlen((char *)val) + 1);
+					strcpy(block.version, (char *)val);
 				}
 			} else if (!strcmp(name, "frequency")) {
 				int freq;
 				if (!block.frequency) {
-					char *val = xmlTextReaderReadInnerXml(reader);
-					if (val && strlen(val)) {
-						sscanf(val, "%d", &freq);
+					unsigned char *val = xmlTextReaderReadInnerXml(reader);
+					if (val && strlen((char *)val)) {
+						sscanf((char *)val, "%d", &freq);
 						block.frequency = be32toh(freq);
 					}
 				}
 			} else if (!strcmp(name, "timeStamp")) {
 				long stamp;
 				if (!block.timestamp) {
-					char *val = xmlTextReaderReadInnerXml(reader);
-					if (val && strlen(val)) {
-						sscanf(val, "%lu", &stamp);
+					unsigned char *val = xmlTextReaderReadInnerXml(reader);
+					if (val && strlen((char *)val)) {
+						sscanf((char *)val, "%lu", &stamp);
 						block.timestamp = be64toh(stamp);
 					}
 				}
@@ -323,8 +310,8 @@ static size_t parse_nist_xml_block(char *ptr, size_t size, size_t nemb, void *us
 				}
 			} else if (!strcmp(name, "statusCode")) {
 				if (!block.errorcode) {
-					char *val = xmlTextReaderReadInnerXml(reader);
-					sscanf(val, "%u", &block.errorcode);
+					unsigned char *val = xmlTextReaderReadInnerXml(reader);
+					sscanf((char *)val, "%u", &block.errorcode);
 					block.errorcodelen = 4;
 				}
 			} else if (!strcmp(name, "outputValue")) {
@@ -346,8 +333,6 @@ static int validate_nist_block()
 	unsigned char digest[SHA512_DIGEST_LENGTH];
 	EVP_MD_CTX *mdctx;
 	const EVP_MD* md = EVP_get_digestbyname("RSA-SHA512");
-	int idx = 0, idx2, msgsz;
-	unsigned char tmp;
 	int ret = 1;
 
 	if (read_nist_pubkey())
@@ -422,7 +407,6 @@ static int get_nist_record()
 	CURLcode res;
 	int rc = 1;
 	struct timeval ct;
-	time_t rec = time(NULL);
 
 	if (block.frequency != 0) {
 		if (gettimeofday(&ct, NULL)) {
@@ -430,8 +414,11 @@ static int get_nist_record()
 			goto out;
 		}
 
+		message(LOG_DAEMON|LOG_DEBUG, "NIST: timestamp is %d, frequency is %d, tv_sec is %d\n",
+			block.timestamp, block.frequency, ct.tv_sec);
 		if (block.timestamp + block.frequency >= ct.tv_sec) {
-			message(LOG_DAEMON|LOG_ERR, "Multiple nist reads in same frequency period\n");
+			message(LOG_DAEMON|LOG_ERR, "Multiple nist reads in same frequency period of %d sec\n",
+				block.frequency);
 			goto out;
 		}
 	}
