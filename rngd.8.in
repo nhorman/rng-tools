@@ -13,6 +13,7 @@ rngd \- Check and feed random data from hardware device to kernel random device
 [\fB\-l\fR, \fB\-\-list\fR]
 [\fB\-x\fR, \fB\-\-exclude\fR]
 [\fB\-n\fR, \fB\-\-include\fR]
+[\fB\-O\fR, \fB\-\-option\fR]
 [\fB\-i\fR, \fB\-\-ignorefail\fR]
 [\fB\-o\fR, \fB\-\-random-device=\fIfile\fR]
 [\fB\-p\fR, \fB\-\-pid-file=\fIfile\fR]
@@ -63,6 +64,11 @@ Disable entropy sources based on index reported from --list option
 .TP
 \fB\-n\fR, \fB\-\-include\fR
 Enable entropy sources based on index reported from --list option
+.TP
+\fB\-O\fR, \fB\-\-option\fR
+Provide specific config options to individual entropy sources, in the format
+--option index:key:value.  See Entropy Sources section below for indicies and
+source specific options
 .TP
 \fB\-p\fI file\fR, \fB\-\-pid-file=\fIfile\fR
 File used for recording daemon PID, and multiple exclusion
