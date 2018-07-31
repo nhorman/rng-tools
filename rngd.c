@@ -265,11 +265,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 'O':
 
-		search = strchr(arg, ':');
-		if (!search) {
-			message(LOG_CONS|LOG_INFO, "Invalid rng option format\n");
-			return -ERANGE;
-		}
+		search = strchrnul(arg, ':');
 
 		idx = strtoul(arg, &search, 10);
 		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
@@ -277,9 +273,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			return -ERANGE;
 		}
 
-		last_search = search + 1;
-		search = strchr(last_search, ':');
-		if (!search) {
+		if (*search == '\0') {
 			message(LOG_CONS|LOG_INFO, "Available options for %s\n", entropy_sources[idx].rng_name);
 			options = entropy_sources[idx].rng_options;
 			while (options && options->key) {
@@ -288,6 +282,14 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			}
 			return -ERANGE;
 		}
+
+		last_search = search = search + 1;
+		search = strchr(search, ':');
+		if (!search) {
+			message(LOG_CONS|LOG_ERR, "Options tuple not specified correctly\n");
+			return -EINVAL;
+		}
+
 		*search = '\0';
 		optkey = strdupa(last_search);
 		*search = ':';

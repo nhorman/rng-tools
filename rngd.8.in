@@ -68,7 +68,8 @@ Enable entropy sources based on index reported from --list option
 \fB\-O\fR, \fB\-\-option\fR
 Provide specific config options to individual entropy sources, in the format
 --option index:key:value.  See Entropy Sources section below for indicies and
-source specific options
+source specific options.  Note that specifying \fB-O <index>\fR will print the
+available options for that index to the console
 .TP
 \fB\-p\fI file\fR, \fB\-\-pid-file=\fIfile\fR
 File used for recording daemon PID, and multiple exclusion
