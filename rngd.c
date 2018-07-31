@@ -61,6 +61,7 @@
 /* Background/daemon mode */
 bool am_daemon;				/* True if we went daemon */
 bool msg_squash = false;		/* True if we want no messages on the console */
+bool quiet = false;			/* True if we want no console output at all */
 bool server_running = true;		/* set to false, to stop daemon */
 
 bool ignorefail = false; /* true if we ignore MAX_RNG_FAILURES */
@@ -111,7 +112,7 @@ static struct argp_option options[] = {
 	{ "fill-watermark", 'W', "n", 0,
 	  "Do not stop feeding entropy to random-device until at least n bits of entropy are available in the pool (default: 2048), 0 <= n <= 4096" },
 
-	{ "quiet", 'q', 0, 0, "Suppress error messages" },
+	{ "quiet", 'q', 0, 0, "Suppress all messages" },
 
 	{ "version" ,'v', 0, 0, "List rngd version" },
 
@@ -266,23 +267,23 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 
 		search = strchr(arg, ':');
 		if (!search) {
-			printf("Invalid rng option format\n");
+			message(LOG_CONS|LOG_INFO, "Invalid rng option format\n");
 			return -ERANGE;
 		}
 
 		idx = strtoul(arg, &search, 10);
 		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-			printf("option index out of range: %lu\n", idx);
+			message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
 			return -ERANGE;
 		}
 
 		last_search = search + 1;
 		search = strchr(last_search, ':');
 		if (!search) {
-			printf("Available options for %s\n", entropy_sources[idx].rng_name);
+			message(LOG_CONS|LOG_INFO, "Available options for %s\n", entropy_sources[idx].rng_name);
 			options = entropy_sources[idx].rng_options;
 			while (options && options->key) {
-				printf("key: [%s]\tdefault value: [%d]\n", options->key, options->int_val);
+				message(LOG_CONS|LOG_INFO, "key: [%s]\tdefault value: [%d]\n", options->key, options->int_val);
 				options++;
 			}
 			return -ERANGE;
@@ -295,7 +296,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 
 		val = strtoul(last_search, NULL, 10);
 		if (val == LONG_MAX) {
-			printf("rng option was not parsable\n");
+			message(LOG_CONS|LOG_INFO, "rng option was not parsable\n");
 			return -ERANGE;
 		}
 
@@ -307,27 +308,27 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			}
 			options++;
 		}
-		printf("Option %s not found for source idx %d\n", key, idx);
+		message(LOG_CONS|LOG_INFO, "Option %s not found for source idx %d\n", key, idx);
 		return -ERANGE;
 		break;
 
 	case 'x':
 		idx = strtol(arg, NULL, 10);
 		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-			printf("exclude index is out of range: %lu\n", idx);
+			message(LOG_CONS|LOG_INFO, "exclude index is out of range: %lu\n", idx);
 			return -ERANGE;
 		}
 		entropy_sources[idx].disabled = true;
-		printf("Disabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
+		message(LOG_CONS|LOG_INFO, "Disabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
 		break;
 	case 'n':
 		idx = strtol(arg, NULL, 10);
 		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-			printf("enable index is out of range: %lu\n", idx);
+			message(LOG_CONS|LOG_INFO, "enable index is out of range: %lu\n", idx);
 			return -ERANGE;
 		}
 		entropy_sources[idx].disabled = false;
-		printf("Enabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
+		message(LOG_CONS|LOG_INFO, "Enabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
 		break;
 	case 'l':
 		arguments->list = true;
@@ -361,9 +362,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	}
 	case 'q':
 		arguments->quiet = true;
+		quiet = true;
 		break;
 	case 'v':
-		printf("%s\n", argp_program_version);
+		message(LOG_CONS|LOG_INFO, "%s\n", argp_program_version);
 		return -EAGAIN;
 	case 'e': {
 		int e;
@@ -417,7 +419,7 @@ static void do_loop(int random_step)
 		for (i = 0; i < ENT_MAX; ++i)
 		{
 			int rc;
-			/*printf("I is %d\n", i);*/
+			/*message(LOG_CONS|LOG_INFO, "I is %d\n", i);*/
 			iter = &entropy_sources[i];
 		retry_same:
 			if (!server_running)
@@ -519,17 +521,17 @@ int main(int argc, char **argv)
 
 	if (arguments->list) {
 		int found = 0;
-		printf("Entropy sources that are available but disabled\n");
+		message(LOG_CONS|LOG_INFO, "Entropy sources that are available but disabled\n");
 		for (i=0; i < ENT_MAX; i++) 
 			if (entropy_sources[i].init && entropy_sources[i].disabled == true) {
 				found = 1;
-				printf("%d: %s\n", i, entropy_sources[i].rng_name);
+				message(LOG_CONS|LOG_INFO, "%d: %s\n", i, entropy_sources[i].rng_name);
 			}
 		if (!found)
-			printf("None");
+			message(LOG_CONS|LOG_INFO, "None");
 		msg_squash = true;
 	} else
-		printf("\nInitalizing available sources\n");
+		message(LOG_DAEMON|LOG_INFO, "\nInitalizing available sources\n");
 
 	/* Init entropy sources */
 	
@@ -551,11 +553,11 @@ int main(int argc, char **argv)
 	if (arguments->list) {
 		int rc = 1;
 		msg_squash = false;
-		printf("Available and enabled entropy sources:\n");
+		message(LOG_CONS|LOG_INFO, "Available and enabled entropy sources:\n");
 		for (i=0; i < ENT_MAX; i++) 
 			if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
 				rc = 1;
-				printf("%d: %s\n", i, entropy_sources[i].rng_name);
+				message(LOG_CONS|LOG_INFO, "%d: %s\n", i, entropy_sources[i].rng_name);
 			}
 
 		close_all_entropy_sources();
@@ -579,7 +581,7 @@ int main(int argc, char **argv)
 
 		if (daemon(0, 0) < 0) {
 			if(!arguments->quiet)
-				fprintf(stderr, "can't daemonize: %s\n",
+				message(LOG_CONS|LOG_INFO, "can't daemonize: %s\n",
 				strerror(errno));
 			return 1;
 		}

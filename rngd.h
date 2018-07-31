@@ -108,10 +108,13 @@ extern bool am_daemon;			/* True if we went daemon */
 
 extern bool msg_squash;
 
+extern bool quiet;
 /*
  * Routines and macros
  */
 #define message(priority,fmt,args...) do { \
+	if (quiet) \
+		break;\
 	if (am_daemon) { \
 		syslog((priority), fmt, ##args); \
 	} else if (!msg_squash) { \

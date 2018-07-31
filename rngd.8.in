@@ -103,7 +103,7 @@ starves.  Do not set \fIfill-watermark\fR above the size of the
 entropy pool (usually 4096 bits).
 .TP
 \fB\-q\fR, \fB\-\-quiet\fR
-Suppress error messages
+Suppress all messages
 .TP
 \fB\-?\fR, \fB\-\-help\fR
 Give a short summary of all program options.
