@@ -20,6 +20,7 @@ dnl Foundation, Inc., 51 Franklin Street, Suite 500, Boston, MA  02110-1335  USA
 AC_INIT(rng-tools, 6, [Neil Horman <nhorman@tuxdriver.com>])
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR([rngd.c])
+AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([gnu])
 AC_CONFIG_HEADERS([rng-tools-config.h])
 AC_CONFIG_MACRO_DIRS([m4])
@@ -47,15 +48,14 @@ dnl Checks for programs
 AC_PROG_CC
 AC_PROG_RANLIB
 AC_PROG_GCC_TRADITIONAL
-AC_CANONICAL_HOST
 
 AX_PTHREAD
 
-AM_CONDITIONAL([RDRAND], [test $host_cpu = x86_64 -o $host_cpu = i686])
-AS_IF([test $host_cpu = x86_64 -o $host_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
+AM_CONDITIONAL([RDRAND], [test $target_cpu = x86_64 -o $target_cpu = i686])
+AS_IF([test $target_cpu = x86_64 -o $target_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
 
-AM_CONDITIONAL([DARN], [test $host_cpu = powerpc64le])
-AS_IF([test $host_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
+AM_CONDITIONAL([DARN], [test $target_cpu = powerpc64le])
+AS_IF([test $target_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
 
 AM_CONDITIONAL([JITTER], [test -f jitterentropy-library/Makefile])
 AS_IF([test -f jitterentropy-library/Makefile], [AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],[AC_MSG_NOTICE([Disabling JITTER entropy source])])
