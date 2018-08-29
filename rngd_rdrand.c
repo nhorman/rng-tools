@@ -357,8 +357,11 @@ int init_drng_entropy_source(struct rng *ent_src)
 	if (x86_rdrand_bytes(iv_buf, CHUNK_SIZE) != CHUNK_SIZE)
 		return 1;
 
-	if (init_aesni(key) && init_gcrypt(key))
-		return 1;	/* We need one crypto or the other... */
+	if (init_aesni(key) && init_gcrypt(key)) {
+		/* If neither aes method is available, log and just use rdrand */
+		ent_src->rng_options[DRNG_OPT_AES].int_val = 0;
+		message(LOG_DAEMON|LOG_WARNING, "No AES method available for RDRAND\n");
+	}
 
 	if (have_rdseed)
 		message(LOG_DAEMON|LOG_INFO, "Enabling RDSEED rng support\n");
