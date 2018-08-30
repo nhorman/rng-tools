@@ -7,6 +7,10 @@ if JITTER
  AM_CPPFLAGS = -I./jitterentropy-library
 endif
 
+if JITTER_DSO
+ JSUBLIB= -ljitterentropy
+endif
+
 SUBDIRS		= contrib tests $(JSUBDIR) 
 
 sbin_PROGRAMS	 = rngd
@@ -32,6 +36,11 @@ endif
 if JITTER
 rngd_SOURCES	+= rngd_jitter.c
 endif
+
+if JITTER_DSO
+rngd_SOURCES	+= rngd_jitter.c
+endif
+
 
 rngd_LDADD	= librngd.a -lsysfs $(JSUBLIB) ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS} $(PTHREAD_LIBS)
 
