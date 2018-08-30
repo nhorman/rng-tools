@@ -177,6 +177,9 @@ static struct rng_option jitter_options[] = {
 		.key = "refill_thresh",
 		.int_val = 16535,
 	},
+	{
+		.key = NULL,
+	}
 };
 
 static struct rng entropy_sources[ENT_MAX] = {
