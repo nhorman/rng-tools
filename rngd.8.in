@@ -166,6 +166,9 @@ Options
 
 \fBrefill_thresh - \fR Set the low watermark for the cache that triggers its corresponding thread to start refill operations 
 
+\fBretry_count - \fR If all entropy buffers are empty, retry this many times before giving up.  Note that jitterentropy can take several seconds to refill a buffer, and so retries after a delay may be preferable to repeatedly spining on an empty buffer (default 1)
+
+\fBretry_delay - \fR between each retry for retry_count above, sleep for this many seconds (default 1)
 
 .SH AUTHORS
 Philipp Rumpf

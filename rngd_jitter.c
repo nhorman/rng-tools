@@ -65,7 +65,7 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 	size_t need = size;
 	char *bptr = buf;
 	int rc = 1;
-
+try_again:
 	while (need) {
 		/* if the current thread is refilling its buffer
  		 * just move on to the next one
@@ -74,7 +74,6 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 
 		if (current->refill) {
 			message(LOG_DAEMON|LOG_DEBUG, "JITTER skips empty thread on cpu %d\n", current->core_id);
-			sched_yield();
 			goto next_unlock;
 		}
 			
@@ -97,8 +96,14 @@ next:
 		/* Move to the next thread */
 		data = ((data+1) % num_threads);	
 		current = &tdata[data];
-		if (start == current)
+		if (start == current) {
+			if (ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val) {
+				if (ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val)
+					sleep(ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val);
+				goto try_again;
+			}
 			goto out;
+		}
 	}
 	rc = 0;
 
@@ -202,7 +207,8 @@ int validate_jitter_options(struct rng *ent_src)
 	int threads = ent_src->rng_options[JITTER_OPT_THREADS].int_val;
 	int buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
 	int refill = ent_src->rng_options[JITTER_OPT_REFILL].int_val;
-
+	int delay = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
+	int rcount = ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val;
 
 	/* Need at least one thread to do this work */
 	if (!threads) {
@@ -215,6 +221,12 @@ int validate_jitter_options(struct rng *ent_src)
 		message(LOG_DAEMON|LOG_DEBUG, "JITTER buffer size must be larger than refill threshold\n");
 		return 1;
 	}
+
+	if ((rcount < 0) || (delay < 0)) {
+		message(LOG_DAEMON|LOG_DEBUG, "JITTER retry delay and count must be equal to or greater than 0\n");
+		return 1;
+	}
+
 	return 0;
 }
 

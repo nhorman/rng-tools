@@ -177,6 +177,14 @@ static struct rng_option jitter_options[] = {
 		.key = "refill_thresh",
 		.int_val = 16535,
 	},
+	[JITTER_OPT_RETRY_COUNT] = {
+		.key = "retry_count",
+		.int_val = 1,
+	},
+	[JITTER_OPT_RETRY_DELAY] = {
+		.key = "retry_delay",
+		.int_val = 1,
+	},
 	{
 		.key = NULL,
 	}
