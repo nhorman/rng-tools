@@ -177,6 +177,9 @@ static struct rng_option jitter_options[] = {
 		.key = "refill_thresh",
 		.int_val = 16535,
 	},
+	{
+		.key = NULL,
+	}
 };
 
 static struct rng entropy_sources[ENT_MAX] = {
@@ -595,9 +598,13 @@ int main(int argc, char **argv)
 
 		signal(SIGHUP, SIG_IGN);
 		signal(SIGPIPE, SIG_IGN);
-		signal(SIGINT, term_signal);
-		signal(SIGTERM, term_signal);
 	}
+	/*
+	 * We always catch these to ensure that we gracefully shutdown
+	 */
+	signal(SIGINT, term_signal);
+	signal(SIGTERM, term_signal);
+
 	if (arguments->ignorefail)
 		ignorefail = true;
 

@@ -23,6 +23,7 @@
 #endif
 
 #include <pthread.h>
+#include <time.h>
 #include "rng-tools-config.h"
 
 #include <jitterentropy.h>
@@ -47,7 +48,6 @@ struct thread_data {
 	pthread_cond_t cond;
 };
 
-#define MAX_THREADS 4 
 static struct thread_data *tdata;
 static pthread_t *threads;
 
@@ -70,12 +70,11 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 		/* if the current thread is refilling its buffer
  		 * just move on to the next one
  		 */
-		if (pthread_mutex_trylock(&current->mtx)) {
-			message(LOG_DAEMON|LOG_DEBUG, "JITTER skips thread on cpu %d\n", current->core_id);
-			goto next;
-		}
+		pthread_mutex_lock(&current->mtx);
+
 		if (current->refill) {
-			message(LOG_DAEMON|LOG_DEBUG, "JITTER skips thread on cpu %d\n", current->core_id);
+			message(LOG_DAEMON|LOG_DEBUG, "JITTER skips empty thread on cpu %d\n", current->core_id);
+			sched_yield();
 			goto next_unlock;
 		}
 			
@@ -100,7 +99,6 @@ next:
 		current = &tdata[data];
 		if (start == current)
 			goto out;
-		pthread_mutex_lock(&current->mtx);
 	}
 	rc = 0;
 
@@ -111,6 +109,20 @@ out:
 
 }
 
+static inline double elapsed_time(struct timespec *start, struct timespec *end)
+{
+	double delta;
+
+	delta = (end->tv_sec - start->tv_sec);
+	if (start->tv_nsec >= end->tv_nsec)
+		delta = (delta * 1.0e9) + (start->tv_nsec - end->tv_nsec);
+	else
+		delta = ((delta + 1) * 1.0e9) + (end->tv_nsec - start->tv_nsec);	
+	delta = delta / 1.0e9; 
+
+	return delta;
+}
+
 static void *thread_entropy_task(void *data)
 {
 	cpu_set_t cpuset;
@@ -118,6 +130,8 @@ static void *thread_entropy_task(void *data)
 	ssize_t ret;
 	size_t need;
 	struct thread_data *me = data;
+	char *tmpbuf;
+	struct timespec start, end;
 
 	/* STARTUP */
 	/* fill initial entropy */
@@ -125,12 +139,24 @@ static void *thread_entropy_task(void *data)
 	CPU_SET(me->core_id, &cpuset);
 	pthread_setaffinity_np(pthread_self(), CPU_ALLOC_SIZE(me->core_id+1), &cpuset);
 
+	tmpbuf = malloc(me->buf_sz);
+	if (!tmpbuf) {
+		message(LOG_DAEMON|LOG_DEBUG, "Unable to allocte temp buffer on cpu %d\n", me->core_id);
+		goto out;
+	}
+
 	pthread_mutex_lock(&me->mtx);
-	ret = jent_read_entropy(me->ec, me->buf_ptr, me->buf_sz);
+	clock_gettime(CLOCK_REALTIME, &start);
+	ret = jent_read_entropy(me->ec, tmpbuf, me->buf_sz);
+	clock_gettime(CLOCK_REALTIME, &end);
+	message(LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
+		me->core_id, elapsed_time(&start, &end));
+
 	if (ret < 0)
 		message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD FAILS TO GATHER ENTROPY\n");
 
 	else {
+		memcpy(me->buf_ptr, tmpbuf, me->buf_sz);
 		me->avail = me->buf_sz;
 		me->refill = 0;
 	}
@@ -147,16 +173,27 @@ static void *thread_entropy_task(void *data)
 
 		/* We are awake because we need to refil the buffer */
 		need = me->buf_sz - me->avail;
-		ret = jent_read_entropy(me->ec, me->buf_ptr, need);	
+		pthread_mutex_unlock(&me->mtx);
+		clock_gettime(CLOCK_REALTIME, &start);
+		ret = jent_read_entropy(me->ec, tmpbuf, need);	
+		clock_gettime(CLOCK_REALTIME, &end);
+		message(LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
+			me->core_id, elapsed_time(&start, &end));
 		if (ret == 0)
 			message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
+		pthread_mutex_lock(&me->mtx);
+		if (!me->buf_ptr) /* buf_ptr may have been removed while gathering entropy */
+			break;
+		memcpy(me->buf_ptr, tmpbuf, me->buf_sz);
 		me->idx = 0;
 		me->avail = me->buf_sz;
 		me->refill = 0;
 
 	} while (me->buf_ptr);
 
+	free(tmpbuf);
 	pthread_mutex_unlock(&me->mtx);
+out:
 	pthread_exit(NULL);
 }
 
@@ -249,6 +286,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 			sched_yield();
 			pthread_mutex_lock(&tdata[i].mtx);
 		}
+		message(LOG_DAEMON|LOG_DEBUG, "CPU Thread %d is ready\n", i);
 		pthread_mutex_unlock(&tdata[i].mtx);
 	}
 		
