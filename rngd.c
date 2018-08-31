@@ -321,7 +321,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			}
 			options++;
 		}
-		message(LOG_CONS|LOG_INFO, "Option %s not found for source idx %d\n", key, idx);
+		message(LOG_CONS|LOG_INFO, "Option %s not found for source idx %d\n", optkey, idx);
 		return -ERANGE;
 		break;
 
