@@ -521,7 +521,7 @@ int main(int argc, char **argv)
 {
 	int i;
 	int ent_sources = 0;
-	pid_t pid_fd;
+	pid_t pid_fd = -1;
 
 	openlog("rngd", 0, LOG_DAEMON);
 
