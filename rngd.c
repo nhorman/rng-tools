@@ -183,7 +183,7 @@ static struct rng_option jitter_options[] = {
 	},
 	[JITTER_OPT_RETRY_DELAY] = {
 		.key = "retry_delay",
-		.int_val = 1,
+		.int_val = -1,
 	},
 	{
 		.key = NULL,

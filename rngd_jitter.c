@@ -44,6 +44,8 @@ struct thread_data {
 	size_t avail;
 	size_t idx;
 	int refill;
+	int slpmode;
+	struct timespec slptm;
 	pthread_mutex_t mtx;
 	pthread_cond_t cond;
 };
@@ -65,6 +67,8 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 	size_t need = size;
 	char *bptr = buf;
 	int rc = 1;
+	int retry_count = 0;
+	struct timespec sleep;
 try_again:
 	while (need) {
 		/* if the current thread is refilling its buffer
@@ -74,6 +78,8 @@ try_again:
 
 		if (current->refill) {
 			message(LOG_DAEMON|LOG_DEBUG, "JITTER skips empty thread on cpu %d\n", current->core_id);
+			/* Grab the sleep timer while we hold the lock */
+			memcpy(&sleep, &current->slptm, sizeof(struct timespec));
 			goto next_unlock;
 		}
 			
@@ -97,9 +103,9 @@ next:
 		data = ((data+1) % num_threads);	
 		current = &tdata[data];
 		if (start == current) {
-			if (ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val) {
-				if (ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val)
-					sleep(ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val);
+			if (retry_count < ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val) {
+				retry_count++;
+				nanosleep(&sleep, NULL);
 				goto try_again;
 			}
 			goto out;
@@ -128,6 +134,29 @@ static inline double elapsed_time(struct timespec *start, struct timespec *end)
 	return delta;
 }
 
+static inline void update_sleep_time(struct thread_data *me,
+				     struct timespec *start,
+				     struct timespec *end)
+{
+
+	/*
+	 * if slpmode is anything other than -1
+	 * it will be a positive integer representing
+	 * the fixed time to sleep on retry
+	 * so if its not negative one, we just stick
+	 * with whatever the init routine set up
+	 */
+	if (me->slpmode != -1)
+		return;
+
+	me->slptm.tv_sec = (end->tv_sec - start->tv_sec)/2;
+	if (start->tv_nsec >= end->tv_nsec)
+		me->slptm.tv_nsec = start->tv_nsec - end->tv_nsec;
+	else
+		me->slptm.tv_nsec = end->tv_nsec - start->tv_nsec;
+	me->slptm.tv_nsec /= 2;
+}
+
 static void *thread_entropy_task(void *data)
 {
 	cpu_set_t cpuset;
@@ -139,6 +168,18 @@ static void *thread_entropy_task(void *data)
 	struct timespec start, end;
 
 	/* STARTUP */
+
+	/*
+	 * Set our timeout value
+	 * -1 means adaptive, i.e. sleep for the last 
+	 * recorded execution time of a jitter read
+	 * otherwise sleep for slpmode seconds
+	 */
+	if (me->slpmode != -1) {
+		me->slptm.tv_sec = me->slpmode;
+		me->slptm.tv_nsec = 0;
+	}
+
 	/* fill initial entropy */
 	CPU_ZERO(&cpuset);
 	CPU_SET(me->core_id, &cpuset);
@@ -154,6 +195,8 @@ static void *thread_entropy_task(void *data)
 	clock_gettime(CLOCK_REALTIME, &start);
 	ret = jent_read_entropy(me->ec, tmpbuf, me->buf_sz);
 	clock_gettime(CLOCK_REALTIME, &end);
+	update_sleep_time(me, &start, &end);
+
 	message(LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
 		me->core_id, elapsed_time(&start, &end));
 
@@ -187,6 +230,8 @@ static void *thread_entropy_task(void *data)
 		if (ret == 0)
 			message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
 		pthread_mutex_lock(&me->mtx);
+		/* Need to hold the mutex to update the sleep time */
+		update_sleep_time(me, &start, &end);
 		if (!me->buf_ptr) /* buf_ptr may have been removed while gathering entropy */
 			break;
 		memcpy(me->buf_ptr, tmpbuf, me->buf_sz);
@@ -212,18 +257,23 @@ int validate_jitter_options(struct rng *ent_src)
 
 	/* Need at least one thread to do this work */
 	if (!threads) {
-		message(LOG_DAEMON|LOG_DEBUG, "JITTER Requires a minimum of 1 thread, setting threads to 1\n");
+		message(LOG_DAEMON|LOG_ERR, "JITTER Requires a minimum of 1 thread, setting threads to 1\n");
 		ent_src->rng_options[JITTER_OPT_THREADS].int_val = 1;
 	}
 
 	/* buf_sz should be the same size or larger than the refill threshold */
 	if (buf_sz < refill) {
-		message(LOG_DAEMON|LOG_DEBUG, "JITTER buffer size must be larger than refill threshold\n");
+		message(LOG_DAEMON|LOG_ERR, "JITTER buffer size must be larger than refill threshold\n");
 		return 1;
 	}
 
-	if ((rcount < 0) || (delay < 0)) {
-		message(LOG_DAEMON|LOG_DEBUG, "JITTER retry delay and count must be equal to or greater than 0\n");
+	if (rcount < 0) {
+		message(LOG_DAEMON|LOG_ERR, "JITTER retry delay and count must be equal to or greater than 0\n");
+		return 1;
+	}
+
+	if ((delay < -1) || (delay == 0)) {
+		message(LOG_DAEMON|LOG_ERR, "JITTER retry delay must be -1 or larger than 0\n");
 		return 1;
 	}
 
@@ -282,6 +332,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		tdata[i].buf_ptr = calloc(1, tdata[i].buf_sz);
 		tdata[i].ec = jent_entropy_collector_alloc(1, 0);
 		tdata[i].refill = 1;
+		tdata[i].slpmode = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
 		pthread_mutex_init(&tdata[i].mtx, NULL);
 		pthread_cond_init(&tdata[i].cond, NULL);
 		pthread_create(&threads[i], NULL, thread_entropy_task, &tdata[i]);
