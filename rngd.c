@@ -128,7 +128,6 @@ static struct arguments default_arguments = {
 	.daemon		= true,
 	.list		= false,
 	.ignorefail	= false,
-	.quiet		= false,
 	.entropy_count	= 8,
 };
 struct arguments *arguments = &default_arguments;
@@ -374,7 +373,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	}
 	case 'q':
-		arguments->quiet = true;
 		quiet = true;
 		break;
 	case 'v':
@@ -469,9 +467,8 @@ static void do_loop(int random_step)
 			}
 
 			if (iter->failures >= MAX_RNG_FAILURES && !ignorefail) {
-				if (!arguments->quiet)
-					message(LOG_DAEMON|LOG_ERR,
-					"too many FIPS failures, disabling entropy source\n");
+				message(LOG_DAEMON|LOG_ERR,
+				"too many FIPS failures, disabling entropy source\n");
 				if (iter->close)
 					iter->close(iter);
 				iter->disabled = true;
@@ -479,9 +476,8 @@ static void do_loop(int random_step)
 		}
 	}
 
-	if (!arguments->quiet)
-		message(LOG_DAEMON|LOG_ERR,
-		"No entropy sources working, exiting rngd\n");
+	message(LOG_DAEMON|LOG_ERR,
+	"No entropy sources working, exiting rngd\n");
 }
 
 static void term_signal(int signo)
@@ -555,9 +551,8 @@ int main(int argc, char **argv)
 				entropy_sources[i].fipsctx = malloc(sizeof(fips_ctx_t));
 				fips_init(entropy_sources[i].fipsctx, discard_initial_data(&entropy_sources[i]));
 			} else {
-				if (!arguments->quiet)
-					message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %d: %s\n",
-						i, entropy_sources[i].rng_name);
+				message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %d: %s\n",
+					i, entropy_sources[i].rng_name);
 				entropy_sources[i].disabled = true;
 			}
 		}
@@ -578,12 +573,10 @@ int main(int argc, char **argv)
 	}
 
 	if (!ent_sources) {
-		if (!arguments->quiet) {
-			message(LOG_DAEMON|LOG_ERR,
-				"can't open any entropy source");
-			message(LOG_DAEMON|LOG_ERR,
-				"Maybe RNG device modules are not loaded\n");
-		}
+		message(LOG_DAEMON|LOG_ERR,
+			"can't open any entropy source");
+		message(LOG_DAEMON|LOG_ERR,
+			"Maybe RNG device modules are not loaded\n");
 		return 1;
 	}
 	/* Init entropy sink and open random device */
@@ -593,9 +586,8 @@ int main(int argc, char **argv)
 		am_daemon = true;
 
 		if (daemon(0, 0) < 0) {
-			if(!arguments->quiet)
-				message(LOG_CONS|LOG_INFO, "can't daemonize: %s\n",
-				strerror(errno));
+			message(LOG_CONS|LOG_INFO, "can't daemonize: %s\n",
+			strerror(errno));
 			return 1;
 		}
 

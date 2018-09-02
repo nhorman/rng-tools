@@ -110,10 +110,9 @@ void init_kernel_rng(const char* randomdev)
 		err = ferror(f) | fclose(f);
 	}
 	if (err) {
-		if (!arguments->quiet)
-			message(LOG_DAEMON|LOG_WARNING,
-				"unable to adjust write_wakeup_threshold: %s",
-				strerror(errno));
+		message(LOG_DAEMON|LOG_WARNING,
+			"unable to adjust write_wakeup_threshold: %s",
+			strerror(errno));
 	}
 }
 

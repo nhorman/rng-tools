@@ -47,7 +47,6 @@ struct arguments {
 	int fill_watermark;
 
 	bool debug;
-	bool quiet;
 	bool daemon;
 	bool list;
 	bool ignorefail;
