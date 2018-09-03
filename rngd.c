@@ -195,6 +195,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_name	= "Hardware RNG Device",
 		.rng_fname      = "/dev/hwrng",
 		.rng_fd         = -1,
+		.flags		= { 0 }, 
 		.xread          = xread,
 		.init           = init_entropy_source,
 		.rng_options	= NULL,
@@ -204,6 +205,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_name	= "TPM RNG Device",
 		.rng_fname      = "/dev/tpm0",
 		.rng_fd         = -1,
+		.flags		= { 0 }, 
 		.xread          = xread_tpm,
 		.init           = init_tpm_entropy_source,
 		.rng_options	= NULL,
@@ -211,6 +213,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 	{
 		.rng_name       = "Intel RDRAND Instruction RNG",
 		.rng_fd         = -1,
+		.flags		= { 0 }, 
 #ifdef HAVE_RDRAND
 		.xread          = xread_drng,
 		.init           = init_drng_entropy_source,
@@ -222,6 +225,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 	{
 		.rng_name       = "Power9 DARN Instruction RNG",
 		.rng_fd         = -1,
+		.flags		= { 0 },
 #ifdef HAVE_DARN
 		.xread          = xread_darn,
 		.init           = init_darn_entropy_source,
@@ -233,6 +237,9 @@ static struct rng entropy_sources[ENT_MAX] = {
 	{
 		.rng_name	= "NIST Network Entropy Beacon",
 		.rng_fd		= -1,
+		.flags		= {
+			.slow_source = 1,
+		}, 
 #ifdef HAVE_NISTBEACON
 		.xread		= xread_nist,
 		.init		= init_nist_entropy_source,
@@ -243,6 +250,9 @@ static struct rng entropy_sources[ENT_MAX] = {
 	{
 		.rng_name	= "JITTER Entropy generator",
 		.rng_fd		= -1,
+		.flags		= {
+			.slow_source = 1,
+		},
 #ifdef HAVE_JITTER
 		.xread		= xread_jitter,
 		.init		= init_jitter_entropy_source,
@@ -421,10 +431,13 @@ static void do_loop(int random_step)
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
 	int no_work;
 	bool work_done;
+	int sources_left;
+	int i;
+	int retval;
+	struct rng *iter;
 
+continue_trying:
 	for (no_work = 0; no_work < 100; no_work = (work_done ? 0 : no_work+1)) {
-		struct rng *iter;
-		int i, retval;
 
 		work_done = false;
 		for (i = 0; i < ENT_MAX; ++i)
@@ -474,6 +487,29 @@ static void do_loop(int random_step)
 				iter->disabled = true;
 			}
 		}
+	}
+
+	/*
+	 * No entropy source produced entropy in 
+	 * 100 rounds, disable anything that isn't
+	 * flagged as a slow source
+	 */
+	sources_left = 0;
+	for (i = 0; i < ENT_MAX; ++i) {
+		iter = &entropy_sources[i];
+		if (!iter->flags.slow_source && !iter->disabled) {
+			message(LOG_DAEMON|LOG_WARNING, "Too Slow: Disabling %s\n",
+				iter->rng_name);
+			iter->disabled = 1;
+		}
+		if (!iter->disabled)
+			sources_left++;
+	}
+
+	if (sources_left) {
+		message(LOG_DAEMON|LOG_WARNING,
+			"Entropy Generation is slow, consider tuning/adding sources\n");
+		goto continue_trying;
 	}
 
 	message(LOG_DAEMON|LOG_ERR,
