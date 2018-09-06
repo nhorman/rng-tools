@@ -5,6 +5,7 @@ if JITTER
  JSUBDIR = jitterentropy-library
  JSUBLIB = ./jitterentropy-library/libjitterentropy.a
  AM_CPPFLAGS = -I./jitterentropy-library
+ export CC AR CFLAGS LDFLAGS
 endif
 
 if JITTER_DSO

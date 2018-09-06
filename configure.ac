@@ -49,6 +49,8 @@ AC_PROG_CC
 AC_PROG_RANLIB
 AC_PROG_GCC_TRADITIONAL
 
+AC_CHECK_TOOLS([AR], [ar gar], :)
+
 AX_PTHREAD
 
 AM_CONDITIONAL([RDRAND], [test $target_cpu = x86_64 -o $target_cpu = i686])
