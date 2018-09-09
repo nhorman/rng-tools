@@ -53,8 +53,8 @@ AC_CHECK_TOOLS([AR], [ar gar], :)
 
 AX_PTHREAD
 
-AM_CONDITIONAL([RDRAND], [test $target_cpu = x86_64 -o $target_cpu = i686])
-AS_IF([test $target_cpu = x86_64 -o $target_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
+AM_CONDITIONAL([RDRAND], [test $target_cpu = x86_64 -o $target_cpu = i686 -o $target_cpu = i586])
+AS_IF([test $target_cpu = x86_64 -o $target_cpu = i686 -o $target_cpu = i586], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
 
 AM_CONDITIONAL([DARN], [test $target_cpu = powerpc64le])
 AS_IF([test $target_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
