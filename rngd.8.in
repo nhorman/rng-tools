@@ -60,15 +60,15 @@ sources is 0 if at least 1 entropy source was found and initialized, 1
 otherwise.
 .TP
 \fB\-x\fR, \fB\-\-exclude\fR
-Disable entropy sources based on index reported from --list option
+Disable entropy sources based on index or (shortname) reported from --list option
 .TP
 \fB\-n\fR, \fB\-\-include\fR
-Enable entropy sources based on index reported from --list option
+Enable entropy sources based on index or (shortname) reported from --list option
 .TP
 \fB\-O\fR, \fB\-\-option\fR
 Provide specific config options to individual entropy sources, in the format
---option index:key:value.  See Entropy Sources section below for indicies and
-source specific options.  Note that specifying \fB-O <index>\fR will print the
+--option [index|shortname]:key:value.  See Entropy Sources section below for indicies and
+source specific options.  Note that specifying \fB-O [<index>|<shortname>]\fR will print the
 available options for that index to the console
 .TP
 \fB\-p\fI file\fR, \fB\-\-pid-file=\fIfile\fR
@@ -116,18 +116,20 @@ Print program version
 ENTROPY SOURCES
 .TP
 .B
-Hardware RNG [Index 0]
+Hardware RNG (hwrng) [Index 0]
 The Hardware RNG is a generic entropy source that draws entropy from a hardware
 rng attached by default to /dev/hwrng
 
 .TP
 .B
-TPM [Index 1]
-Entropy drawn from on board TPM device
+TPM (tpm) [Index 1]
+Entropy drawn from on board TPM device.  Note this entropy source is deprecated
+and will be removed soon, as newer tpm devices export entropy via /dev/hwrng,
+which is collected by the hwrng source above
 
 .TP
 .B
-RDRAND/RDSEED [Index 2]
+RDRAND/RDSEED (rdrand) [Index 2]
 Entropy drawn from the RDRAND and RDSEED instructions (x86 only)
 .TP
 Options
@@ -137,7 +139,7 @@ if all entropy is drawn directly from rdrand instruction (default 1)
 
 .TP
 .B
-DARN [Index 3]
+DARN (darn) [Index 3]
 Entropy drawn from the DARN instruction (ppc64 only)
 .TP
 Options
@@ -148,7 +150,7 @@ the entropy poll, or if it is used as a periodic seed to an aes based cprng
 
 .TP
 .B
-NIST Entropy Beacon [Index 4]
+NIST Entropy Beacon (nist) [Index 4]
 Entropy gathered from the NIST network entropy beacon.  Note that this entropy
 source is disabled by default as it should never be used for cryptographic
 purposes, or any use case in which random data should be known only by a single
@@ -156,7 +158,7 @@ entity.
 
 .TP
 .B
-JITTER [Index 5]
+JITTER (jitter) [Index 5]
 Entropy gathered by measuring timing variance of operations on the local cpu
 .TP
 Options
