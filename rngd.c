@@ -185,6 +185,10 @@ static struct rng_option jitter_options[] = {
 		.key = "retry_delay",
 		.int_val = -1,
 	},
+	[JITTER_OPT_USE_AES] = {
+		.key = "use_aes",
+		.int_val = 0,
+	},
 	{
 		.key = NULL,
 	}
