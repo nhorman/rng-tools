@@ -193,6 +193,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 	/* Note, the special char dev must be the first entry */
 	{
 		.rng_name	= "Hardware RNG Device",
+		.rng_sname	= "hwrng",
 		.rng_fname      = "/dev/hwrng",
 		.rng_fd         = -1,
 		.flags		= { 0 }, 
@@ -203,6 +204,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 	/* must be at index 1 */
 	{
 		.rng_name	= "TPM RNG Device",
+		.rng_sname	= "tpm",
 		.rng_fname      = "/dev/tpm0",
 		.rng_fd         = -1,
 		.flags		= { 0 }, 
@@ -212,6 +214,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 	},
 	{
 		.rng_name       = "Intel RDRAND Instruction RNG",
+		.rng_sname	= "rdrand",
 		.rng_fd         = -1,
 		.flags		= { 0 }, 
 #ifdef HAVE_RDRAND
@@ -224,6 +227,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 	},
 	{
 		.rng_name       = "Power9 DARN Instruction RNG",
+		.rng_sname	= "darn",
 		.rng_fd         = -1,
 		.flags		= { 0 },
 #ifdef HAVE_DARN
@@ -236,6 +240,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 	},
 	{
 		.rng_name	= "NIST Network Entropy Beacon",
+		.rng_sname	= "nist",
 		.rng_fd		= -1,
 		.flags		= {
 			.slow_source = 1,
@@ -249,6 +254,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 	},
 	{
 		.rng_name	= "JITTER Entropy generator",
+		.rng_sname	= "jitter",
 		.rng_fd		= -1,
 		.flags		= {
 			.slow_source = 1,

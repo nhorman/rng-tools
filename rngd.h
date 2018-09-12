@@ -92,6 +92,7 @@ struct rng_option {
 /* structures to store rng information */
 struct rng {
 	char *rng_name;
+	char *rng_sname;
 	char *rng_fname;
 	int rng_fd;
 	bool disabled;
