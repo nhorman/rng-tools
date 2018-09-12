@@ -212,6 +212,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.xread          = xread_tpm,
 		.init           = init_tpm_entropy_source,
 		.rng_options	= NULL,
+		.disabled	= true,
 	},
 	{
 		.rng_name       = "Intel RDRAND Instruction RNG",
