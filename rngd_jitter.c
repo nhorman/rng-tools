@@ -162,7 +162,6 @@ static void *thread_entropy_task(void *data)
 	cpu_set_t cpuset;
 
 	ssize_t ret;
-	size_t need;
 	struct thread_data *me = data;
 	char *tmpbuf;
 	struct timespec start, end;
@@ -220,10 +219,9 @@ static void *thread_entropy_task(void *data)
 			break;
 
 		/* We are awake because we need to refil the buffer */
-		need = me->buf_sz - me->avail;
 		pthread_mutex_unlock(&me->mtx);
 		clock_gettime(CLOCK_REALTIME, &start);
-		ret = jent_read_entropy(me->ec, tmpbuf, need);	
+		ret = jent_read_entropy(me->ec, tmpbuf, me->buf_sz);	
 		clock_gettime(CLOCK_REALTIME, &end);
 		message(LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
 			me->core_id, elapsed_time(&start, &end));
