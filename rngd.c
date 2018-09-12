@@ -47,6 +47,7 @@
 #include <syslog.h>
 #include <signal.h>
 #include <limits.h>
+#include <ctype.h>
 
 #include "rngd.h"
 #include "fips.h"
@@ -270,6 +271,18 @@ static struct rng entropy_sources[ENT_MAX] = {
 	},
 };
 
+static int find_ent_src_idx_by_sname(const char *sname)
+{
+	int i;
+
+	for (i = 0; i < ENT_MAX; i++) {
+		if (!strncmp(sname, entropy_sources[i].rng_sname,
+			strlen(entropy_sources[i].rng_sname)))
+			return i;
+	}
+
+	return -1;
+}
 
 /*
  * command line processing
@@ -279,6 +292,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	char *optkey;
 	long int idx;
 	long int val;
+	bool restore = false;
 	char *search, *last_search;
 	struct rng_option *options;
 
@@ -293,14 +307,35 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 
 		search = strchrnul(arg, ':');
 
-		idx = strtoul(arg, &search, 10);
-		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-			message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
-			return -ERANGE;
+		if (isalpha(arg[0])) {
+			/*
+			 * first argument might be a string, lookup by short
+			 * name
+			 */
+			if (*search != '\0') {
+				*search = '\0';
+				restore = true;
+			}
+			idx = find_ent_src_idx_by_sname(arg);
+			if (idx == -1) {
+				message(LOG_CONS|LOG_WARNING, "Unknown entropy source %s\n", arg);
+				return -EINVAL;
+			}
+			if (restore == true)
+				*search = ':';
+		} else {
+			idx = strtoul(arg, &search, 10);
+			if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
+				message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
+				return -ERANGE;
+			}
+			message(LOG_CONS|LOG_INFO, "Note, reference of entropy sources by index "
+				"is deprecated, use entropy source short name instead\n");
 		}
 
 		if (*search == '\0') {
-			message(LOG_CONS|LOG_INFO, "Available options for %s\n", entropy_sources[idx].rng_name);
+			message(LOG_CONS|LOG_INFO, "Available options for %s (%s)\n",
+				entropy_sources[idx].rng_name, entropy_sources[idx].rng_sname);
 			options = entropy_sources[idx].rng_options;
 			while (options && options->key) {
 				message(LOG_CONS|LOG_INFO, "key: [%s]\tdefault value: [%d]\n", options->key, options->int_val);
@@ -341,22 +376,51 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'x':
-		idx = strtol(arg, NULL, 10);
-		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-			message(LOG_CONS|LOG_INFO, "exclude index is out of range: %lu\n", idx);
-			return -ERANGE;
+		if (isalpha(arg[0])) {
+			/*
+			 * first argument might be a string, lookup by short
+			 * name
+			 */
+			idx = find_ent_src_idx_by_sname(arg);
+			if (idx == -1) {
+				message(LOG_CONS|LOG_WARNING, "Unknown entropy source %s\n", arg);
+				return -EINVAL;
+			}
+		} else {
+			idx = strtol(arg, NULL, 10);
+			if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
+				message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
+				return -ERANGE;
+			}
+			message(LOG_CONS|LOG_INFO, "Note, reference of entropy sources by index "
+				"is deprecated, use entropy source short name instead\n");
 		}
+
 		entropy_sources[idx].disabled = true;
-		message(LOG_CONS|LOG_INFO, "Disabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
+		message(LOG_CONS|LOG_INFO, "Disabling %lu: %s (%s)\n", idx,
+			entropy_sources[idx].rng_name, entropy_sources[idx].rng_sname);
 		break;
 	case 'n':
-		idx = strtol(arg, NULL, 10);
-		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-			message(LOG_CONS|LOG_INFO, "enable index is out of range: %lu\n", idx);
-			return -ERANGE;
+		if (isalpha(arg[0])) {
+			idx = find_ent_src_idx_by_sname(arg);
+			if (idx == -1) {
+				message(LOG_CONS|LOG_WARNING, "Unknown entropy source %s\n", arg);
+				return -EINVAL;
+			}
+		} else {
+			idx = strtol(arg, NULL, 10);
+			if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
+				message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
+				return -ERANGE;
+			}
+
+			message(LOG_CONS|LOG_INFO, "Note, reference of entropy sources by index "
+                                "is deprecated, use entropy source short name instead\n");
 		}
+
 		entropy_sources[idx].disabled = false;
-		message(LOG_CONS|LOG_INFO, "Enabling %lu: %s\n", idx, entropy_sources[idx].rng_name);
+		message(LOG_CONS|LOG_INFO, "Enabling %lu: %s (%s)\n", idx,
+			entropy_sources[idx].rng_name, entropy_sources[idx].rng_sname);
 		break;
 	case 'l':
 		arguments->list = true;
@@ -576,7 +640,8 @@ int main(int argc, char **argv)
 		for (i=0; i < ENT_MAX; i++) 
 			if (entropy_sources[i].init && entropy_sources[i].disabled == true) {
 				found = 1;
-				message(LOG_CONS|LOG_INFO, "%d: %s\n", i, entropy_sources[i].rng_name);
+				message(LOG_CONS|LOG_INFO, "%d: %s (%s)\n", i,
+					entropy_sources[i].rng_name, entropy_sources[i].rng_sname);
 			}
 		if (!found)
 			message(LOG_CONS|LOG_INFO, "None");
@@ -607,7 +672,8 @@ int main(int argc, char **argv)
 		for (i=0; i < ENT_MAX; i++) 
 			if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
 				rc = 1;
-				message(LOG_CONS|LOG_INFO, "%d: %s\n", i, entropy_sources[i].rng_name);
+				message(LOG_CONS|LOG_INFO, "%d: %s (%s)\n", i,
+					entropy_sources[i].rng_name, entropy_sources[i].rng_sname);
 			}
 
 		close_all_entropy_sources();
