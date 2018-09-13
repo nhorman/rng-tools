@@ -121,19 +121,36 @@ struct entropy {
 	int size;
 };
 
-void random_add_entropy(void *buf, size_t size)
+int random_add_entropy(void *buf, size_t size)
 {
+	static bool write_to_output = false;
+
 	struct entropy *ent = alloca(sizeof(struct entropy) + size);
 
 	ent->ent_count = size * arguments->entropy_count;
 	ent->size = size;
 	memcpy(ent + 1, buf, size);
 
-	if (ioctl(random_fd, RNDADDENTROPY, ent) != 0) {
-		message(LOG_DAEMON|LOG_ERR, "RNDADDENTROPY failed: %s\n",
-			strerror(errno));
-		exit(1);
-	}
+	if (write_to_output == false) {
+		if (ioctl(random_fd, RNDADDENTROPY, ent) != 0) {
+			if (errno == ENOTTY && !arguments->daemon) {
+				/*
+				 * This isn't a real random device.
+				 * Switch to plain output if we are in
+				 * foreground
+				 */
+				write_to_output = true;
+			} else {
+				message(LOG_DAEMON|LOG_ERR, "RNDADDENTROPY failed: %s\n",
+					strerror(errno));
+				return 1;
+			}
+		}
+	} else
+		write(random_fd, buf, size);
+
+	return 0;
+
 }
 
 void random_sleep(void)

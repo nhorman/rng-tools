@@ -475,7 +475,8 @@ static int update_kernel_random(struct rng *rng, int random_step,
 		 p += random_step) {
 		if (!server_running)
 			return 0;
-		random_add_entropy(p, random_step);
+		if (random_add_entropy(p, random_step))
+			return 1;
 		random_sleep();
 	}
 	return 0;

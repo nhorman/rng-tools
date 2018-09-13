@@ -38,7 +38,7 @@ extern int default_watermark(void);
 extern void init_kernel_rng(const char* randomdev);
 
 /* Send entropy to the kernel */
-extern void random_add_entropy(void *buf, size_t size);
+extern int random_add_entropy(void *buf, size_t size);
 
 /* Sleep until the kernel is hungry for entropy */
 extern void random_sleep(void);
