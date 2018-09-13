@@ -27,6 +27,9 @@
 #include "rng-tools-config.h"
 
 #include <jitterentropy.h>
+#ifdef HAVE_LIBGCRYPT
+#include <gcrypt.h>
+#endif
 
 #include "rngd.h"
 #include "fips.h"
@@ -52,10 +55,87 @@ struct thread_data {
 
 static struct thread_data *tdata;
 static pthread_t *threads;
+#ifdef HAVE_LIBGCRYPT
 
-/*
- * These must be powers of 2
- */
+#define MIN_GCRYPT_VERSION "1.0.0"
+
+static gcry_cipher_hd_t gcry_cipher_hd;
+
+/* Read data from the drng in chunks of 128 bytes for AES scrambling */
+#define AES_BLOCK               16
+#define CHUNK_SIZE              (AES_BLOCK*8)   /* 8 parallel streams */
+#define RDRAND_ROUNDS           512             /* 512:1 data reduction */
+
+static unsigned char iv_buf[CHUNK_SIZE] __attribute__((aligned(128)));
+#endif
+
+static int init_gcrypt(const void *key)
+{
+#ifdef HAVE_LIBGCRYPT
+	gcry_error_t gcry_error;
+
+	if (!gcry_check_version(MIN_GCRYPT_VERSION)) {
+		message(LOG_DAEMON|LOG_ERR,
+			"libgcrypt version mismatch: have %s, require >= %s\n",
+			gcry_check_version(NULL), MIN_GCRYPT_VERSION);
+		return 1;
+	}
+
+	gcry_error = gcry_cipher_open(&gcry_cipher_hd, GCRY_CIPHER_AES128,
+				      GCRY_CIPHER_MODE_CBC, 0);
+
+	if (!gcry_error)
+		gcry_error = gcry_cipher_setkey(gcry_cipher_hd, key, AES_BLOCK);
+
+	if (!gcry_error) {
+		/*
+		 * Only need the first 16 bytes of iv_buf. AES-NI can
+		 * encrypt multiple blocks in parallel but we can't.
+		 */
+		gcry_error = gcry_cipher_setiv(gcry_cipher_hd, iv_buf, AES_BLOCK);
+	}
+
+	if (gcry_error) {
+		message(LOG_DAEMON|LOG_ERR,
+			"could not set key or IV: %s\n",
+			gcry_strerror(gcry_error));
+		gcry_cipher_close(gcry_cipher_hd);
+		return 1;
+	}
+	return 0;
+#else
+	(void)key;
+	return 1;
+#endif
+}
+
+static inline int gcrypt_mangle(unsigned char *tmp, size_t size)
+{
+#ifdef HAVE_LIBGCRYPT
+	int i;
+	int stride = AES_BLOCK * RDRAND_ROUNDS;
+	gcry_error_t gcry_error = 0;
+
+	/* Encrypt tmp in-place. */
+
+	for (i = 0; i < (size - stride) && !gcry_error; i += stride) {
+		gcry_error = gcry_cipher_encrypt(gcry_cipher_hd, &tmp[i],
+					 AES_BLOCK * RDRAND_ROUNDS,
+					 NULL, 0);
+	}
+
+	if (gcry_error) {
+		message(LOG_DAEMON|LOG_ERR,
+			"gcry_cipher_encrypt error: %s\n",
+			gcry_strerror(gcry_error));
+		return -1;
+	}
+	return 0;
+#else
+	(void)tmp;
+	return -1;
+#endif
+}
 
 int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 {
@@ -77,10 +157,23 @@ try_again:
 		pthread_mutex_lock(&current->mtx);
 
 		if (current->refill) {
-			message(LOG_DAEMON|LOG_DEBUG, "JITTER skips empty thread on cpu %d\n", current->core_id);
-			/* Grab the sleep timer while we hold the lock */
-			memcpy(&sleep, &current->slptm, sizeof(struct timespec));
-			goto next_unlock;
+			/*
+			 * If we're set to use AES, trigger a crypt of the
+			 * existing data here, and use that as the next random
+			 * block
+			 */
+			if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val && retry_count) {
+				if (gcrypt_mangle(current->buf_ptr, current->buf_sz))
+					goto next_unlock;
+				message(LOG_CONS|LOG_DEBUG, "JITTER backfills with gcrypt on cpu %d\n",
+					current->core_id);
+				/* Fall through to read the new data */
+			} else {
+				message(LOG_DAEMON|LOG_DEBUG, "JITTER skips empty thread on cpu %d\n", current->core_id);
+				/* Grab the sleep timer while we hold the lock */
+				memcpy(&sleep, &current->slptm, sizeof(struct timespec));
+				goto next_unlock;
+			}
 		}
 			
 		request = (need > current->avail) ? current->avail : need;
@@ -105,7 +198,11 @@ next:
 		if (start == current) {
 			if (retry_count < ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val) {
 				retry_count++;
-				nanosleep(&sleep, NULL);
+				/*
+				 * skip the sleep if we're using AES
+				 */
+				if(!ent_src->rng_options[JITTER_OPT_USE_AES].int_val)
+					nanosleep(&sleep, NULL);
 				goto try_again;
 			}
 			goto out;
@@ -162,7 +259,6 @@ static void *thread_entropy_task(void *data)
 	cpu_set_t cpuset;
 
 	ssize_t ret;
-	size_t need;
 	struct thread_data *me = data;
 	char *tmpbuf;
 	struct timespec start, end;
@@ -220,10 +316,9 @@ static void *thread_entropy_task(void *data)
 			break;
 
 		/* We are awake because we need to refil the buffer */
-		need = me->buf_sz - me->avail;
 		pthread_mutex_unlock(&me->mtx);
 		clock_gettime(CLOCK_REALTIME, &start);
-		ret = jent_read_entropy(me->ec, tmpbuf, need);	
+		ret = jent_read_entropy(me->ec, tmpbuf, me->buf_sz);	
 		clock_gettime(CLOCK_REALTIME, &end);
 		message(LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
 			me->core_id, elapsed_time(&start, &end));
@@ -289,6 +384,9 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	size_t cpusize;
 	int i;
 	int core_id = 0;
+#ifdef HAVE_LIBGCRYPT
+	char key[AES_BLOCK];
+#endif
 	int ret = jent_entropy_init();
 	if(ret) {
 		message(LOG_DAEMON|LOG_WARNING, "JITTER rng fails with code %d\n", ret);
@@ -352,7 +450,28 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		message(LOG_DAEMON|LOG_DEBUG, "CPU Thread %d is ready\n", i);
 		pthread_mutex_unlock(&tdata[i].mtx);
 	}
-		
+
+	if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
+#ifdef HAVE_LIBGCRYPT
+		/*
+		 * Temporarily disable aes so we don't try to use it during init
+		 */
+		ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 0;
+		if (xread_jitter(key, AES_BLOCK, ent_src)) {
+			message(LOG_CONS|LOG_INFO, "Unable to obtain AES key, disabling AES in JITTER source\n");
+		} else if (xread_jitter(iv_buf, CHUNK_SIZE, ent_src)) {
+			message(LOG_CONS|LOG_INFO, "Unable to obtain iv_buffer, disabling AES in JITTER source\n");
+		} else if (init_gcrypt(key)) {
+			message(LOG_CONS|LOG_INFO, "Unable to inity gcrypt lib, disabling AES in JITTER source\n");
+		} else {
+			/* re-enable AES */
+			ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 1;
+		}
+#else
+		message(LOG_CONS|LOG_INFO, "libgcrypt not available. Disabling AES in JITTER source\n");
+		ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 0;
+#endif
+	}
 	message(LOG_DAEMON|LOG_INFO, "Enabling JITTER rng support\n");
 	return 0;
 }

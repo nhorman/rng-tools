@@ -185,6 +185,10 @@ static struct rng_option jitter_options[] = {
 		.key = "retry_delay",
 		.int_val = -1,
 	},
+	[JITTER_OPT_USE_AES] = {
+		.key = "use_aes",
+		.int_val = 1,
+	},
 	{
 		.key = NULL,
 	}
@@ -285,6 +289,29 @@ static int find_ent_src_idx_by_sname(const char *sname)
 	return -1;
 }
 
+static int find_ent_src_idx(const char *name_idx)
+{
+	int idx;
+
+	if (isalpha(name_idx[0])) {
+		idx = find_ent_src_idx_by_sname(name_idx);
+		if (idx == -1) {
+			message(LOG_CONS|LOG_WARNING, "Unknown entropy source %s\n", name_idx);
+			return -EINVAL;
+		}
+	} else {
+		idx = strtoul(name_idx, NULL, 10);
+		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
+			message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
+			return -ERANGE;
+		}
+		message(LOG_CONS|LOG_INFO, "Note, reference of entropy sources by index "
+			"is deprecated, use entropy source short name instead\n");
+	}
+
+	return idx;
+}
+
 /*
  * command line processing
  */
@@ -308,32 +335,18 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 
 		search = strchrnul(arg, ':');
 
-		if (isalpha(arg[0])) {
-			/*
-			 * first argument might be a string, lookup by short
-			 * name
-			 */
-			if (*search != '\0') {
-				*search = '\0';
-				restore = true;
-			}
-			idx = find_ent_src_idx_by_sname(arg);
-			if (idx == -1) {
-				message(LOG_CONS|LOG_WARNING, "Unknown entropy source %s\n", arg);
-				return -EINVAL;
-			}
-			if (restore == true)
-				*search = ':';
-		} else {
-			idx = strtoul(arg, &search, 10);
-			if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-				message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
-				return -ERANGE;
-			}
-			message(LOG_CONS|LOG_INFO, "Note, reference of entropy sources by index "
-				"is deprecated, use entropy source short name instead\n");
+		if (*search != '\0') {
+			*search = '\0';
+			restore = true;
 		}
-
+	
+		idx = find_ent_src_idx(arg);
+		if (idx < 0)
+			return idx;
+	
+		if (restore == true)
+			*search = ':';
+	
 		if (*search == '\0') {
 			message(LOG_CONS|LOG_INFO, "Available options for %s (%s)\n",
 				entropy_sources[idx].rng_name, entropy_sources[idx].rng_sname);
@@ -377,47 +390,18 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'x':
-		if (isalpha(arg[0])) {
-			/*
-			 * first argument might be a string, lookup by short
-			 * name
-			 */
-			idx = find_ent_src_idx_by_sname(arg);
-			if (idx == -1) {
-				message(LOG_CONS|LOG_WARNING, "Unknown entropy source %s\n", arg);
-				return -EINVAL;
-			}
-		} else {
-			idx = strtol(arg, NULL, 10);
-			if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-				message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
-				return -ERANGE;
-			}
-			message(LOG_CONS|LOG_INFO, "Note, reference of entropy sources by index "
-				"is deprecated, use entropy source short name instead\n");
-		}
+		idx = find_ent_src_idx(arg);
+		if (idx < 0)
+			return idx;
 
 		entropy_sources[idx].disabled = true;
 		message(LOG_CONS|LOG_INFO, "Disabling %lu: %s (%s)\n", idx,
 			entropy_sources[idx].rng_name, entropy_sources[idx].rng_sname);
 		break;
 	case 'n':
-		if (isalpha(arg[0])) {
-			idx = find_ent_src_idx_by_sname(arg);
-			if (idx == -1) {
-				message(LOG_CONS|LOG_WARNING, "Unknown entropy source %s\n", arg);
-				return -EINVAL;
-			}
-		} else {
-			idx = strtol(arg, NULL, 10);
-			if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-				message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
-				return -ERANGE;
-			}
-
-			message(LOG_CONS|LOG_INFO, "Note, reference of entropy sources by index "
-                                "is deprecated, use entropy source short name instead\n");
-		}
+		idx = find_ent_src_idx(arg);
+		if (idx < 0)
+			return idx;
 
 		entropy_sources[idx].disabled = false;
 		message(LOG_CONS|LOG_INFO, "Enabling %lu: %s (%s)\n", idx,
