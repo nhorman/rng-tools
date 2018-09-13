@@ -187,7 +187,7 @@ static struct rng_option jitter_options[] = {
 	},
 	[JITTER_OPT_USE_AES] = {
 		.key = "use_aes",
-		.int_val = 0,
+		.int_val = 1,
 	},
 	{
 		.key = NULL,
