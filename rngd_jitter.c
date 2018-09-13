@@ -159,13 +159,14 @@ try_again:
 		if (current->refill) {
 			/*
 			 * If we're set to use AES, trigger a crypt of the
-			 * existing data her, and use that as the next random
+			 * existing data here, and use that as the next random
 			 * block
 			 */
 			if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val && retry_count) {
 				if (gcrypt_mangle(current->buf_ptr, current->buf_sz))
 					goto next_unlock;
-				message(LOG_CONS|LOG_DEBUG, "Using GCRYPT!!!\n");
+				message(LOG_CONS|LOG_DEBUG, "JITTER backfills with gcrypt on cpu %d\n",
+					current->core_id);
 				/* Fall through to read the new data */
 			} else {
 				message(LOG_DAEMON|LOG_DEBUG, "JITTER skips empty thread on cpu %d\n", current->core_id);
@@ -467,7 +468,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 			ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 1;
 		}
 #else
-		message(LOG_CONS|LOG_INFO, "libgcrypt not available disabling AES in JITTER source\n");
+		message(LOG_CONS|LOG_INFO, "libgcrypt not available. Disabling AES in JITTER source\n");
 		ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 0;
 #endif
 	}
