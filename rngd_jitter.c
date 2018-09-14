@@ -165,6 +165,11 @@ try_again:
 			if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val && retry_count) {
 				if (gcrypt_mangle(current->buf_ptr, current->buf_sz))
 					goto next_unlock;
+				/* mark the buffer as refilled */
+				current->idx = 0;
+				current->avail = current->buf_sz;
+				current->refill = 0;
+
 				message(LOG_CONS|LOG_DEBUG, "JITTER backfills with gcrypt on cpu %d\n",
 					current->core_id);
 				/* Fall through to read the new data */
