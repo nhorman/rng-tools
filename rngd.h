@@ -128,7 +128,7 @@ extern bool quiet;
 		if ((LOG_PRI(priority) != LOG_DEBUG) || (arguments->debug == true)) {\
 			fprintf(stderr, fmt, ##args); \
 			fprintf(stderr, "\n"); \
-			fflush(stdout); \
+			fflush(stderr); \
 		} \
 	} \
 } while (0)
