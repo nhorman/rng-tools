@@ -264,6 +264,7 @@ static void *thread_entropy_task(void *data)
 	cpu_set_t cpuset;
 
 	ssize_t ret;
+	size_t need;
 	struct thread_data *me = data;
 	char *tmpbuf;
 	struct timespec start, end;
@@ -321,9 +322,10 @@ static void *thread_entropy_task(void *data)
 			break;
 
 		/* We are awake because we need to refil the buffer */
+		need = me->buf_sz - me->avail;
 		pthread_mutex_unlock(&me->mtx);
 		clock_gettime(CLOCK_REALTIME, &start);
-		ret = jent_read_entropy(me->ec, tmpbuf, me->buf_sz);	
+		ret = jent_read_entropy(me->ec, tmpbuf, need);
 		clock_gettime(CLOCK_REALTIME, &end);
 		message(LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
 			me->core_id, elapsed_time(&start, &end));
@@ -334,9 +336,10 @@ static void *thread_entropy_task(void *data)
 		update_sleep_time(me, &start, &end);
 		if (!me->buf_ptr) /* buf_ptr may have been removed while gathering entropy */
 			break;
-		memcpy(me->buf_ptr, tmpbuf, me->buf_sz);
-		me->idx = 0;
-		me->avail = me->buf_sz;
+		/*  idx = pre-gather-avail - post-gather-avail */
+		me->idx = ((me->buf_sz - me->avail - need) > 0) ? (me->buf_sz - me->avail - need) : 0;
+		memcpy(me->buf_ptr + me->idx, tmpbuf, need);
+		me->avail = me->buf_sz - me->idx;
 		me->refill = 0;
 
 	} while (me->buf_ptr);
