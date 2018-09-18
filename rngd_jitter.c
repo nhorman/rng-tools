@@ -329,7 +329,7 @@ static void *thread_entropy_task(void *data)
 		clock_gettime(CLOCK_REALTIME, &end);
 		message(LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
 			me->core_id, elapsed_time(&start, &end));
-		if (ret == 0)
+		if (ret < 0)
 			message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
 		pthread_mutex_lock(&me->mtx);
 		/* Need to hold the mutex to update the sleep time */
@@ -340,6 +340,19 @@ static void *thread_entropy_task(void *data)
 		me->idx = ((me->buf_sz - me->avail - need) > 0) ? (me->buf_sz - me->avail - need) : 0;
 		memcpy(me->buf_ptr + me->idx, tmpbuf, need);
 		me->avail = me->buf_sz - me->idx;
+		/* Fill in missing entropy for non-zero idx */
+		if (me->idx > 0) {
+			need = me->idx;
+			if (jent_read_entropy(me->ec, tmpbuf, need) > 0) {
+				message(LOG_DEBUG|LOG_ERR, "jent_read_entropy on cpu %d filled in missing %d bytes\n",
+					me->core_id, need);
+				memcpy(me->buf_ptr, tmpbuf, need);
+				me->idx = 0;
+				me->avail = me->buf_sz;
+			} else {
+				message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
+			}
+		}
 		me->refill = 0;
 
 	} while (me->buf_ptr);
