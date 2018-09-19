@@ -150,10 +150,13 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 	struct timespec sleep;
 try_again:
 	while (need) {
-		/* if the current thread is refilling its buffer
+		/* if the current thread is locked or an empty buffer
  		 * just move on to the next one
  		 */
-		pthread_mutex_lock(&current->mtx);
+		if (pthread_mutex_trylock(&current->mtx)) {
+			message(LOG_DAEMON|LOG_DEBUG, "JITTER skips locked thread\n");
+			goto next;
+		}
 
 		if (current->avail == 0) {
 			/*
@@ -262,6 +265,7 @@ static void *thread_entropy_task(void *data)
 
 	ssize_t ret;
 	size_t need;
+	size_t max_fill;
 	struct thread_data *me = data;
 	char *tmpbuf;
 	struct timespec start, end;
@@ -311,6 +315,7 @@ static void *thread_entropy_task(void *data)
 	do {
 		pthread_cond_wait(&me->cond, &me->mtx);
 		message(LOG_DAEMON|LOG_DEBUG, "JITTER thread on cpu %d wakes up for refill\n", me->core_id);
+refill:
 		/* When we wake up, check to ensure we still have a buffer
  		 * Having a NULL buf_ptr is a signal to exit
  		 */
@@ -336,15 +341,23 @@ static void *thread_entropy_task(void *data)
 		me->idx = ((me->buf_sz - me->avail - need) > 0) ? (me->buf_sz - me->avail - need) : 0;
 		memcpy(me->buf_ptr + me->idx, tmpbuf, need);
 		me->avail = me->buf_sz - me->idx;
-		/* Fill in missing entropy for non-zero idx */
+		/* Fill in entropy for non-zero idx */
 		if (me->idx > 0) {
-			need = me->idx;
+			/*  max_fill:
+			 *    larger value gives more priority for filling entropy
+			 *    smaller value gives more priority for draining entropy
+			 */
+			max_fill = ((me->buf_sz / 8) > (me->idx / 2)) ? (me->buf_sz / 8) : (me->idx / 2);
+			need = (me->idx > max_fill) ? max_fill : me->idx;
 			if (jent_read_entropy(me->ec, tmpbuf, need) > 0) {
-				message(LOG_DEBUG|LOG_ERR, "jent_read_entropy on cpu %d filled in missing %d bytes\n",
-					me->core_id, need);
-				memcpy(me->buf_ptr, tmpbuf, need);
-				me->idx = 0;
-				me->avail = me->buf_sz;
+				me->idx -= need;
+				memcpy(me->buf_ptr + me->idx, tmpbuf, need);
+				me->avail = me->buf_sz - me->idx;
+				message(LOG_DEBUG|LOG_ERR, "jent_read_entropy on cpu %d filled in %d bytes resulting in idx=%d\n",
+					me->core_id, need, me->idx);
+				if (me->idx > 0) {
+					goto refill;
+				}
 			} else {
 				message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
 			}
