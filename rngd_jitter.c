@@ -46,7 +46,6 @@ struct thread_data {
 	size_t buf_sz;
 	size_t avail;
 	size_t idx;
-	int refill;
 	int slpmode;
 	struct timespec slptm;
 	pthread_mutex_t mtx;
@@ -156,7 +155,7 @@ try_again:
  		 */
 		pthread_mutex_lock(&current->mtx);
 
-		if (current->refill) {
+		if (current->avail == 0) {
 			/*
 			 * If we're set to use AES, trigger a crypt of the
 			 * existing data here, and use that as the next random
@@ -168,7 +167,6 @@ try_again:
 				/* mark the buffer as refilled */
 				current->idx = 0;
 				current->avail = current->buf_sz;
-				current->refill = 0;
 
 				message(LOG_CONS|LOG_DEBUG, "JITTER backfills with gcrypt on cpu %d\n",
 					current->core_id);
@@ -190,7 +188,6 @@ try_again:
 
 		/* Trigger a refill if this thread is low */
 		if (current->avail < ent_src->rng_options[JITTER_OPT_REFILL].int_val) {
-			current->refill = 1;
 			pthread_cond_signal(&current->cond);
 		}
 
@@ -308,7 +305,6 @@ static void *thread_entropy_task(void *data)
 	else {
 		memcpy(me->buf_ptr, tmpbuf, me->buf_sz);
 		me->avail = me->buf_sz;
-		me->refill = 0;
 	}
 
 	/* Now go to sleep until there is more work to do */
@@ -353,7 +349,6 @@ static void *thread_entropy_task(void *data)
 				message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
 			}
 		}
-		me->refill = 0;
 
 	} while (me->buf_ptr);
 
@@ -450,7 +445,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		tdata[i].buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
 		tdata[i].buf_ptr = calloc(1, tdata[i].buf_sz);
 		tdata[i].ec = jent_entropy_collector_alloc(1, 0);
-		tdata[i].refill = 1;
+		tdata[i].avail = 0;
 		tdata[i].slpmode = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
 		pthread_mutex_init(&tdata[i].mtx, NULL);
 		pthread_cond_init(&tdata[i].cond, NULL);
@@ -463,7 +458,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	/* Make sure all our threads are doing their jobs */
 	for (i=0; i < num_threads; i++) {
 		pthread_mutex_lock(&tdata[i].mtx);
-		while (tdata[i].refill) {
+		while (tdata[i].avail == 0) {
 			pthread_mutex_unlock(&tdata[i].mtx);
 			sched_yield();
 			pthread_mutex_lock(&tdata[i].mtx);
