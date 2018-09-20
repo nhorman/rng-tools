@@ -265,7 +265,6 @@ static void *thread_entropy_task(void *data)
 
 	ssize_t ret;
 	size_t need;
-	size_t max_fill;
 	struct thread_data *me = data;
 	char *tmpbuf;
 	struct timespec start, end;
@@ -315,13 +314,13 @@ static void *thread_entropy_task(void *data)
 	do {
 		pthread_cond_wait(&me->cond, &me->mtx);
 		message(LOG_DAEMON|LOG_DEBUG, "JITTER thread on cpu %d wakes up for refill\n", me->core_id);
-refill:
 		/* When we wake up, check to ensure we still have a buffer
  		 * Having a NULL buf_ptr is a signal to exit
  		 */
 		if (!me->buf_ptr)
 			break;
 
+refill_more:
 		/* We are awake because we need to refil the buffer */
 		need = me->buf_sz - me->avail;
 		pthread_mutex_unlock(&me->mtx);
@@ -350,26 +349,11 @@ refill:
 		me->idx = ((me->buf_sz - me->avail - need) > 0) ? (me->buf_sz - me->avail - need) : 0;
 		memcpy(me->buf_ptr + me->idx, tmpbuf, need);
 		me->avail = me->buf_sz - me->idx;
-		/* Fill in entropy for non-zero idx */
-		if (me->idx > 0) {
-			/*  max_fill:
-			 *    larger value gives more priority for filling entropy
-			 *    smaller value gives more priority for draining entropy
-			 */
-			max_fill = ((me->buf_sz / 8) > (me->idx / 2)) ? (me->buf_sz / 8) : (me->idx / 2);
-			need = (me->idx > max_fill) ? max_fill : me->idx;
-			if (jent_read_entropy(me->ec, tmpbuf, need) > 0) {
-				me->idx -= need;
-				memcpy(me->buf_ptr + me->idx, tmpbuf, need);
-				me->avail = me->buf_sz - me->idx;
-				message(LOG_DEBUG|LOG_ERR, "jent_read_entropy on cpu %d filled in %d bytes resulting in idx=%d\n",
-					me->core_id, need, me->idx);
-				if (me->idx > 0) {
-					goto refill;
-				}
-			} else {
-				message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
-			}
+		/* if me->idx isn't at the start of the buffer, we can fill more */
+		if (me->idx) {
+			message(LOG_CONS|LOG_DEBUG, "CPU %d has %d more bytes to fill\n",
+				me->core_id, me->buf_sz - me->avail);
+			goto refill_more;
 		}
 
 	} while (me->buf_ptr);
