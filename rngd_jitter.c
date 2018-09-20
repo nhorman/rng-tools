@@ -337,6 +337,15 @@ refill:
 		update_sleep_time(me, &start, &end);
 		if (!me->buf_ptr) /* buf_ptr may have been removed while gathering entropy */
 			break;
+		/*
+		 * we need to re-check need here, as we may be using aes to
+		 * backfill entropy.  If we are, its possible that there will be
+		 * less need than what we computed initially
+		 */
+		need = (need > me->buf_sz - me->avail) ? me->buf_sz - me->avail : need;
+		if (!need)
+			continue;
+
 		/*  idx = pre-gather-avail - post-gather-avail */
 		me->idx = ((me->buf_sz - me->avail - need) > 0) ? (me->buf_sz - me->avail - need) : 0;
 		memcpy(me->buf_ptr + me->idx, tmpbuf, need);
