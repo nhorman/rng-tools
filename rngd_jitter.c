@@ -147,7 +147,7 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 	char *bptr = buf;
 	int rc = 1;
 	int retry_count = 0;
-	struct timespec sleep;
+	struct timespec sleep = { 1, 0 };
 try_again:
 	while (need) {
 		/* if the current thread is locked or an empty buffer
@@ -214,12 +214,8 @@ next:
 		}
 	}
 	rc = 0;
-
-	pthread_mutex_unlock(&current->mtx);
-	rc = 0;
 out:
 	return rc;
-
 }
 
 static inline double elapsed_time(struct timespec *start, struct timespec *end)
