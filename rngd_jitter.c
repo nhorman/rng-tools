@@ -152,6 +152,12 @@ try_again:
 	while (need) {
 		pthread_mutex_lock(&current->mtx);
 
+		/*
+		 * Grab the sleep timer while we hold the lock, in case
+		 * we need to sleep below
+		 */
+		memcpy(&sleep, &current->slptm, sizeof(struct timespec));
+
 		if (current->avail == 0) {
 			/*
 			 * If we're set to use AES, trigger a crypt of the
@@ -170,8 +176,6 @@ try_again:
 				/* Fall through to read the new data */
 			} else {
 				message(LOG_DAEMON|LOG_DEBUG, "JITTER skips empty thread on cpu %d\n", current->core_id);
-				/* Grab the sleep timer while we hold the lock */
-				memcpy(&sleep, &current->slptm, sizeof(struct timespec));
 				goto next_unlock;
 			}
 		}
