@@ -104,6 +104,8 @@ static struct argp_option options[] = {
 	{ "rng-device", 'r', "file", 0,
 	  "Kernel device used for random number input (default: /dev/hwrng)" },
 
+	{ "test", 't', 0, 0, "Enter test mode and report entropy production rates" },
+
 	{ "pid-file", 'p', "file", 0,
 	  "File used for recording daemon PID, and multiple exclusion (default: /var/run/rngd.pid)" },
 
@@ -127,11 +129,16 @@ static struct arguments default_arguments = {
 	.pid_file	= "/var/run/rngd.pid",
 	.random_step	= 64,
 	.daemon		= true,
+	.test		= false,
 	.list		= false,
 	.ignorefail	= false,
 	.entropy_count	= 8,
 };
 struct arguments *arguments = &default_arguments;
+
+static unsigned long ent_gathered = 0;
+static unsigned long test_iterations = 0;
+static double avg_entropy = 0;
 
 static enum {
 	ENT_HWRNG = 0,
@@ -419,6 +426,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	case 'f':
 		arguments->daemon = false;
 		break;
+	case 't':
+		arguments->daemon = false;
+		arguments->test = true;
+		break;
 	case 'b':
 		arguments->daemon = true;
 		break;
@@ -482,6 +493,16 @@ static int update_kernel_random(struct rng *rng, int random_step,
 	return 0;
 }
 
+static int random_test_sink(struct rng *rng, int random_step,
+	unsigned char *buf, fips_ctx_t *fipsctx_in)
+{
+	if (!ent_gathered)
+		alarm(1);
+	ent_gathered += FIPS_RNG_BUFFER_SIZE;
+	return 0;
+}
+
+
 static void do_loop(int random_step)
 {
 	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
@@ -491,6 +512,11 @@ static void do_loop(int random_step)
 	int i;
 	int retval;
 	struct rng *iter;
+
+	int (*random_add_fn)(struct rng *rng, int random_step,
+		unsigned char *buf, fips_ctx_t *fipsctx_in);
+
+	random_add_fn = arguments->test ? random_test_sink : update_kernel_random;
 
 continue_trying:
 	for (no_work = 0; no_work < 100; no_work = (work_done ? 0 : no_work+1)) {
@@ -516,8 +542,8 @@ continue_trying:
 
 			work_done = true;
 
-			rc = update_kernel_random(iter, random_step,
-					     buf, iter->fipsctx);
+			rc = random_add_fn(iter, random_step, buf, iter->fipsctx);
+
 			if (rc == 0) {
 				iter->success++;
 				if (iter->success >= RNG_OK_CREDIT) {
@@ -575,6 +601,21 @@ continue_trying:
 static void term_signal(int signo)
 {
 	server_running = false;
+}
+
+static void alarm_signal(int signo)
+{
+
+	if (ent_gathered >= 1024)
+		message(LOG_CONS|LOG_INFO, "%d kbytes of entropy gathered per second\n",
+			ent_gathered/1024);
+	else
+		message(LOG_CONS|LOG_INFO, "%d bytes of entropy gathered per second\n",
+			ent_gathered);
+	avg_entropy = test_iterations ? ent_gathered : 
+		((avg_entropy * test_iterations) + ent_gathered) / (test_iterations + 1);
+	ent_gathered = 0;
+	test_iterations++;
 }
 
 static int discard_initial_data(struct rng *ent_src)
@@ -698,6 +739,11 @@ int main(int argc, char **argv)
 	 */
 	signal(SIGINT, term_signal);
 	signal(SIGTERM, term_signal);
+	if (arguments->test) {
+		message(LOG_CONS|LOG_INFO, "Entering test mode...no entropy will "
+			"be delivered to the kernel\n");
+		signal(SIGALRM, alarm_signal);
+	}
 
 	if (arguments->ignorefail)
 		ignorefail = true;
@@ -705,6 +751,10 @@ int main(int argc, char **argv)
 	do_loop(arguments->random_step);
 
 	close_all_entropy_sources();
+
+	if (arguments->test)
+		message(LOG_CONS|LOG_INFO, "Average entropy %.12e kbytes entropy over %d iterations\n",
+			avg_entropy/1024, test_iterations);
 
 	if (pid_fd >= 0)
 		unlink(arguments->pid_file);

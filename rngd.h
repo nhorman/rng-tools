@@ -48,6 +48,7 @@ struct arguments {
 
 	bool debug;
 	bool daemon;
+	bool test;
 	bool list;
 	bool ignorefail;
 	bool enable_drng;
@@ -99,6 +100,7 @@ struct rng {
 	bool disabled;
 	int failures;
 	int success;
+	size_t ent_gathered;
 	struct flags {
 		/* Slow sources - takes a long time to produce entropy */
 		unsigned int slow_source : 1;

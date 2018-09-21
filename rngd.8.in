@@ -19,6 +19,7 @@ rngd \- Check and feed random data from hardware device to kernel random device
 [\fB\-p\fR, \fB\-\-pid-file=\fIfile\fR]
 [\fB\-r\fR, \fB\-\-rng-device=\fIfile\fR]
 [\fB\-s\fR, \fB\-\-random-step=\fInnn\fR]
+[\fB\-t\fR, \fB\-\-test\fR]
 [\fB\-W\fR, \fB\-\-fill-watermark=\fInnn\fR]
 [\fB\-q\fR, \fB\-\-quiet\fR]
 [\fB\-?\fR, \fB\-\-help\fR]
@@ -88,6 +89,10 @@ Kernel device used for random number input
 .TP
 \fB\-s\fI nnn\fR, \fB\-\-random-step=\fInnn\fR
 Number of bytes written to random-device at a time (default: 64)
+.TP
+\fB\-t, \fB\-\-test\fR
+Enter test mode.  In this mode (which implies -f), all generated entropy is
+discarded and rngd reports the amount of entropy generated every second
 .TP
 \fB\-e\fI nnn\fR, \fB\-\-entropy-count=\fInnn\fR
 Number of bits to consider random when adding entropy. 1<=e<=8
