@@ -214,12 +214,8 @@ next:
 		}
 	}
 	rc = 0;
-
-	pthread_mutex_unlock(&current->mtx);
-	rc = 0;
 out:
 	return rc;
-
 }
 
 static inline double elapsed_time(struct timespec *start, struct timespec *end)
