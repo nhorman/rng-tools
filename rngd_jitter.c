@@ -150,13 +150,7 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 	struct timespec sleep;
 try_again:
 	while (need) {
-		/* if the current thread is locked or an empty buffer
- 		 * just move on to the next one
- 		 */
-		if (pthread_mutex_trylock(&current->mtx)) {
-			message(LOG_DAEMON|LOG_DEBUG, "JITTER skips locked thread\n");
-			goto next;
-		}
+		pthread_mutex_lock(&current->mtx);
 
 		if (current->avail == 0) {
 			/*
