@@ -753,7 +753,7 @@ int main(int argc, char **argv)
 	close_all_entropy_sources();
 
 	if (arguments->test)
-		message(LOG_CONS|LOG_INFO, "Average entropy %.12e kbytes entropy over %d iterations\n",
+		message(LOG_CONS|LOG_INFO, "Average entropy %.12e kbytes/sec over %d iterations\n",
 			avg_entropy/1024, test_iterations);
 
 	if (pid_fd >= 0)
