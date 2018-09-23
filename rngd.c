@@ -139,8 +139,9 @@ struct arguments *arguments = &default_arguments;
 
 static unsigned long ent_gathered = 0;
 static unsigned long test_iterations = 0;
-static double sum_entropy;
+static double sum_entropy = 0;
 static struct timespec start_test, end_test;
+static bool test_running = false;
 
 static enum {
 	ENT_HWRNG = 0,
@@ -500,7 +501,7 @@ static int random_test_sink(struct rng *rng, int random_step,
 {
 	if (!ent_gathered)
 		alarm(1);
-	ent_gathered += (FIPS_RNG_BUFFER_SIZE * 8);
+	ent_gathered += FIPS_RNG_BUFFER_SIZE;
 	return 0;
 }
 
@@ -607,18 +608,20 @@ static void term_signal(int signo)
 
 static void alarm_signal(int signo)
 {
+	double bits_gathered;
 
-	if (!test_iterations) {
-		clock_gettime(CLOCK_REALTIME, &start_test);
-		sum_entropy = 0;
+	if (!test_running) {
+		clock_gettime(CLOCK_MONOTONIC, &start_test);
+		test_running = true;
 	} else {
-		message(LOG_CONS|LOG_INFO, "Entropy gathered: %d bits\n",
-			ent_gathered);
-		sum_entropy += ent_gathered;
+		bits_gathered = ent_gathered * 8.0;
+		message(LOG_CONS|LOG_INFO, "Entropy gathered: %.6e bits\n",
+			bits_gathered);
+		sum_entropy += bits_gathered;
+		test_iterations++;
 	}
 	ent_gathered = 0;
-	clock_gettime(CLOCK_REALTIME, &end_test);
-	test_iterations++;
+	clock_gettime(CLOCK_MONOTONIC, &end_test);
 }
 
 static int discard_initial_data(struct rng *ent_src)
@@ -756,16 +759,16 @@ int main(int argc, char **argv)
 
 	close_all_entropy_sources();
 
-	if (arguments->test && test_iterations > 1) {
+	if (arguments->test && test_iterations) {
 		test_time = (end_test.tv_sec - start_test.tv_sec);
-		test_time = ((test_time * 1.0e9) + (end_test.tv_nsec - start_test.tv_nsec)) / 1.0e9;
+		test_time = ((test_time * NSECS_IN_SECOND) + (end_test.tv_nsec - start_test.tv_nsec)) / NSECS_IN_SECOND;
 
-		if ((sum_entropy/test_time) >= 1048576) {
+		if ((sum_entropy/test_time) >= MEGABITS) {
 			message(LOG_CONS|LOG_INFO, "\nEntropy rate: %6.4g Mbits/sec averaged over %d iterations for %6.4g seconds\n",
-				(sum_entropy/test_time/1048576), (test_iterations-1), test_time);
+				(sum_entropy/test_time/MEGABITS), test_iterations, test_time);
 		} else {
 			message(LOG_CONS|LOG_INFO, "\nEntropy rate: %6.4g Kbits/sec averaged over %d iterations for %6.4g seconds\n",
-				(sum_entropy/test_time/1024), (test_iterations-1), test_time);
+				(sum_entropy/test_time/KILOBITS), test_iterations, test_time);
 		}
 	}
 

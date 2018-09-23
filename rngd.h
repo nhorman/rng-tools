@@ -33,6 +33,10 @@
 
 #include "fips.h"
 
+#define NSECS_IN_SECOND	1.0e9
+#define MEGABITS		1048576
+#define KILOBITS		1024
+
 enum {
 	MAX_RNG_FAILURES		= 25,
 	RNG_OK_CREDIT			= 1000, /* ~1:1250 false positives */
