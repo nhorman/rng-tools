@@ -48,6 +48,7 @@
 #include <signal.h>
 #include <limits.h>
 #include <ctype.h>
+#include <time.h>
 
 #include "rngd.h"
 #include "fips.h"
@@ -138,7 +139,9 @@ struct arguments *arguments = &default_arguments;
 
 static unsigned long ent_gathered = 0;
 static unsigned long test_iterations = 0;
-static double avg_entropy = 0;
+static double sum_entropy = 0;
+static struct timespec start_test, end_test;
+static bool test_running = false;
 
 static enum {
 	ENT_HWRNG = 0,
@@ -605,17 +608,20 @@ static void term_signal(int signo)
 
 static void alarm_signal(int signo)
 {
+	double bits_gathered;
 
-	if (ent_gathered >= 1024)
-		message(LOG_CONS|LOG_INFO, "%d kbytes of entropy gathered per second\n",
-			ent_gathered/1024);
-	else
-		message(LOG_CONS|LOG_INFO, "%d bytes of entropy gathered per second\n",
-			ent_gathered);
-	avg_entropy = test_iterations ? ent_gathered : 
-		((avg_entropy * test_iterations) + ent_gathered) / (test_iterations + 1);
+	if (!test_running) {
+		clock_gettime(CLOCK_MONOTONIC, &start_test);
+		test_running = true;
+	} else {
+		bits_gathered = ent_gathered * 8.0;
+		message(LOG_CONS|LOG_INFO, "Entropy gathered: %.6e bits\n",
+			bits_gathered);
+		sum_entropy += bits_gathered;
+		test_iterations++;
+	}
 	ent_gathered = 0;
-	test_iterations++;
+	clock_gettime(CLOCK_MONOTONIC, &end_test);
 }
 
 static int discard_initial_data(struct rng *ent_src)
@@ -651,6 +657,7 @@ int main(int argc, char **argv)
 	int i;
 	int ent_sources = 0;
 	pid_t pid_fd = -1;
+	double test_time;
 
 	openlog("rngd", 0, LOG_DAEMON);
 
@@ -752,9 +759,18 @@ int main(int argc, char **argv)
 
 	close_all_entropy_sources();
 
-	if (arguments->test)
-		message(LOG_CONS|LOG_INFO, "Average entropy %.12e kbytes/sec over %d iterations\n",
-			avg_entropy/1024, test_iterations);
+	if (arguments->test && test_iterations) {
+		test_time = (end_test.tv_sec - start_test.tv_sec);
+		test_time = ((test_time * NSECS_IN_SECOND) + (end_test.tv_nsec - start_test.tv_nsec)) / NSECS_IN_SECOND;
+
+		if ((sum_entropy/test_time) >= MEGABITS) {
+			message(LOG_CONS|LOG_INFO, "\nEntropy rate: %6.4g Mbits/sec averaged over %d iterations for %6.4g seconds\n",
+				(sum_entropy/test_time/MEGABITS), test_iterations, test_time);
+		} else {
+			message(LOG_CONS|LOG_INFO, "\nEntropy rate: %6.4g Kbits/sec averaged over %d iterations for %6.4g seconds\n",
+				(sum_entropy/test_time/KILOBITS), test_iterations, test_time);
+		}
+	}
 
 	if (pid_fd >= 0)
 		unlink(arguments->pid_file);
