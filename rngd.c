@@ -64,7 +64,7 @@
 bool am_daemon;				/* True if we went daemon */
 bool msg_squash = false;		/* True if we want no messages on the console */
 bool quiet = false;			/* True if we want no console output at all */
-bool server_running = true;		/* set to false, to stop daemon */
+volatile bool server_running = true;	/* set to false, to stop daemon */
 
 bool ignorefail = false; /* true if we ignore MAX_RNG_FAILURES */
 
