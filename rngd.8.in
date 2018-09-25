@@ -140,7 +140,7 @@ Entropy drawn from the RDRAND and RDSEED instructions (x86 only)
 Options
 
 \fBuse_aes - \fR select if rdrand is used to seed a cprng to produce entropy, or
-if all entropy is drawn directly from rdrand instruction (default 1)
+if all entropy is drawn directly from rdrand instruction (default 0)
 
 .TP
 .B

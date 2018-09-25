@@ -157,7 +157,7 @@ static enum {
 static struct rng_option drng_options[] = {
 	[DRNG_OPT_AES] = {
 		.key = "use_aes",
-		.int_val = 1,
+		.int_val = 0,
 	},
 	{
 		.key = NULL,
