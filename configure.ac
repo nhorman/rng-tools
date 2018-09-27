@@ -40,6 +40,13 @@ AC_ARG_WITH([nistbeacon],
 	[with_nistbeacon=check]
 )
 
+AC_ARG_WITH([jitter],
+	AS_HELP_STRING([--without-jitter],
+		[Disable jitter entropy library support. ]),
+	[],
+	[with_jitter=check]
+)
+
 dnl Make sure anyone changing configure.ac/Makefile.am has a clue
 AM_MAINTAINER_MODE
 AM_PROG_AS
@@ -61,13 +68,18 @@ AS_IF([test $target_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])]
 
 AM_CONDITIONAL([JITTER], [false])
 AM_CONDITIONAL([JITTER_DSO], [false])
-AS_IF([test -f jitterentropy-library/Makefile],
-		[AM_CONDITIONAL([JITTER], [true])
-		 AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],
-		[AC_SEARCH_LIBS(jent_version,jitterentropy,
-			[AM_CONDITIONAL([JITTER_DSO], [true])
-			 AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],
-			[AC_MSG_NOTICE([Disabling JITTER entropy source])])])
+AS_IF(
+	[ test "x$with_jitter" != "xno" ],
+	[
+		AS_IF([test -f jitterentropy-library/Makefile],
+				[AM_CONDITIONAL([JITTER], [true])
+				 AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],
+				[AC_SEARCH_LIBS(jent_version,jitterentropy,
+					[AM_CONDITIONAL([JITTER_DSO], [true])
+					 AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],
+					[AC_MSG_NOTICE([Disabling JITTER entropy source])])])
+	]
+)
 
 #AM_CONDITIONAL([JITTER], [test -f jitterentropy-library/Makefile])
 #AS_IF([test -f jitterentropy-library/Makefile], [AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],[AC_MSG_NOTICE([Disabling JITTER entropy source])])
