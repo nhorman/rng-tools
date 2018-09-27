@@ -691,9 +691,11 @@ int main(int argc, char **argv)
 				ent_sources++;
 				entropy_sources[i].fipsctx = malloc(sizeof(fips_ctx_t));
 				fips_init(entropy_sources[i].fipsctx, discard_initial_data(&entropy_sources[i]));
+				message(LOG_INFO | LOG_DAEMON, "Initalizing entropy source %s\n",
+					entropy_sources[i].rng_sname);
 			} else {
-				message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %d: %s\n",
-					i, entropy_sources[i].rng_name);
+				message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %s\n",
+					entropy_sources[i].rng_sname);
 				entropy_sources[i].disabled = true;
 			}
 		}
