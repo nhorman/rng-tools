@@ -60,11 +60,25 @@ AM_CONDITIONAL([DARN], [test $target_cpu = powerpc64le])
 AS_IF([test $target_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
 
 AM_CONDITIONAL([JITTER], [false])
-AC_SEARCH_LIBS(jent_version,jitterentropy,
-		[AM_CONDITIONAL([JITTER], [true])
-		AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])
-		AC_MSG_NOTICE([Enabling JITTER entropy source])],
-		AC_MSG_NOTICE([Disabling JITTER entropy source]))
+
+AC_ARG_ENABLE(jitterentropy,
+	AS_HELP_STRING([--disable-jitterntropy | --enable-jitterentropy=<path>],
+	[Disable jitterentropy source, or specify its location]),
+	[if [ test -d $enable_jitterentropy ]; then
+		export LDFLAGS+=-L$enable_jitterentropy;
+		export CFLAGS+=" -I$enable_jitterentropy";
+	fi],[])
+
+AS_IF(
+	[ test "x$enable_jitterentropy" != "xno" ],
+	[
+		AC_MSG_NOTICE([Searching for jitterentropy library])
+		AC_SEARCH_LIBS(jent_version,jitterentropy,
+				[AM_CONDITIONAL([JITTER], [true])
+				AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],
+				AC_MSG_NOTICE([No Jitterentropy libary found]))
+	], [AC_MSG_NOTICE([Disabling JITTER entropy source])]
+)
 
 AS_IF(
 	[ test "x$with_nistbeacon" != "xno"],
