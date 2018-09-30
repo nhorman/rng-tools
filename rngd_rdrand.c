@@ -246,7 +246,14 @@ int xread_drng(void *buf, size_t size, struct rng *ent_src)
 	if (ent_src->rng_options[DRNG_OPT_AES].int_val)
 		return xread_drng_with_aes(buf, size, ent_src);
 
-	x86_rdrand_bytes(buf, size);
+	/* NB: x86_rdrand_bytes might overrun end of buffer, if not a multiple of 8 */
+	if (size > 7)
+		x86_rdrand_bytes(buf, (size&~7));
+	if ((size&7) != 0) {
+		unsigned char tempbuf[8];
+		x86_rdrand_bytes(tempbuf, (size&7));
+		memcpy((unsigned char *)buf+(size&~7), tempbuf, (size&7));
+	}
 	return 0;
 }
 
