@@ -1,3 +1,0 @@
-[submodule "jitterentropy-library"]
-	path = jitterentropy-library
-	url = https://github.com/smuellerDD/jitterentropy-library.git
