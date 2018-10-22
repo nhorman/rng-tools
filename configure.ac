@@ -142,7 +142,7 @@ AS_IF(
 	[test "x$with_libgcrypt" != "xno"],
 	[
 		AC_CHECK_HEADER([gcrypt.h],
-			AC_CHECK_LIB(
+			[AC_CHECK_LIB(
 				[gcrypt],
 				[gcry_check_version], ,
 				[
@@ -151,7 +151,7 @@ AS_IF(
 						AC_MSG_NOTICE([libgcrypt support disabled])
 					fi
 				]
-			),
+			)],
 			[if test "x$with_libgcrypt" != "xcheck"; then
 				AC_MSG_FAILURE([libgcrypt headers not found]); else
 				AC_MSG_NOTICE([libgcrypt support disabled])
