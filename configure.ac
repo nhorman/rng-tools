@@ -62,7 +62,7 @@ AS_IF([test $target_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])]
 AM_CONDITIONAL([JITTER], [false])
 
 AC_ARG_ENABLE(jitterentropy,
-	AS_HELP_STRING([--disable-jitterntropy | --enable-jitterentropy=<path>],
+	AS_HELP_STRING([--disable-jitterentropy | --enable-jitterentropy=<path>],
 	[Disable jitterentropy source, or specify its location]),
 	[if [ test -d $enable_jitterentropy ]; then
 		export LDFLAGS+=-L$enable_jitterentropy;
