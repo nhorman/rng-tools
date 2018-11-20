@@ -126,7 +126,7 @@ static int refill_rand(struct rng *ent_src)
 
 	if (darn_buf_avail)
 		return 0;
-	if (ent_src->options[DARN_USE_AES].int_val) {
+	if (ent_src->rng_options[DARN_OPT_AES].int_val) {
 		if (rand_bytes_served >= rekey_thresh) {
 			message(LOG_DAEMON|LOG_DEBUG, "rekeying DARN rng\n");
 			gcry_cipher_close(gcry_cipher_hd);
