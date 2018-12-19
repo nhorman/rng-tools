@@ -421,7 +421,11 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	cpus = CPU_ALLOC(i);
 	cpusize = CPU_ALLOC_SIZE(i);
 	CPU_ZERO_S(cpusize, cpus);
-	sched_getaffinity(0, cpusize, cpus);
+	if (sched_getaffinity(0, cpusize, cpus) < 0) {
+		message(LOG_DAEMON|LOG_DEBUG, "Can not determine affinity of process, defaulting to 1 thread\n");
+		CPU_SET(0,cpus);
+	}
+
 	num_threads = CPU_COUNT_S(cpusize, cpus);
 
 	if (num_threads >= ent_src->rng_options[JITTER_OPT_THREADS].int_val)
