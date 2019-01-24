@@ -24,6 +24,8 @@
 
 #include <pthread.h>
 #include <time.h>
+#include <unistd.h>
+#include <signal.h>
 #include "rng-tools-config.h"
 
 #include <jitterentropy.h>
@@ -41,19 +43,21 @@ static struct rand_data *ec = NULL;
 static int num_threads = 0;
 struct thread_data {
 	int core_id;
+	int pipe_fd;
 	struct rand_data *ec;
-	char *buf_ptr;
 	size_t buf_sz;
-	size_t avail;
-	size_t idx;
 	int slpmode;
+	int active;
+	int done;
 	struct timespec slptm;
-	pthread_mutex_t mtx;
-	pthread_cond_t cond;
 };
 
 static struct thread_data *tdata;
 static pthread_t *threads;
+int pipefds[2];
+
+char *aes_buf;
+
 #ifdef HAVE_LIBGCRYPT
 
 #define MIN_GCRYPT_VERSION "1.0.0"
@@ -140,77 +144,51 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 {
 	static int data = 0;
 	struct thread_data *current = &tdata[data];
-	struct thread_data *start = current;
-	ssize_t request = size;
-	size_t idx = 0;
-	size_t need = size;
-	char *bptr = buf;
+	ssize_t request;
 	int rc = 1;
 	int retry_count = 0;
 	struct timespec sleep;
+	ssize_t need=size;
+	char *bptr = buf;
+	size_t total;
 try_again:
 	while (need) {
-		pthread_mutex_lock(&current->mtx);
-
-		/*
-		 * Grab the sleep timer while we hold the lock, in case
-		 * we need to sleep below
-		 */
-		memcpy(&sleep, &current->slptm, sizeof(struct timespec));
-
-		if (current->avail == 0) {
-			/*
-			 * If we're set to use AES, trigger a crypt of the
-			 * existing data here, and use that as the next random
-			 * block
-			 */
-			if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val && retry_count) {
-				if (gcrypt_mangle(current->buf_ptr, current->buf_sz))
-					goto next_unlock;
-				/* mark the buffer as refilled */
-				current->idx = 0;
-				current->avail = current->buf_sz;
-
-				message(LOG_CONS|LOG_DEBUG, "JITTER backfills with gcrypt on cpu %d\n",
-					current->core_id);
-				/* Fall through to read the new data */
-			} else {
-				message(LOG_DAEMON|LOG_DEBUG, "JITTER skips empty thread on cpu %d\n", current->core_id);
-				goto next_unlock;
+		message(LOG_DAEMON|LOG_DEBUG, "xread_jitter requests %d bytes from pipe\n", need);
+		request = read(pipefds[0], &bptr[size-need], need);
+		if ((request < need) && ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
+			message(LOG_DAEMON|LOG_DEBUG, "xread_jitter falls back to AES\n");
+			/* empty pipe, use AES */
+			total = 0;
+			while(need) {
+				request = (need >= current->buf_sz) ? current->buf_sz : need;
+				memcpy(buf, &aes_buf[total], request);
+				gcrypt_mangle(aes_buf, current->buf_sz);
+				need -= request;
+				total += request;
 			}
-		}
-			
-		request = (need > current->avail) ? current->avail : need;
-		memcpy(&bptr[idx], &current->buf_ptr[current->idx], request);
-		idx += request;
-		current->idx += request;
-		current->avail -= request;
-		need -= request;
-
-		/* Trigger a refill if this thread is low */
-		if (current->avail < ent_src->rng_options[JITTER_OPT_REFILL].int_val) {
-			pthread_cond_signal(&current->cond);
-		}
-
-next_unlock:
-		pthread_mutex_unlock(&current->mtx);
-next:
-		/* Move to the next thread */
-		data = ((data+1) % num_threads);	
-		current = &tdata[data];
-		if (start == current) {
+			rc = 0;
+			goto out;
+		} else if (request < need) {
+			if (request == -1) {
+				message(LOG_DAEMON|LOG_DEBUG, "failed read: %s\n", strerror(errno));
+				pthread_yield();
+			} else
+				message(LOG_DAEMON|LOG_DEBUG, "request of random data returns %d less than need %d\n",
+					request, need);
 			if (retry_count < ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val) {
 				retry_count++;
-				/*
-				 * skip the sleep if we're using AES
-				 */
-				if(!ent_src->rng_options[JITTER_OPT_USE_AES].int_val)
-					nanosleep(&sleep, NULL);
+				nanosleep(&current->slptm, NULL);
 				goto try_again;
 			}
+			/* Retry count exceeded, fail */
+			rc = 1;
 			goto out;
 		}
+
+		message(LOG_DAEMON|LOG_DEBUG, "xread_jitter gets %d bytes\n", request);
+		need -= request;
 	}
+
 	rc = 0;
 out:
 	return rc;
@@ -262,9 +240,11 @@ static void *thread_entropy_task(void *data)
 	struct thread_data *me = data;
 	char *tmpbuf;
 	struct timespec start, end;
-
+	int written;
+	int first = 1;
 	/* STARTUP */
 
+	me->done = 0;
 	/*
 	 * Set our timeout value
 	 * -1 means adaptive, i.e. sleep for the last 
@@ -287,74 +267,42 @@ static void *thread_entropy_task(void *data)
 		goto out;
 	}
 
-	pthread_mutex_lock(&me->mtx);
-	clock_gettime(CLOCK_REALTIME, &start);
-	ret = jent_read_entropy(me->ec, tmpbuf, me->buf_sz);
-	clock_gettime(CLOCK_REALTIME, &end);
-	update_sleep_time(me, &start, &end);
-
-	message(LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
-		me->core_id, elapsed_time(&start, &end));
-
-	if (ret < 0)
-		message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD FAILS TO GATHER ENTROPY\n");
-
-	else {
-		memcpy(me->buf_ptr, tmpbuf, me->buf_sz);
-		me->avail = me->buf_sz;
-	}
-
 	/* Now go to sleep until there is more work to do */
 	do {
-		pthread_cond_wait(&me->cond, &me->mtx);
 		message(LOG_DAEMON|LOG_DEBUG, "JITTER thread on cpu %d wakes up for refill\n", me->core_id);
-		/* When we wake up, check to ensure we still have a buffer
- 		 * Having a NULL buf_ptr is a signal to exit
- 		 */
-		if (!me->buf_ptr)
-			break;
 
-refill_more:
 		/* We are awake because we need to refil the buffer */
-		need = me->buf_sz - me->avail;
-		pthread_mutex_unlock(&me->mtx);
 		clock_gettime(CLOCK_REALTIME, &start);
-		ret = jent_read_entropy(me->ec, tmpbuf, need);
+		ret = jent_read_entropy(me->ec, tmpbuf, me->buf_sz);
 		clock_gettime(CLOCK_REALTIME, &end);
 		message(LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
 			me->core_id, elapsed_time(&start, &end));
 		if (ret < 0)
 			message(LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
-		pthread_mutex_lock(&me->mtx);
 		/* Need to hold the mutex to update the sleep time */
 		update_sleep_time(me, &start, &end);
-		if (!me->buf_ptr) /* buf_ptr may have been removed while gathering entropy */
-			break;
-		/*
-		 * we need to re-check need here, as we may be using aes to
-		 * backfill entropy.  If we are, its possible that there will be
-		 * less need than what we computed initially
-		 */
-		need = (need > me->buf_sz - me->avail) ? me->buf_sz - me->avail : need;
-		if (!need)
-			continue;
 
-		/*  idx = pre-gather-avail - post-gather-avail */
-		me->idx = ((me->buf_sz - me->avail - need) > 0) ? (me->buf_sz - me->avail - need) : 0;
-		memcpy(me->buf_ptr + me->idx, tmpbuf, need);
-		me->avail = me->buf_sz - me->idx;
-		/* if me->idx isn't at the start of the buffer, we can fill more */
-		if (me->idx) {
-			message(LOG_CONS|LOG_DEBUG, "CPU %d has %d more bytes to fill\n",
-				me->core_id, me->buf_sz - me->avail);
-			goto refill_more;
+		/* Write to pipe */
+		written = 0;
+		while(written != me->buf_sz) {
+			message(LOG_DAEMON|LOG_DEBUG, "Writing to pipe\n");
+			ret = write(me->pipe_fd, &tmpbuf[written], me->buf_sz - written);
+			message(LOG_DAEMON|LOG_DEBUG, "DONE Writing to pipe with return %d\n", ret);
+			if (first)
+				me->active = 1;
+			if (ret < 0)
+				message(LOG_DAEMON|LOG_WARNING, "Error on pipe write: %s\n", strerror(errno));
+			if (!first && !me->active)
+				break;
+			first = 0;
+			written += ret;
 		}
 
-	} while (me->buf_ptr);
+	} while (me->active);
 
 	free(tmpbuf);
-	pthread_mutex_unlock(&me->mtx);
 out:
+	me->done = 1;
 	pthread_exit(NULL);
 }
 
@@ -399,6 +347,8 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	cpu_set_t *cpus;
 	size_t cpusize;
 	int i;
+	int size;
+	int flags;
 	int core_id = 0;
 #ifdef HAVE_LIBGCRYPT
 	char key[AES_BLOCK];
@@ -411,6 +361,11 @@ int init_jitter_entropy_source(struct rng *ent_src)
 
 	if (validate_jitter_options(ent_src))
 		return 1;
+
+	if (pipe(pipefds)) {
+		message(LOG_DAEMON|LOG_WARNING, "JITTER rng can't open pipe: %s\n", strerror(errno));
+		return 1;
+	}
 
 	/*
  	 * Determine the number of threads we want to run
@@ -433,6 +388,16 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	else
 		message(LOG_DAEMON|LOG_DEBUG, "Limiting thread count to %d active cpus\n", num_threads);
 
+	size = num_threads * ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val * 1.5;
+	if (fcntl(pipefds[1], F_SETPIPE_SZ, size) == -1) {
+		message(LOG_DAEMON|LOG_DEBUG, "Failed to set pipe size to %d bytes: %s\n",
+			size, strerror(errno));
+		close(pipefds[1]);
+		close(pipefds[0]);
+		CPU_FREE(cpus);
+		return 1;
+	}
+	
 	tdata = calloc(num_threads, sizeof(struct thread_data));
 	threads = calloc(num_threads, sizeof(pthread_t));
 
@@ -445,14 +410,13 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		while (!CPU_ISSET_S(core_id, cpusize, cpus))
 			core_id++;
 		tdata[i].core_id = core_id;
+		tdata[i].pipe_fd = pipefds[1];
+		tdata[i].active = 0;
+		tdata[i].done = 0;
 		core_id++;
 		tdata[i].buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
-		tdata[i].buf_ptr = calloc(1, tdata[i].buf_sz);
 		tdata[i].ec = jent_entropy_collector_alloc(1, 0);
-		tdata[i].avail = 0;
 		tdata[i].slpmode = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
-		pthread_mutex_init(&tdata[i].mtx, NULL);
-		pthread_cond_init(&tdata[i].cond, NULL);
 		pthread_create(&threads[i], NULL, thread_entropy_task, &tdata[i]);
 	}
 
@@ -461,14 +425,9 @@ int init_jitter_entropy_source(struct rng *ent_src)
 
 	/* Make sure all our threads are doing their jobs */
 	for (i=0; i < num_threads; i++) {
-		pthread_mutex_lock(&tdata[i].mtx);
-		while (tdata[i].avail == 0) {
-			pthread_mutex_unlock(&tdata[i].mtx);
+		while (tdata[i].active == 0)
 			sched_yield();
-			pthread_mutex_lock(&tdata[i].mtx);
-		}
 		message(LOG_DAEMON|LOG_DEBUG, "CPU Thread %d is ready\n", i);
-		pthread_mutex_unlock(&tdata[i].mtx);
 	}
 
 	if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
@@ -476,6 +435,17 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		/*
 		 * Temporarily disable aes so we don't try to use it during init
 		 */
+
+		/*
+		 * if we use AES, then allow the pipe to return early if we 
+		 * don't fulfill the full request
+		 */
+		flags = fcntl(pipefds[1], F_GETFL, 0);
+		flags |= O_NONBLOCK;
+		fcntl(pipefds[0], F_SETFL, &flags);
+
+		message(LOG_CONS|LOG_INFO, "Initalizing AES buffer\n");
+		aes_buf = malloc(tdata[0].buf_sz);
 		ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 0;
 		if (xread_jitter(key, AES_BLOCK, ent_src)) {
 			message(LOG_CONS|LOG_INFO, "Unable to obtain AES key, disabling AES in JITTER source\n");
@@ -487,6 +457,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 			/* re-enable AES */
 			ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 1;
 		}
+		xread_jitter(aes_buf, tdata[0].buf_sz, ent_src);
 #else
 		message(LOG_CONS|LOG_INFO, "libgcrypt not available. Disabling AES in JITTER source\n");
 		ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 0;
@@ -499,18 +470,33 @@ int init_jitter_entropy_source(struct rng *ent_src)
 void close_jitter_entropy_source(struct rng *ent_src)
 {
 	int i;
+	char tmpbuf[1024];
+	int flags;
 
+	/* Flag all the threads so they exit */
+	for (i=0; i < num_threads; i++)
+		tdata[i].active = 0;
+
+	flags = fcntl(pipefds[1], F_GETFL, 0);
+	flags |= O_NONBLOCK;
+	fcntl(pipefds[1], F_SETFL, &flags);
+
+	/* And wait for completion of each thread */
 	for (i=0; i < num_threads; i++) {
-		/* signal closure by setting buf_ptr to null */
-		pthread_mutex_lock(&tdata[i].mtx);
-		free(tdata[i].buf_ptr);
-		tdata[i].buf_ptr = NULL;
-		pthread_cond_signal(&tdata[i].cond);
-		pthread_mutex_unlock(&tdata[i].mtx);
-		pthread_join(threads[i], NULL);
-		jent_entropy_collector_free(tdata[i].ec);
-	}	
+		message(LOG_DAEMON|LOG_DEBUG, "Checking on done for thread %d\n", i);
+		while (!tdata[i].done)
+			if(tdata[i].done) {
+				message(LOG_DAEMON|LOG_INFO, "Closing thread %d\n", tdata[i].core_id);
+				pthread_join(threads[i], NULL);
+				jent_entropy_collector_free(tdata[i].ec);
+			} else {
+				read(pipefds[0], tmpbuf, 1024);
+				sched_yield();
+			}
+	}
 
+	close(pipefds[2]);
+	close(pipefds[1]);
 	free(tdata);
 	free(threads);
 	return;
