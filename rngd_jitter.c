@@ -430,19 +430,15 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		message(LOG_DAEMON|LOG_DEBUG, "CPU Thread %d is ready\n", i);
 	}
 
+	flags = fcntl(pipefds[0], F_GETFL, 0);
+	flags |= O_NONBLOCK;
+	fcntl(pipefds[0], F_SETFL, &flags);
+
 	if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
 #ifdef HAVE_LIBGCRYPT
 		/*
 		 * Temporarily disable aes so we don't try to use it during init
 		 */
-
-		/*
-		 * if we use AES, then allow the pipe to return early if we 
-		 * don't fulfill the full request
-		 */
-		flags = fcntl(pipefds[1], F_GETFL, 0);
-		flags |= O_NONBLOCK;
-		fcntl(pipefds[0], F_SETFL, &flags);
 
 		message(LOG_CONS|LOG_INFO, "Initalizing AES buffer\n");
 		aes_buf = malloc(tdata[0].buf_sz);
