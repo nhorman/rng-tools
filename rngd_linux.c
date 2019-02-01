@@ -51,6 +51,8 @@
 /* Kernel output device */
 static int random_fd;
 
+extern int kent_pool_size;
+
 /*
  * Get the default watermark
  */
@@ -60,23 +62,14 @@ int default_watermark(void)
 	unsigned long ps;
 	FILE *f;
 	size_t l;
-	unsigned int wm = 2048;	/* Default guess */
+	unsigned int wm = 4096;	/* Default guess */
 
 	f = fopen("/proc/sys/kernel/random/poolsize", "r");
 	if (!f)
 		goto err;
-	l = fread(psbuf, 1, sizeof psbuf, f);
-	if (ferror(f) || !feof(f) || l == 0)
-		goto err;
-	if (psbuf[l-1] != '\n')
-		goto err;
-	psbuf[l-1] = '\0';
-	ps = strtoul(psbuf, &p, 0);
-	if (*p)
-		goto err;
-
-	wm = ps*3/4;
-
+	fscanf(f,"%d", &wm);
+	kent_pool_size = wm;
+	wm = wm*3/4;
 err:
 	if (f)
 		fclose(f);
@@ -114,6 +107,7 @@ void init_kernel_rng(const char* randomdev)
 			"unable to adjust write_wakeup_threshold: %s",
 			strerror(errno));
 	}
+
 }
 
 struct entropy {
@@ -143,13 +137,13 @@ int random_add_entropy(void *buf, size_t size)
 			} else {
 				message(LOG_DAEMON|LOG_ERR, "RNDADDENTROPY failed: %s\n",
 					strerror(errno));
-				return 1;
+				return -1;
 			}
 		}
 	} else
 		write(random_fd, buf, size);
 
-	return 0;
+	return ent->ent_count;
 
 }
 

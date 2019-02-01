@@ -59,6 +59,7 @@
 /*
  * Globals
  */
+int kent_pool_size;
 
 /* Background/daemon mode */
 bool am_daemon;				/* True if we went daemon */
@@ -480,6 +481,7 @@ static int update_kernel_random(struct rng *rng, int random_step,
 {
 	unsigned char *p;
 	int fips;
+	int rc;
 
 	fips = fips_run_rng_test(fipsctx_in, buf);
 	if (fips)
@@ -489,10 +491,17 @@ static int update_kernel_random(struct rng *rng, int random_step,
 		 p += random_step) {
 		if (!server_running)
 			return 0;
-		if (random_add_entropy(p, random_step))
+		rc = random_add_entropy(p, random_step);
+		if (rc == -1)
 			return 1;
-		random_sleep();
+		message(LOG_DAEMON|LOG_DEBUG, "Added %d/%d bits entropy\n", rc, kent_pool_size);
+		if (rc >= kent_pool_size-64) {
+			message(LOG_DAEMON|LOG_DEBUG, "Pool full at %d, sleeping!\n",
+				kent_pool_size);
+			random_sleep();
+		}
 	}
+
 	return 0;
 }
 
