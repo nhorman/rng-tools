@@ -13,10 +13,8 @@ addons:
       libxml2-dev
       libssl-dev
       libcurl3-dev
-      libp11-dev
-      opensc
 
-script: rm -rf ./jitterentropy-library/* && ./autogen.sh && ./configure && make
+script: rm -rf ./jitterentropy-library/* && ./autogen.sh && ./configure --without-opensc && make
 
 after_script: 
         - make check || (cat tests/rngtesturandom.sh.log && cat tests/rngtestzero.sh.log && cat ./tests/test-suite.log)
