@@ -14,6 +14,7 @@ addons:
       libssl-dev
       libcurl3-dev
       opensc
+      libp11-dev
 
 script: rm -rf ./jitterentropy-library/* && ./autogen.sh && ./configure && make
 
