@@ -151,6 +151,7 @@ static enum {
 	ENT_DARN,
 	ENT_NISTBEACON,
 	ENT_JITTER,
+	ENT_OPENSC,
 	ENT_MAX
 } entropy_indexes;
 
@@ -284,6 +285,20 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.disabled	= true,
 #endif
 		.rng_options	= jitter_options,
+	},
+	{
+		.rng_name	= "Opensc Entropy generator",
+		.rng_sname	= "opensc",
+		.rng_fd		= -1,
+		.flags		= { 0 },
+#ifdef HAVE_OPENSC
+		.xread		= xread_opensc,
+		.init		= init_opensc_entropy_source,
+		.close		= close_opensc_entropy_source,
+#else
+		.disabled	= true,
+#endif
+		.rng_options	= NULL,
 	},
 };
 

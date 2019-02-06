@@ -177,6 +177,15 @@ Options
 
 \fBretry_delay - \fR between each retry for retry_count above, sleep for this many seconds. May also be the special value -1, representing adaptive sleep, where each retry delay will be half the recorded execution time of the last entropy gathering round (default -1)
 
+.TP
+.B
+OPENSC (opensc) [Index 6]
+Entropy gathered via the opensc openssl engine, which can extract entropy from
+various smart card readers
+.TP
+Options
+None
+
 .SH AUTHORS
 Philipp Rumpf
 .br

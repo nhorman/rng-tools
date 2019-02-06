@@ -40,6 +40,13 @@ AC_ARG_WITH([nistbeacon],
 	[with_nistbeacon=check]
 )
 
+AC_ARG_WITH([pkcs11],
+	AS_HELP_STRING([--without-pkcs11],
+		[Disable pkcs11 support. ]),
+	[],
+	[with_pkcs11=check]
+)
+
 dnl Make sure anyone changing configure.ac/Makefile.am has a clue
 AM_MAINTAINER_MODE
 AM_PROG_AS
@@ -60,6 +67,7 @@ AM_CONDITIONAL([DARN], [test $target_cpu = powerpc64le])
 AS_IF([test $target_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
 
 AM_CONDITIONAL([JITTER], [false])
+
 
 AC_ARG_ENABLE(jitterentropy,
 	AS_HELP_STRING([--disable-jitterentropy | --enable-jitterentropy=<path>],
@@ -90,7 +98,17 @@ AS_IF(
 	]
 )
 
+AS_IF(
+	[ test "x$with_opensc" != "xno"],
+	[
+		PKG_CHECK_MODULES([libp11], [libp11], [], [AC_MSG_ERROR([libp11 is required])])
+		PKG_CHECK_MODULES([opensc], [opensc-pkcs11], [], [AC_MSG_ERROR([opensc is required])])
+		AC_DEFINE([HAVE_OPENSC],1,[Enable OPENSC])
+	]
+)
+
 AM_CONDITIONAL([NISTBEACON], [test "x$with_nistbeacon" != "xno"])
+AM_CONDITIONAL([OPENSC], [test "x$with_opensc" != "xno"])
 
 dnl Checks for header files.
 dnl AC_HEADER_STDC
