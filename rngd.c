@@ -151,7 +151,7 @@ static enum {
 	ENT_DARN,
 	ENT_NISTBEACON,
 	ENT_JITTER,
-	ENT_OPENSC,
+	ENT_PKCS11,
 	ENT_MAX
 } entropy_indexes;
 
@@ -290,11 +290,13 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_name	= "Opensc Entropy generator",
 		.rng_sname	= "opensc",
 		.rng_fd		= -1,
-		.flags		= { 0 },
-#ifdef HAVE_OPENSC
-		.xread		= xread_opensc,
-		.init		= init_opensc_entropy_source,
-		.close		= close_opensc_entropy_source,
+		.flags		= { 
+			.slow_source = 1,
+		},
+#ifdef HAVE_PKCS11
+		.xread		= xread_pkcs11,
+		.init		= init_pkcs11_entropy_source,
+		.close		= close_pkcs11_entropy_source,
 #else
 		.disabled	= true,
 #endif
