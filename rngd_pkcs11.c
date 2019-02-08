@@ -41,6 +41,10 @@ int xread_pkcs11(void *buf, size_t size, struct rng *ent_src)
 	size_t left = size;
 	void *ptr = buf;
 
+	/* If our count is greater than our size */
+	if (!chunk_len)
+		chunk_len = left;
+
 	while (left > 0) {
 		if (left > chunk_len) {
 			rc = PKCS11_generate_random(slot, ptr, chunk_len);
