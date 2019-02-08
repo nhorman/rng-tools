@@ -95,6 +95,7 @@ enum {
  */
 enum {
 	PKCS11_OPT_ENGINE = 0,
+	PKCS11_OPT_CHUNK = 1,
 };
 
 enum option_val_type {

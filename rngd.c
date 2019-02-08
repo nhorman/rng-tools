@@ -224,6 +224,11 @@ static struct rng_option pkcs11_options[] = {
 		.type = VAL_STRING,
 		.str_val = DEFAULT_PKCS11_ENGINE,
 	},
+	[PKCS11_OPT_CHUNK] = {
+		.key = "chunk_size",
+		.type = VAL_INT,
+		.int_val = 1,
+	},
 	{
 		.key = NULL,
 	}

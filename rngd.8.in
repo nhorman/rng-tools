@@ -184,7 +184,11 @@ Entropy gathered via the opensc openssl engine, which can extract entropy from
 various smart card readers
 .TP
 Options
-None
+\fBengine_path - \fR Set the patch for the pkcs11 engine DSO to load
+
+\fBchunk_size - \fR Some pkcs11 engines have restrictions on how much data can
+be requested at a time, this option allows for the request to be subdivided into
+smaller chunks to be satisfied
 
 .SH AUTHORS
 Philipp Rumpf

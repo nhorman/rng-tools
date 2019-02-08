@@ -36,16 +36,29 @@ static unsigned int nslots;
 int xread_pkcs11(void *buf, size_t size, struct rng *ent_src)
 {
 	int rc;
-	rc = PKCS11_generate_random(slot, buf, size);
-	if (rc < 0)
-		return 1;
+	int count = ent_src->rng_options[PKCS11_OPT_CHUNK].int_val;
+	int chunk_len = size / count;
+	size_t left = size;
+	void *ptr = buf;
+
+	while (left > 0) {
+		if (left > chunk_len) {
+			rc = PKCS11_generate_random(slot, ptr, chunk_len);
+			ptr += chunk_len;
+			left -= chunk_len;
+		} else
+			rc = PKCS11_generate_random(slot, ptr, left);
+
+		if (rc < 0)
+			return 1;
+	}
+
 	return 0;
 }
 
 int validate_pkcs11_options(struct rng *ent_src)
 {
 	struct stat sbuf;
-        int rcount = ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val;
 
 	if (stat(ent_src->rng_options[PKCS11_OPT_ENGINE].str_val, &sbuf) == -1) {
 		message(LOG_DAEMON|LOG_WARNING, "PKCS11 Engine %s Error: %s\n",
@@ -53,7 +66,17 @@ int validate_pkcs11_options(struct rng *ent_src)
 			strerror(errno));
 		return 1;
 	}
+
+	if (!ent_src->rng_options[PKCS11_OPT_CHUNK].int_val) {
+		message(LOG_DAEMON|LOG_WARNING, "PKCS11 Engine chunk size cannot be 0\n");
+		return 1;
+	}
 	
+	if (ent_src->rng_options[PKCS11_OPT_CHUNK].int_val > FIPS_RNG_BUFFER_SIZE) {
+		message(LOG_DAEMON|LOG_WARNING, "PKCS11 Engine chunk size cannot be larger than %d\n",
+			FIPS_RNG_BUFFER_SIZE);
+		return 1;
+	}
 }
 
 /*
