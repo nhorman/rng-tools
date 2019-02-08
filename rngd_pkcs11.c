@@ -21,7 +21,10 @@
 #ifndef HAVE_CONFIG_H
 #error Invalid or missing autoconf build environment
 #endif
-
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <string.h>
 #include <libp11.h>
 #include "rngd.h"
 #include "rngd_entsource.h"
@@ -29,7 +32,6 @@
 static PKCS11_CTX *ctx = NULL;
 static PKCS11_SLOT *slots, *slot;
 static unsigned int nslots;
-static char *pkcs11_engine_library = "/usr/lib64/pkcs11-pkcs11.so";
 
 int xread_pkcs11(void *buf, size_t size, struct rng *ent_src)
 {
@@ -40,6 +42,20 @@ int xread_pkcs11(void *buf, size_t size, struct rng *ent_src)
 	return 0;
 }
 
+int validate_pkcs11_options(struct rng *ent_src)
+{
+	struct stat sbuf;
+        int rcount = ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val;
+
+	if (stat(ent_src->rng_options[PKCS11_OPT_ENGINE].str_val, &sbuf) == -1) {
+		message(LOG_DAEMON|LOG_WARNING, "PKCS11 Engine %s Error: %s\n",
+			ent_src->rng_options[PKCS11_OPT_ENGINE].str_val,
+			strerror(errno));
+		return 1;
+	}
+	
+}
+
 /*
  * Init JITTER
  */
@@ -48,12 +64,15 @@ int init_pkcs11_entropy_source(struct rng *ent_src)
 	ctx = PKCS11_CTX_new();
 	int rc;
 
+	if (validate_pkcs11_options(ent_src))
+		return 1;
+
 	if (!ctx) {
 		message(LOG_DAEMON|LOG_WARNING, "Unable to allocate new pkcs11 context\n");
 		return 1;
 	}
 
-	rc = PKCS11_CTX_load(ctx, pkcs11_engine_library);
+	rc = PKCS11_CTX_load(ctx, ent_src->rng_options[PKCS11_OPT_ENGINE].str_val);
 	if (rc) {
 		message(LOG_DAEMON|LOG_WARNING, "Unable to load pkcs11 engine: %s\n",
 			ERR_reason_error_string(ERR_get_error()));
