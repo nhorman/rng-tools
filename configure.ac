@@ -99,16 +99,15 @@ AS_IF(
 )
 
 AS_IF(
-	[ test "x$with_opensc" != "xno"],
+	[ test "x$with_pkcs11" != "xno"],
 	[
 		PKG_CHECK_MODULES([libp11], [libp11], [], [AC_MSG_ERROR([libp11 is required])])
-		PKG_CHECK_MODULES([opensc], [opensc-pkcs11], [], [AC_MSG_ERROR([opensc is required])])
-		AC_DEFINE([HAVE_OPENSC],1,[Enable OPENSC])
+		AC_DEFINE([HAVE_PKCS11],1,[Enable PKCS11])
 	]
 )
 
 AM_CONDITIONAL([NISTBEACON], [test "x$with_nistbeacon" != "xno"])
-AM_CONDITIONAL([OPENSC], [test "x$with_opensc" != "xno"])
+AM_CONDITIONAL([PKCS11], [test "x$with_pkcs11" != "xno"])
 
 dnl Checks for header files.
 dnl AC_HEADER_STDC

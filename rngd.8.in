@@ -179,7 +179,7 @@ Options
 
 .TP
 .B
-OPENSC (opensc) [Index 6]
+PKCS11 (pkcs11) [Index 6]
 Entropy gathered via the opensc openssl engine, which can extract entropy from
 various smart card readers
 .TP

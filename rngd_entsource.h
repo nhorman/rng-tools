@@ -50,9 +50,9 @@ extern int init_jitter_entropy_source(struct rng *);
 extern void close_jitter_entropy_source(struct rng *);
 extern void cache_jitter_entropy_data(struct rng *);
 #endif
-#ifdef HAVE_OPENSC
-extern int init_opensc_entropy_source(struct rng *);
-extern void close_opensc_entropy_source(struct rng *);
+#ifdef HAVE_PKCS11
+extern int init_pkcs11_entropy_source(struct rng *);
+extern void close_pkcs11_entropy_source(struct rng *);
 #endif
 
 extern int init_tpm_entropy_source(struct rng *);
@@ -71,8 +71,8 @@ extern int xread_darn(void *buf, size_t size, struct rng *ent_src);
 extern int xread_jitter(void *buf, size_t size, struct rng *ent_src);
 #endif
 
-#ifdef HAVE_OPENSC
-extern int xread_opensc(void *buf, size_t size, struct rng *ent_src);
+#ifdef HAVE_PKCS11
+extern int xread_pkcs11(void *buf, size_t size, struct rng *ent_src);
 #endif
 
 extern int xread_nist(void *buf, size_t size, struct rng *ent_src);
