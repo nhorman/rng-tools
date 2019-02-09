@@ -50,8 +50,10 @@ int xread_pkcs11(void *buf, size_t size, struct rng *ent_src)
 			rc = PKCS11_generate_random(slot, ptr, chunk_len);
 			ptr += chunk_len;
 			left -= chunk_len;
-		} else
+		} else {
 			rc = PKCS11_generate_random(slot, ptr, left);
+			left = 0;
+		}
 
 		if (rc < 0)
 			return 1;
@@ -81,6 +83,8 @@ int validate_pkcs11_options(struct rng *ent_src)
 			FIPS_RNG_BUFFER_SIZE);
 		return 1;
 	}
+	
+	return 0;
 }
 
 /*
