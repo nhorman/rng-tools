@@ -139,11 +139,18 @@ int random_add_entropy(void *buf, size_t size)
 					strerror(errno));
 				return -1;
 			}
+
+			if (ioctl(random_fd, RNDGETENTCNT, &ent->ent_count) != 0)
+				message(LOG_DAEMON|LOG_ERR, "Failed to get Entropy count!\n");
+			ent->ent_count *= 8; /*adjust for the kernel shift*/
+		} else {
+			if (ioctl(random_fd, RNDGETENTCNT, &ent->ent_count) != 0)
+				message(LOG_DAEMON|LOG_ERR, "Failed to get Entropy count!\n");
 		}
 	} else
 		write(random_fd, buf, size);
 
-	return ent->ent_count;
+	return ent->ent_count; 
 
 }
 
