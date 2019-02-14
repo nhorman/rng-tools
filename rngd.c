@@ -151,6 +151,7 @@ static enum {
 	ENT_DARN,
 	ENT_NISTBEACON,
 	ENT_JITTER,
+	ENT_PKCS11,
 	ENT_MAX
 } entropy_indexes;
 
@@ -158,6 +159,7 @@ static enum {
 static struct rng_option drng_options[] = {
 	[DRNG_OPT_AES] = {
 		.key = "use_aes",
+		.type = VAL_INT,
 		.int_val = 0,
 	},
 	{
@@ -168,6 +170,7 @@ static struct rng_option drng_options[] = {
 static struct rng_option darn_options[] = {
 	[DARN_OPT_AES] = {
 		.key = "use_aes",
+		.type = VAL_INT,
 		.int_val = 1,
 	},
 	{
@@ -178,26 +181,52 @@ static struct rng_option darn_options[] = {
 static struct rng_option jitter_options[] = {
 	[JITTER_OPT_THREADS] = {
 		.key = "thread_count",
+		.type = VAL_INT,
 		.int_val = 4,
 	},
 	[JITTER_OPT_BUF_SZ] = {
 		.key = "buffer_size",
+		.type = VAL_INT,
 		.int_val = 16535,
 	},
 	[JITTER_OPT_REFILL] = {
 		.key = "refill_thresh",
+		.type = VAL_INT,
 		.int_val = 16535,
 	},
 	[JITTER_OPT_RETRY_COUNT] = {
 		.key = "retry_count",
+		.type = VAL_INT,
 		.int_val = 1,
 	},
 	[JITTER_OPT_RETRY_DELAY] = {
 		.key = "retry_delay",
+		.type = VAL_INT,
 		.int_val = -1,
 	},
 	[JITTER_OPT_USE_AES] = {
 		.key = "use_aes",
+		.type = VAL_INT,
+		.int_val = 1,
+	},
+	{
+		.key = NULL,
+	}
+};
+
+#ifndef DEFAULT_PKCS11_ENGINE
+#define DEFAULT_PKCS11_ENGINE "/usr/lib64/opensc-pkcs11.so"
+#endif
+
+static struct rng_option pkcs11_options[] = {
+	[PKCS11_OPT_ENGINE] = {
+		.key = "engine_path",
+		.type = VAL_STRING,
+		.str_val = DEFAULT_PKCS11_ENGINE,
+	},
+	[PKCS11_OPT_CHUNK] = {
+		.key = "chunk_size",
+		.type = VAL_INT,
 		.int_val = 1,
 	},
 	{
@@ -285,6 +314,22 @@ static struct rng entropy_sources[ENT_MAX] = {
 #endif
 		.rng_options	= jitter_options,
 	},
+	{
+		.rng_name	= "PKCS11 Entropy generator",
+		.rng_sname	= "pkcs11",
+		.rng_fd		= -1,
+		.flags		= { 
+			.slow_source = 1,
+		},
+#ifdef HAVE_PKCS11
+		.xread		= xread_pkcs11,
+		.init		= init_pkcs11_entropy_source,
+		.close		= close_pkcs11_entropy_source,
+#else
+		.disabled	= true,
+#endif
+		.rng_options	= pkcs11_options,
+	},
 };
 
 static int find_ent_src_idx_by_sname(const char *sname)
@@ -331,6 +376,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	char *optkey;
 	long int idx;
 	long int val;
+	char *strval;
 	bool restore = false;
 	char *search, *last_search;
 	struct rng_option *options;
@@ -363,7 +409,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 				entropy_sources[idx].rng_name, entropy_sources[idx].rng_sname);
 			options = entropy_sources[idx].rng_options;
 			while (options && options->key) {
-				message(LOG_CONS|LOG_INFO, "key: [%s]\tdefault value: [%d]\n", options->key, options->int_val);
+				if (options->type == VAL_INT)
+					message(LOG_CONS|LOG_INFO, "key: [%s]\tdefault value: [%d]\n", options->key, options->int_val);
+				else
+					message(LOG_CONS|LOG_INFO, "key: [%s]\tdefault value: [%s]\n", options->key, options->str_val);
 				options++;
 			}
 			return -ERANGE;
@@ -381,7 +430,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		*search = ':';
 
 		last_search = search + 1;
-
+		strval = last_search;
 		val = strtoul(last_search, NULL, 10);
 		if (val == LONG_MAX) {
 			message(LOG_CONS|LOG_INFO, "rng option was not parsable\n");
@@ -391,7 +440,11 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		options = entropy_sources[idx].rng_options;
 		while (options && options->key) {
 			if (!strcmp(optkey, options->key)) {
-				options->int_val = val;
+				if (options->type == VAL_INT)
+					options->int_val = val;
+				else
+					options->str_val = strdup(strval);
+
 				return 0;
 			}
 			options++;

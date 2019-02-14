@@ -13,6 +13,7 @@ addons:
       libxml2-dev
       libssl-dev
       libcurl3-dev
+      libp11-dev
 
 script: rm -rf ./jitterentropy-library/* && ./autogen.sh && ./configure && make
 

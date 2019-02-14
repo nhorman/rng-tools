@@ -90,9 +90,26 @@ enum {
 	JITTER_OPT_MAX,
 };
 
+/*
+ * PKCS11 options
+ */
+enum {
+	PKCS11_OPT_ENGINE = 0,
+	PKCS11_OPT_CHUNK = 1,
+};
+
+enum option_val_type {
+	VAL_INT = 0,
+	VAL_STRING = 1,
+};
+
 struct rng_option { 
 	char *key;
-	int int_val;
+	enum option_val_type type;
+	union {
+		int int_val;
+		char *str_val;
+	};
 };
 
 /* structures to store rng information */
