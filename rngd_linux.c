@@ -58,10 +58,7 @@ extern int kent_pool_size;
  */
 int default_watermark(void)
 {
-	char psbuf[64], *p;
-	unsigned long ps;
 	FILE *f;
-	size_t l;
 	unsigned int wm = 4096;	/* Default guess */
 
 	f = fopen("/proc/sys/kernel/random/poolsize", "r");
