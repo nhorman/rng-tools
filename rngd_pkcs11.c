@@ -88,7 +88,7 @@ int validate_pkcs11_options(struct rng *ent_src)
 }
 
 /*
- * Init JITTER
+ * Init PKCS11
  */
 int init_pkcs11_entropy_source(struct rng *ent_src)
 {
