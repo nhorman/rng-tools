@@ -21,7 +21,7 @@ AC_INIT(rng-tools, 6.7, [Neil Horman <nhorman@tuxdriver.com>])
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR([rngd.c])
 AC_CANONICAL_TARGET
-AM_INIT_AUTOMAKE([gnu])
+AM_INIT_AUTOMAKE([foreign])
 AC_CONFIG_HEADERS([rng-tools-config.h])
 AC_CONFIG_MACRO_DIRS([m4])
 
