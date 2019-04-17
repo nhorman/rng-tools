@@ -743,7 +743,7 @@ int main(int argc, char **argv)
 			message(LOG_CONS|LOG_INFO, "None");
 		msg_squash = true;
 	} else
-		message(LOG_DAEMON|LOG_INFO, "\nInitalizing available sources\n");
+		message(LOG_DAEMON|LOG_INFO, "\nInitializing available sources\n");
 
 	/* Init entropy sources */
 	
@@ -753,7 +753,7 @@ int main(int argc, char **argv)
 				ent_sources++;
 				entropy_sources[i].fipsctx = malloc(sizeof(fips_ctx_t));
 				fips_init(entropy_sources[i].fipsctx, discard_initial_data(&entropy_sources[i]));
-				message(LOG_INFO | LOG_DAEMON, "Initalizing entropy source %s\n",
+				message(LOG_INFO | LOG_DAEMON, "Initializing entropy source %s\n",
 					entropy_sources[i].rng_sname);
 			} else {
 				message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %s\n",
