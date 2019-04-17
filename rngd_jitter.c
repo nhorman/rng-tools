@@ -440,7 +440,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		 * Temporarily disable aes so we don't try to use it during init
 		 */
 
-		message(LOG_CONS|LOG_INFO, "Initalizing AES buffer\n");
+		message(LOG_CONS|LOG_INFO, "Initializing AES buffer\n");
 		aes_buf = malloc(tdata[0].buf_sz);
 		ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 0;
 		if (xread_jitter(key, AES_BLOCK, ent_src)) {
