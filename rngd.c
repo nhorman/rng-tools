@@ -153,7 +153,7 @@ static enum {
 	ENT_JITTER,
 	ENT_PKCS11,
 	ENT_MAX
-} entropy_indexes;
+} entropy_indexes __attribute__((used));
 
 
 static struct rng_option drng_options[] = {
@@ -358,7 +358,7 @@ static int find_ent_src_idx(const char *name_idx)
 	} else {
 		idx = strtoul(name_idx, NULL, 10);
 		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-			message(LOG_CONS|LOG_INFO, "option index out of range: %lu\n", idx);
+			message(LOG_CONS|LOG_INFO, "option index out of range: %u\n", idx);
 			return -ERANGE;
 		}
 		message(LOG_CONS|LOG_INFO, "Note, reference of entropy sources by index "
@@ -449,7 +449,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			}
 			options++;
 		}
-		message(LOG_CONS|LOG_INFO, "Option %s not found for source idx %d\n", optkey, idx);
+		message(LOG_CONS|LOG_INFO, "Option %s not found for source idx %lu\n", optkey, idx);
 		return -ERANGE;
 		break;
 
@@ -828,10 +828,10 @@ int main(int argc, char **argv)
 		test_time = ((test_time * NSECS_IN_SECOND) + (end_test.tv_nsec - start_test.tv_nsec)) / NSECS_IN_SECOND;
 
 		if ((sum_entropy/test_time) >= MEGABITS) {
-			message(LOG_CONS|LOG_INFO, "\nEntropy rate: %6.4g Mbits/sec averaged over %d iterations for %6.4g seconds\n",
+			message(LOG_CONS|LOG_INFO, "\nEntropy rate: %6.4g Mbits/sec averaged over %lu iterations for %6.4g seconds\n",
 				(sum_entropy/test_time/MEGABITS), test_iterations, test_time);
 		} else {
-			message(LOG_CONS|LOG_INFO, "\nEntropy rate: %6.4g Kbits/sec averaged over %d iterations for %6.4g seconds\n",
+			message(LOG_CONS|LOG_INFO, "\nEntropy rate: %6.4g Kbits/sec averaged over %lu iterations for %6.4g seconds\n",
 				(sum_entropy/test_time/KILOBITS), test_iterations, test_time);
 		}
 	}

@@ -38,8 +38,6 @@
 #include "exits.h"
 #include "rngd_entsource.h"
 
-static struct rand_data *ec = NULL;
-
 static int num_threads = 0;
 struct thread_data {
 	int core_id;
@@ -56,7 +54,7 @@ static struct thread_data *tdata;
 static pthread_t *threads;
 int pipefds[2];
 
-char *aes_buf;
+unsigned char *aes_buf;
 
 #ifdef HAVE_LIBGCRYPT
 
@@ -147,13 +145,12 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 	ssize_t request;
 	int rc = 1;
 	int retry_count = 0;
-	struct timespec sleep;
 	ssize_t need=size;
 	char *bptr = buf;
 	size_t total;
 try_again:
 	while (need) {
-		message(LOG_DAEMON|LOG_DEBUG, "xread_jitter requests %d bytes from pipe\n", need);
+		message(LOG_DAEMON|LOG_DEBUG, "xread_jitter requests %lu bytes from pipe\n", need);
 		request = read(pipefds[0], &bptr[size-need], need);
 		if ((request < need) && ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
 			message(LOG_DAEMON|LOG_DEBUG, "xread_jitter falls back to AES\n");
@@ -173,7 +170,7 @@ try_again:
 				message(LOG_DAEMON|LOG_DEBUG, "failed read: %s\n", strerror(errno));
 				pthread_yield();
 			} else
-				message(LOG_DAEMON|LOG_DEBUG, "request of random data returns %d less than need %d\n",
+				message(LOG_DAEMON|LOG_DEBUG, "request of random data returns %ld less than need %ld\n",
 					request, need);
 			if (retry_count < ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val) {
 				retry_count++;
@@ -185,7 +182,7 @@ try_again:
 			goto out;
 		}
 
-		message(LOG_DAEMON|LOG_DEBUG, "xread_jitter gets %d bytes\n", request);
+		message(LOG_DAEMON|LOG_DEBUG, "xread_jitter gets %ld bytes\n", request);
 		need -= request;
 	}
 
@@ -236,7 +233,6 @@ static void *thread_entropy_task(void *data)
 	cpu_set_t cpuset;
 
 	ssize_t ret;
-	size_t need;
 	struct thread_data *me = data;
 	char *tmpbuf;
 	struct timespec start, end;
@@ -287,7 +283,7 @@ static void *thread_entropy_task(void *data)
 		while(written != me->buf_sz) {
 			message(LOG_DAEMON|LOG_DEBUG, "Writing to pipe\n");
 			ret = write(me->pipe_fd, &tmpbuf[written], me->buf_sz - written);
-			message(LOG_DAEMON|LOG_DEBUG, "DONE Writing to pipe with return %d\n", ret);
+			message(LOG_DAEMON|LOG_DEBUG, "DONE Writing to pipe with return %ld\n", ret);
 			if (first)
 				me->active = 1;
 			if (ret < 0)

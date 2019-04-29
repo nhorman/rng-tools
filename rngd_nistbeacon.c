@@ -414,7 +414,7 @@ static int get_nist_record()
 			goto out;
 		}
 
-		message(LOG_DAEMON|LOG_DEBUG, "NIST: timestamp is %d, frequency is %d, tv_sec is %d\n",
+		message(LOG_DAEMON|LOG_DEBUG, "NIST: timestamp is %lu, frequency is %u, tv_sec is %lu\n",
 			block.timestamp, block.frequency, ct.tv_sec);
 		if (block.timestamp + block.frequency >= ct.tv_sec) {
 			message(LOG_DAEMON|LOG_ERR, "Multiple nist reads in same frequency period of %d sec\n",

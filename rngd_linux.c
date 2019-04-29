@@ -59,12 +59,16 @@ extern int kent_pool_size;
 int default_watermark(void)
 {
 	FILE *f;
-	unsigned int wm = 4096;	/* Default guess */
+	unsigned int wm;	/* Default guess */
 
 	f = fopen("/proc/sys/kernel/random/poolsize", "r");
 	if (!f)
 		goto err;
-	fscanf(f,"%d", &wm);
+	/*
+	 * Default to 4096 if fscanf fails
+	 */
+	if(fscanf(f,"%d", &wm) < 1)
+		wm = 4096;
 	kent_pool_size = wm;
 	wm = wm*3/4;
 err:
