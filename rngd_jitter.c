@@ -469,26 +469,22 @@ void close_jitter_entropy_source(struct rng *ent_src)
 	for (i=0; i < num_threads; i++)
 		tdata[i].active = 0;
 
-	flags = fcntl(pipefds[1], F_GETFL, 0);
-	flags |= O_NONBLOCK;
-	fcntl(pipefds[1], F_SETFL, &flags);
+	close(pipefds[1]);
 
 	/* And wait for completion of each thread */
 	for (i=0; i < num_threads; i++) {
 		message(LOG_DAEMON|LOG_DEBUG, "Checking on done for thread %d\n", i);
 		while (!tdata[i].done)
+			pthread_kill(threads[i], SIGINT);
 			if(tdata[i].done) {
 				message(LOG_DAEMON|LOG_INFO, "Closing thread %d\n", tdata[i].core_id);
 				pthread_join(threads[i], NULL);
 				jent_entropy_collector_free(tdata[i].ec);
-			} else {
-				read(pipefds[0], tmpbuf, 1024);
+			} else 
 				sched_yield();
-			}
 	}
 
-	close(pipefds[2]);
-	close(pipefds[1]);
+	close(pipefds[0]);
 	free(tdata);
 	free(threads);
 	return;
