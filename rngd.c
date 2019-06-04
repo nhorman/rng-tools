@@ -577,6 +577,7 @@ static void do_loop(int random_step)
 	int i;
 	int retval;
 	struct rng *iter;
+	bool try_slow_sources = false;
 
 	int (*random_add_fn)(struct rng *rng, int random_step,
 		unsigned char *buf, fips_ctx_t *fipsctx_in);
@@ -587,11 +588,29 @@ continue_trying:
 	for (no_work = 0; no_work < 100; no_work = (work_done ? 0 : no_work+1)) {
 
 		work_done = false;
+
+		/*
+		 * Exclude slow sources when faster sources are working well
+		 * sources like jitterentropy can provide some entropy when needed
+		 * but can actually hinder performance when large amounts of entropy are needed
+		 * owing to the fact that they may block while generating said entropy
+		 * So, lets prioritize the faster sources.  Start by only trying to collect
+		 * entropy from the fast sources, then iff that fails, start including the slower
+		 * sources as well.  Once we get some entropy, return to only using fast sources
+		 */
+		if (no_work)
+			try_slow_sources = true;
+		else
+			try_slow_sources = false;
+
 		for (i = 0; i < ENT_MAX; ++i)
 		{
 			int rc;
 			/*message(LOG_CONS|LOG_INFO, "I is %d\n", i);*/
 			iter = &entropy_sources[i];
+			if (!try_slow_sources && iter->flags.slow_source)
+				continue;
+
 		retry_same:
 			if (!server_running)
 				return;
