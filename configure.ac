@@ -102,6 +102,7 @@ AS_IF(
 	[ test "x$with_pkcs11" != "xno"],
 	[
 		PKG_CHECK_MODULES([libp11], [libp11], [], [AC_MSG_ERROR([libp11 is required])])
+		PKG_CHECK_MODULES([libcrypto], [libcrypto], [], [AC_MSG_ERROR([libcrypto is required])])
 		AC_DEFINE([HAVE_PKCS11],1,[Enable PKCS11])
 	]
 )
