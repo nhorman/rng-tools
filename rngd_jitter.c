@@ -168,7 +168,7 @@ try_again:
 		} else if (request < need) {
 			if (request == -1) {
 				message(LOG_DAEMON|LOG_DEBUG, "failed read: %s\n", strerror(errno));
-				pthread_yield();
+				sched_yield();
 			} else
 				message(LOG_DAEMON|LOG_DEBUG, "request of random data returns %ld less than need %ld\n",
 					request, need);
