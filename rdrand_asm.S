@@ -2,6 +2,7 @@
  * Copyright (c) 2011-2014, Intel Corporation
  * Authors: Fenghua Yu <fenghua.yu@intel.com>,
  *          H. Peter Anvin <hpa@linux.intel.com>
+ * PIC code by: Francisco Blas Izquierdo Riera (klondike) <klondike@gentoo.org>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -172,7 +173,19 @@ ENTRY(x86_rdseed_or_rdrand_bytes)
 	jmp	4b
 ENDPROC(x86_rdseed_or_rdrand_bytes)
 
+#if defined(__PIC__)
+#define INIT_PIC() \
+	pushl	%ebx ; \
+	call    __x86.get_pc_thunk.bx ; \
+	addl    $_GLOBAL_OFFSET_TABLE_, %ebx
+#define END_PIC() \
+	popl	%ebx
+#define SETPTR(var,ptr) leal (var)@GOTOFF(%ebx),ptr
+#else
+#define INIT_PIC()
+#define END_PIC()
 #define SETPTR(var,ptr)	movl $(var),ptr
+#endif
 #define PTR0	%eax
 #define PTR1	%edx
 #define PTR2	%ecx
@@ -188,6 +201,7 @@ ENTRY(x86_aes_mangle)
 	movl	8(%ebp), %eax
 	movl	12(%ebp), %edx
 	push	%esi
+	INIT_PIC()
 #endif
 	movl	$512, CTR3	/* Number of rounds */
 	
@@ -278,6 +292,7 @@ offset = offset + 16
 	movdqa	%xmm7, (7*16)(PTR1)
 
 #ifdef __i386__
+	END_PIC()
 	pop	%esi
 	pop	%ebp
 #endif
@@ -292,6 +307,7 @@ ENTRY(x86_aes_expand_key)
 	push	%ebp
 	mov	%esp, %ebp
 	movl	8(%ebp), %eax
+	INIT_PIC()
 #endif
 
 	SETPTR(aes_round_keys, PTR1)
@@ -321,6 +337,7 @@ ENTRY(x86_aes_expand_key)
 	call	1f
 
 #ifdef __i386__
+	END_PIC()
 	pop	%ebp
 #endif
 	ret
@@ -340,6 +357,16 @@ ENTRY(x86_aes_expand_key)
 	ret
 
 ENDPROC(x86_aes_expand_key)
+
+#if defined(__i386__) && defined(__PIC__)
+	.section	.text.__x86.get_pc_thunk.bx,"axG",@progbits,__x86.get_pc_thunk.bx,comdat
+	.globl	__x86.get_pc_thunk.bx
+	.hidden	__x86.get_pc_thunk.bx
+	.type	__x86.get_pc_thunk.bx, @function
+__x86.get_pc_thunk.bx:
+	movl	(%esp), %ebx
+	ret
+#endif
 
 	.bss
 	.balign 64
