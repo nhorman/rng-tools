@@ -65,7 +65,6 @@ int kent_pool_size;
 bool am_daemon;				/* True if we went daemon */
 bool msg_squash = false;		/* True if we want no messages on the console */
 bool quiet = false;			/* True if we want no console output at all */
-volatile bool server_running = true;	/* set to false, to stop daemon */
 
 bool ignorefail = false; /* true if we ignore MAX_RNG_FAILURES */
 
@@ -542,8 +541,6 @@ static int update_kernel_random(struct rng *rng, int random_step,
 
 	for (p = buf; p + random_step <= &buf[FIPS_RNG_BUFFER_SIZE];
 		 p += random_step) {
-		if (!server_running)
-			return 0;
 		rc = random_add_entropy(p, random_step);
 		if (rc == -1)
 			return 1;
@@ -612,9 +609,6 @@ continue_trying:
 				continue;
 
 		retry_same:
-			if (!server_running)
-				return;
-
 			if (iter->disabled)
 				continue;	/* failed, no work */
 
@@ -680,11 +674,6 @@ continue_trying:
 
 	message(LOG_DAEMON|LOG_ERR,
 	"No entropy sources working, exiting rngd\n");
-}
-
-static void term_signal(int signo)
-{
-	server_running = false;
 }
 
 static void alarm_signal(int signo)
@@ -824,11 +813,6 @@ int main(int argc, char **argv)
 		signal(SIGHUP, SIG_IGN);
 		signal(SIGPIPE, SIG_IGN);
 	}
-	/*
-	 * We always catch these to ensure that we gracefully shutdown
-	 */
-	signal(SIGINT, term_signal);
-	signal(SIGTERM, term_signal);
 	if (arguments->test) {
 		message(LOG_CONS|LOG_INFO, "Entering test mode...no entropy will "
 			"be delivered to the kernel\n");
