@@ -749,6 +749,22 @@ int main(int argc, char **argv)
 	if (argp_parse(&argp, argc, argv, 0, 0, arguments) < 0)
 		return 1;
 
+	if (arguments->daemon && !arguments->list) {
+		am_daemon = true;
+
+		if (daemon(0, 0) < 0) {
+			message(LOG_CONS|LOG_INFO, "can't daemonize: %s\n",
+			strerror(errno));
+			return 1;
+		}
+
+		/* require valid, locked PID file to proceed */
+		pid_fd = write_pid_file(arguments->pid_file);
+		if (pid_fd < 0)
+			return 1;
+
+	}
+
 	if (arguments->list) {
 		int found = 0;
 		message(LOG_CONS|LOG_INFO, "Entropy sources that are available but disabled\n");
@@ -807,28 +823,12 @@ int main(int argc, char **argv)
 	/* Init entropy sink and open random device */
 	init_kernel_rng(arguments->random_name);
 
-	if (arguments->daemon) {
-		am_daemon = true;
-
-		if (daemon(0, 0) < 0) {
-			message(LOG_CONS|LOG_INFO, "can't daemonize: %s\n",
-			strerror(errno));
-			return 1;
-		}
-
-		/* require valid, locked PID file to proceed */
-		pid_fd = write_pid_file(arguments->pid_file);
-		if (pid_fd < 0)
-			return 1;
-
-		signal(SIGHUP, SIG_IGN);
-		signal(SIGPIPE, SIG_IGN);
-	}
 	/*
 	 * We always catch these to ensure that we gracefully shutdown
 	 */
 	signal(SIGINT, term_signal);
 	signal(SIGTERM, term_signal);
+
 	if (arguments->test) {
 		message(LOG_CONS|LOG_INFO, "Entering test mode...no entropy will "
 			"be delivered to the kernel\n");

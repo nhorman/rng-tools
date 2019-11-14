@@ -26,6 +26,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <signal.h>
+#include <setjmp.h>
 #include "rng-tools-config.h"
 
 #include <jitterentropy.h>
@@ -48,6 +49,7 @@ struct thread_data {
 	int active;
 	int done;
 	struct timespec slptm;
+	sigjmp_buf	jmpbuf;
 };
 
 static struct thread_data *tdata;
@@ -228,6 +230,16 @@ static inline void update_sleep_time(struct thread_data *me,
 	me->slptm.tv_nsec /= 2;
 }
 
+void jitter_thread_exit_signal(int signum)
+{
+	pthread_t self = pthread_self();
+	int i;
+	for(i=0;i<num_threads;i++)  {
+		if (threads[i] == self)
+			siglongjmp(tdata[i].jmpbuf, 1);
+	}
+}
+
 static void *thread_entropy_task(void *data)
 {
 	cpu_set_t cpuset;
@@ -263,6 +275,13 @@ static void *thread_entropy_task(void *data)
 		goto out;
 	}
 
+	/*
+	 * Use setjmp here to allow us to return early from
+	 * jent_read_entropy, as it can run for a long time
+	 */
+	if (sigsetjmp(me->jmpbuf, 1))
+		goto out_interrupt;
+
 	/* Now go to sleep until there is more work to do */
 	do {
 		message(LOG_DAEMON|LOG_DEBUG, "JITTER thread on cpu %d wakes up for refill\n", me->core_id);
@@ -286,7 +305,11 @@ static void *thread_entropy_task(void *data)
 			message(LOG_DAEMON|LOG_DEBUG, "DONE Writing to pipe with return %ld\n", ret);
 			if (first)
 				me->active = 1;
-			if (ret < 0)
+			/*
+ 			 * suppress EBADF errors, as those indicate the pipe is
+ 			 * closed and we are exiting
+ 			 */
+			if ((ret < 0) && (errno != EBADF))
 				message(LOG_DAEMON|LOG_WARNING, "Error on pipe write: %s\n", strerror(errno));
 			if (!first && !me->active)
 				break;
@@ -296,6 +319,7 @@ static void *thread_entropy_task(void *data)
 
 	} while (me->active);
 
+out_interrupt:
 	free(tmpbuf);
 out:
 	me->done = 1;
@@ -335,6 +359,7 @@ int validate_jitter_options(struct rng *ent_src)
 	return 0;
 }
 
+
 /*
  * Init JITTER
  */
@@ -349,6 +374,9 @@ int init_jitter_entropy_source(struct rng *ent_src)
 #ifdef HAVE_LIBGCRYPT
 	char key[AES_BLOCK];
 #endif
+
+	signal(SIGUSR1, jitter_thread_exit_signal);
+
 	int ret = jent_entropy_init();
 	if(ret) {
 		message(LOG_DAEMON|LOG_WARNING, "JITTER rng fails with code %d\n", ret);
@@ -474,8 +502,8 @@ void close_jitter_entropy_source(struct rng *ent_src)
 	/* And wait for completion of each thread */
 	for (i=0; i < num_threads; i++) {
 		message(LOG_DAEMON|LOG_DEBUG, "Checking on done for thread %d\n", i);
+		pthread_kill(threads[i], SIGUSR1);
 		while (!tdata[i].done)
-			pthread_kill(threads[i], SIGINT);
 			if(tdata[i].done) {
 				message(LOG_DAEMON|LOG_INFO, "Closing thread %d\n", tdata[i].core_id);
 				pthread_join(threads[i], NULL);
