@@ -65,7 +65,7 @@ int xread(void *buf, size_t size, struct rng *ent_src)
 	}
 
 	if (size) {
-		message(LOG_DAEMON|LOG_DEBUG, "read error\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "read error\n");
 		return -1;
 	}
 	return 0;
@@ -90,14 +90,14 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 
 	ent_src->rng_fd = open(ent_src->rng_fname, O_RDWR);
 	if (ent_src->rng_fd == -1) {
-		message(LOG_DAEMON|LOG_DEBUG,"Unable to open file: %s",ent_src->rng_fname);
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG,"Unable to open file: %s\n",ent_src->rng_fname);
 		return -1;
 	}
 
 	temp_buf = (unsigned char *) malloc(size + TPM_GET_RNG_OVERHEAD);
 	memset(temp_buf, 0, (size+TPM_GET_RNG_OVERHEAD));
 	if (temp_buf == NULL) {
-		message(LOG_ERR|LOG_INFO,"No memory");
+		message_entsrc(ent_src,LOG_ERR|LOG_INFO,"No memory for TPM buffer\n");
 		close(ent_src->rng_fd);
 		return -1;
 	}
@@ -114,7 +114,7 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 				       rng_cmd + r,
 				       sizeof(rng_cmd) - r);
 			if (retval < 0) {
-				message(LOG_ERR|LOG_INFO,
+				message_entsrc(ent_src,LOG_ERR|LOG_INFO,
 					"Error writing %s\n",
 					ent_src->rng_name);
 				retval = -1;
@@ -123,7 +123,7 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 			r += retval;
 		}
 		if (r < sizeof(rng_cmd)) {
-			message(LOG_ERR|LOG_INFO,
+			message_entsrc(ent_src,LOG_ERR|LOG_INFO,
 				"Error writing %s\n", ent_src->rng_name);
 			retval = -1;
 			goto error_out;
@@ -131,8 +131,8 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 		r = read(ent_src->rng_fd, temp_buf,size);
 		r = (r - TPM_GET_RNG_OVERHEAD);
 		if(r <= 0) {
-			message(LOG_ERR|LOG_INFO,
-			"Error reading from TPM, no entropy gathered");
+			message_entsrc(ent_src,LOG_ERR|LOG_INFO,
+			"Error reading from TPM, no entropy gathered\n");
 			retval = -1;
 			goto error_out;
 		}
@@ -164,7 +164,7 @@ int init_entropy_source(struct rng *ent_src)
 
 	ent_src->rng_fd = open(ent_src->rng_fname, O_RDONLY | O_NOCTTY);
 	if (ent_src->rng_fd == -1) {
-		message(LOG_DAEMON|LOG_DEBUG, "Unable to open file: %s", ent_src->rng_fname);
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to open file: %s\n", ent_src->rng_fname);
 		return 1;
 	}
 
@@ -179,18 +179,18 @@ int init_entropy_source(struct rng *ent_src)
 	 */
 	rngavail = sysfs_open_attribute(RNG_AVAIL);
 	if (!rngavail) {
-		message(LOG_DAEMON|LOG_DEBUG, "Unable to open sysfs attribute: %s", RNG_AVAIL);
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to open sysfs attribute: %s\n", RNG_AVAIL);
 		return 1;
 	}
 
 	if (sysfs_read_attribute(rngavail)) {
-		message(LOG_DAEMON|LOG_DEBUG, "Error reading sysfs attribute: %s", RNG_AVAIL);
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Error reading sysfs attribute: %s\n", RNG_AVAIL);
 		sysfs_close_attribute(rngavail);
 		return 1;
 	}
 
 	if (strncmp(rngavail->value, "\n", 1) == 0) {
-		message(LOG_DAEMON|LOG_DEBUG, "hwrng: no available rng");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "no available rng device\n");
 		sysfs_close_attribute(rngavail);
 		return 1;
 	}
@@ -207,12 +207,12 @@ source_valid:
  */
 int init_tpm_entropy_source(struct rng *ent_src)
 {
-	message(LOG_CONS|LOG_INFO, "The TPM entropy source only supports TPM1.2 hardware and is "
+	message_entsrc(ent_src,LOG_CONS|LOG_INFO, "The TPM entropy source only supports TPM1.2 hardware and is "
 		"deprecated.  TPM2.0 and later hardware exports entropy via /dev/hwrng, which "
 		"can be collected via the hwrng entropy source in rngd\n"); 
 	ent_src->rng_fd = open(ent_src->rng_fname, O_RDWR);
 	if (ent_src->rng_fd == -1) {
-		message(LOG_DAEMON|LOG_DEBUG,"Unable to open file: %s",ent_src->rng_fname);
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG,"Unable to open file: %s\n",ent_src->rng_fname);
 		return 1;
 	}
 	/* Bootstrap FIPS tests */
