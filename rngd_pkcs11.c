@@ -126,10 +126,10 @@ int init_pkcs11_entropy_source(struct rng *ent_src)
 	}
 
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot manufacturer......: %s\n", slot->manufacturer);
-	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot description......: %s\n", slot->description);
-	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token label......: %s\n", slot->token->label);
-	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token manufacturer......: %s\n", slot->token->manufacturer);
-	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token model......: %s\n", slot->token->model);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot description.......: %s\n", slot->description);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token label.......: %s\n", slot->token->label);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token manufacturer: %s\n", slot->token->manufacturer);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token model.......: %s\n", slot->token->model);
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token serial......: %s\n", slot->token->serialnr);
 
 	rc = 0;
