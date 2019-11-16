@@ -67,19 +67,19 @@ int validate_pkcs11_options(struct rng *ent_src)
 	struct stat sbuf;
 
 	if (stat(ent_src->rng_options[PKCS11_OPT_ENGINE].str_val, &sbuf) == -1) {
-		message(LOG_DAEMON|LOG_WARNING, "PKCS11 Engine %s Error: %s\n",
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine %s Error: %s\n",
 			ent_src->rng_options[PKCS11_OPT_ENGINE].str_val,
 			strerror(errno));
 		return 1;
 	}
 
 	if (!ent_src->rng_options[PKCS11_OPT_CHUNK].int_val) {
-		message(LOG_DAEMON|LOG_WARNING, "PKCS11 Engine chunk size cannot be 0\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine chunk size cannot be 0\n");
 		return 1;
 	}
 	
 	if (ent_src->rng_options[PKCS11_OPT_CHUNK].int_val > FIPS_RNG_BUFFER_SIZE) {
-		message(LOG_DAEMON|LOG_WARNING, "PKCS11 Engine chunk size cannot be larger than %d\n",
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine chunk size cannot be larger than %d\n",
 			FIPS_RNG_BUFFER_SIZE);
 		return 1;
 	}
@@ -99,13 +99,13 @@ int init_pkcs11_entropy_source(struct rng *ent_src)
 		return 1;
 
 	if (!ctx) {
-		message(LOG_DAEMON|LOG_WARNING, "Unable to allocate new pkcs11 context\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "Unable to allocate new pkcs11 context\n");
 		return 1;
 	}
 
 	rc = PKCS11_CTX_load(ctx, ent_src->rng_options[PKCS11_OPT_ENGINE].str_val);
 	if (rc) {
-		message(LOG_DAEMON|LOG_WARNING, "Unable to load pkcs11 engine: %s\n",
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "Unable to load pkcs11 engine: %s\n",
 			ERR_reason_error_string(ERR_get_error()));
 		rc = 1;
 		goto free_ctx;
@@ -113,24 +113,24 @@ int init_pkcs11_entropy_source(struct rng *ent_src)
 
 	rc = PKCS11_enumerate_slots(ctx, &slots, &nslots);
 	if (rc < 0) {
-		message(LOG_DAEMON|LOG_WARNING, "No pkcs11 slots available\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "No pkcs11 slots available\n");
 		rc = 1;
 		goto unload_engine;
 	}
 
 	slot = PKCS11_find_token(ctx, slots, nslots);
 	if (slot == NULL || slot->token == NULL) {
-		message(LOG_DAEMON|LOG_WARNING, "No pkcs11 tokens available\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "No pkcs11 tokens available\n");
 		rc = 1;
 		goto release_slots;
 	}
 
-	message(LOG_DAEMON|LOG_INFO, "Slot manufacturer......: %s\n", slot->manufacturer);
-	message(LOG_DAEMON|LOG_INFO, "Slot description......: %s\n", slot->description);
-	message(LOG_DAEMON|LOG_INFO, "Slot token label......: %s\n", slot->token->label);
-	message(LOG_DAEMON|LOG_INFO, "Slot token manufacturer......: %s\n", slot->token->manufacturer);
-	message(LOG_DAEMON|LOG_INFO, "Slot token model......: %s\n", slot->token->model);
-	message(LOG_DAEMON|LOG_INFO, "Slot token serial......: %s\n", slot->token->serialnr);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot manufacturer......: %s\n", slot->manufacturer);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot description......: %s\n", slot->description);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token label......: %s\n", slot->token->label);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token manufacturer......: %s\n", slot->token->manufacturer);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token model......: %s\n", slot->token->model);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Slot token serial......: %s\n", slot->token->serialnr);
 
 	rc = 0;
 	goto out;

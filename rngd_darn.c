@@ -102,7 +102,7 @@ static int init_gcrypt(struct rng *ent_src)
 	}
 
 	if (gcry_error) {
-		message(LOG_DAEMON|LOG_ERR,
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR,
 			"could not set key or IV: %s\n",
 			gcry_strerror(gcry_error));
 		gcry_cipher_close(gcry_cipher_hd);
@@ -128,7 +128,7 @@ static int refill_rand(struct rng *ent_src)
 		return 0;
 	if (ent_src->rng_options[DARN_OPT_AES].int_val) {
 		if (rand_bytes_served >= rekey_thresh) {
-			message(LOG_DAEMON|LOG_DEBUG, "rekeying DARN rng\n");
+			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "rekeying DARN rng\n");
 			gcry_cipher_close(gcry_cipher_hd);
 			if (init_gcrypt(ent_src))
 				return 1;
@@ -138,7 +138,7 @@ static int refill_rand(struct rng *ent_src)
 						CHUNK_SIZE, NULL, 0);
 
 		if (gcry_error) {
-			message(LOG_DAEMON | LOG_ERR,
+			message_entsrc(ent_src,LOG_DAEMON | LOG_ERR,
 				"gcry_cipher_encrypt_error: %s\n",
 				gcry_strerror(gcry_error));
 			return 1;
@@ -219,6 +219,6 @@ int init_darn_entropy_source(struct rng *ent_src)
 
 	if (init_gcrypt(ent_src))
 		return 1;
-	message(LOG_DAEMON|LOG_INFO, "Enabling power DARN rng support\n");
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling power DARN rng support\n");
 	return 0;
 }

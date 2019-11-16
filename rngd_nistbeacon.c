@@ -77,7 +77,7 @@ static char nist_pubkey[] =
 "IQIDAQAB\n"
 "-----END PUBLIC KEY-----";
 
-static int get_nist_record();
+static int get_nist_record(struct rng *ent_src);
 
 int read_nist_pubkey();
 void cleanup_nist_pubkey();
@@ -111,13 +111,13 @@ struct nist_data_block {
 
 static struct nist_data_block block;
 
-static int refill_rand()
+static int refill_rand(struct rng *ent_src)
 {
 
 	if (nist_buf_avail > 0)
 		return 0;
 
-	if (get_nist_record())
+	if (get_nist_record(ent_src))
 		return 1;
 
 	memcpy(nist_rand_buf, block.seedvalue, block.seedvaluelen);
@@ -145,7 +145,7 @@ int xread_nist(void *buf, size_t size, struct rng *ent_src)
 	size_t copied = 0;
 
 	while (copied < size) {
-		if (refill_rand()) {
+		if (refill_rand(ent_src)) {
 			return 1;
 		}
 		copied += copy_avail_rand_to_buf(buf, size, copied);
@@ -253,6 +253,7 @@ static size_t parse_nist_xml_block(char *ptr, size_t size, size_t nemb, void *us
 	const char *name;
 	size_t realsize = size * nemb;
 	char *xml = (char *)ptr;
+        struct rng *ent_src = userdata;
 
 #define FREE_VAL(b) do {if (b) free(b); (b) = NULL;} while(0)
 
@@ -266,7 +267,7 @@ static size_t parse_nist_xml_block(char *ptr, size_t size, size_t nemb, void *us
 
 	reader = xmlReaderForMemory(xml, realsize, NIST_RECORD_URL, NULL, 0);
 	if (!reader) {
-		message(LOG_DAEMON|LOG_ERR, "Unparseable XML\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unparseable XML\n");
 		return 0;
 	}
 
@@ -327,7 +328,7 @@ static size_t parse_nist_xml_block(char *ptr, size_t size, size_t nemb, void *us
 	return realsize;
 }
 
-static int validate_nist_block()
+static int validate_nist_block(struct rng *ent_src)
 {
 	SHA512_CTX sha_ctx = { 0 };
 	unsigned char digest[SHA512_DIGEST_LENGTH];
@@ -345,27 +346,27 @@ static int validate_nist_block()
 	EVP_MD_CTX_init(mdctx);
 
 	if (!EVP_VerifyInit_ex(mdctx, md, NULL)) {
-		message(LOG_DAEMON|LOG_ERR, "Unable to Init Verifyer");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to Init Verifyer");
 		goto out;
 	}
 
 	if (SHA512_Init(&sha_ctx) != 1) {
-		message(LOG_DAEMON|LOG_ERR, "Unable to init SHA512\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to init SHA512\n");
 		goto out;
 	}
 
 	if (SHA512_Update(&sha_ctx, block.sigvalue, block.sigvaluelen) != 1) {
-		message(LOG_DAEMON|LOG_ERR, "Unable to update sha512\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update sha512\n");
 		goto out;
 	}
 
 	if (SHA512_Final(digest, &sha_ctx) != 1) {
-		message(LOG_DAEMON|LOG_ERR, "Unable to finalize sha512\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to finalize sha512\n");
 		goto out;
 	}
 
 	if (memcmp(digest, block.sighash, SHA512_DIGEST_LENGTH)) {
-		message(LOG_DAEMON|LOG_ERR, "Digest mismatch in nist block validation\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Digest mismatch in nist block validation\n");
 		goto out;
 	}
 
@@ -378,13 +379,13 @@ static int validate_nist_block()
 	EVP_VerifyUpdate(mdctx, &block.errorcode, block.errorcodelen);
 
 	if (!reverse(&block.sigvalue, block.sigvaluelen)) {
-		message(LOG_DAEMON|LOG_ERR, "Unable to allocate memory for sig reversal\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to allocate memory for sig reversal\n");
 		goto out;
 	}
 
 	if (EVP_VerifyFinal(mdctx, block.sigvalue, block.sigvaluelen, pkey) != 1) {
 		unsigned long err;
-		message(LOG_DAEMON| LOG_ERR, "Unable to validate signature on message\n");
+		message_entsrc(ent_src,LOG_DAEMON| LOG_ERR, "Unable to validate signature on message\n");
 		while( (err = ERR_get_error()) != 0 ) {
 			ERR_error_string(err, errbuf);
 			puts (errbuf);
@@ -401,7 +402,7 @@ out:
 
 }
 
-static int get_nist_record()
+static int get_nist_record(struct rng *ent_src)
 {
 	CURL *curl;
 	CURLcode res;
@@ -410,14 +411,14 @@ static int get_nist_record()
 
 	if (block.frequency != 0) {
 		if (gettimeofday(&ct, NULL)) {
-			message(LOG_DAEMON|LOG_ERR, "Gettimeofday failed\n");
+			message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Gettimeofday failed\n");
 			goto out;
 		}
 
-		message(LOG_DAEMON|LOG_DEBUG, "NIST: timestamp is %lu, frequency is %u, tv_sec is %lu\n",
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "NIST: timestamp is %lu, frequency is %u, tv_sec is %lu\n",
 			block.timestamp, block.frequency, ct.tv_sec);
 		if (block.timestamp + block.frequency >= ct.tv_sec) {
-			message(LOG_DAEMON|LOG_ERR, "Multiple nist reads in same frequency period of %d sec\n",
+			message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Multiple nist reads in same frequency period of %d sec\n",
 				block.frequency);
 			goto out;
 		}
@@ -431,6 +432,7 @@ static int get_nist_record()
 	curl_easy_setopt(curl, CURLOPT_URL, NIST_RECORD_URL);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, nist_rand_buf);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, parse_nist_xml_block);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, ent_src);
 
 	res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
@@ -441,8 +443,8 @@ static int get_nist_record()
 
 	curl_easy_cleanup(curl);
 
-	if (validate_nist_block()) {
-		message(LOG_DAEMON|LOG_ERR, "Recieved block failed validation\n");
+	if (validate_nist_block(ent_src)) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Recieved block failed validation\n");
 		goto out;
 	}
 
@@ -484,9 +486,9 @@ int init_nist_entropy_source(struct rng *ent_src)
 	int rc;
 	memset(&block, 0, sizeof (struct nist_data_block));
 
-	rc = refill_rand();
+	rc = refill_rand(ent_src);
 	if (!rc) {
-		message(LOG_DAEMON|LOG_WARNING, "WARNING: NIST Randomness beacon "
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "WARNING: NIST Randomness beacon "
 						"is sent in clear text over the internet.  "
 						"Do not use this source in any entropy pool "
 						"which generates cryptographic objects!\n");

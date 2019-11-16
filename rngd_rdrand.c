@@ -148,7 +148,7 @@ static gcry_cipher_hd_t gcry_cipher_hd;
 
 #endif
 
-static inline int gcrypt_mangle(unsigned char *tmp)
+static inline int gcrypt_mangle(unsigned char *tmp, struct rng *ent_src)
 {
 #ifdef HAVE_LIBGCRYPT
 	gcry_error_t gcry_error;
@@ -160,7 +160,7 @@ static inline int gcrypt_mangle(unsigned char *tmp)
 					 NULL, 0);
 
 	if (gcry_error) {
-		message(LOG_DAEMON|LOG_ERR,
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR,
 			"gcry_cipher_encrypt error: %s\n",
 			gcry_strerror(gcry_error));
 		return -1;
@@ -198,7 +198,7 @@ int xread_drng_with_aes(void *buf, size_t size, struct rng *ent_src)
 				x86_aes_mangle(rdrand_buf, iv_buf);
 				data = iv_buf;
 				chunk = CHUNK_SIZE;
-			} else if (!gcrypt_mangle(rdrand_buf)) {
+			} else if (!gcrypt_mangle(rdrand_buf, ent_src)) {
 				data = rdrand_buf +
 					AES_BLOCK * (RDRAND_ROUNDS - 1);
 				chunk = AES_BLOCK;
@@ -266,13 +266,13 @@ static int init_aesni(const void *key)
 	return 0;
 }
 
-static int init_gcrypt(const void *key)
+static int init_gcrypt(const void *key, struct rng *ent_src)
 {
 #ifdef HAVE_LIBGCRYPT
 	gcry_error_t gcry_error;
 
 	if (!gcry_check_version(MIN_GCRYPT_VERSION)) {
-		message(LOG_DAEMON|LOG_ERR,
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR,
 			"libgcrypt version mismatch: have %s, require >= %s\n",
 			gcry_check_version(NULL), MIN_GCRYPT_VERSION);
 		return 1;
@@ -293,7 +293,7 @@ static int init_gcrypt(const void *key)
 	}
 
 	if (gcry_error) {
-		message(LOG_DAEMON|LOG_ERR,
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR,
 			"could not set key or IV: %s\n",
 			gcry_strerror(gcry_error));
 		gcry_cipher_close(gcry_cipher_hd);
@@ -364,16 +364,16 @@ int init_drng_entropy_source(struct rng *ent_src)
 	if (x86_rdrand_bytes(iv_buf, CHUNK_SIZE) != CHUNK_SIZE)
 		return 1;
 
-	if (init_aesni(key) && init_gcrypt(key)) {
+	if (init_aesni(key) && init_gcrypt(key, ent_src)) {
 		/* If neither aes method is available, log and just use rdrand */
 		ent_src->rng_options[DRNG_OPT_AES].int_val = 0;
-		message(LOG_DAEMON|LOG_WARNING, "No AES method available for RDRAND\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "No AES method available for RDRAND\n");
 	}
 
 	if (have_rdseed)
-		message(LOG_DAEMON|LOG_INFO, "Enabling RDSEED rng support\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling RDSEED rng support\n");
 	else
-		message(LOG_DAEMON|LOG_INFO, "Enabling RDRAND rng support\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling RDRAND rng support\n");
 
 	return 0;
 }
