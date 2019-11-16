@@ -778,7 +778,7 @@ int main(int argc, char **argv)
 			message(LOG_CONS|LOG_INFO, "None");
 		msg_squash = true;
 	} else
-		message(LOG_DAEMON|LOG_INFO, "\nInitializing available sources\n");
+		message(LOG_DAEMON|LOG_INFO, "Initializing available sources\n");
 
 	/* Init entropy sources */
 	
