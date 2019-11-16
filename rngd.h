@@ -156,8 +156,12 @@ extern bool quiet;
 } while (0)
 
 #define message_entsrc(src, priority, fmt, args...) do { \
-        message(priority, "[%s]:", src->rng_sname); \
-        message(priority, fmt, ##args); \
+	size_t ____neededpfx = snprintf(NULL, 0, "[%s]: ", src->rng_sname); \
+	size_t ____neededmsg = snprintf(NULL, 0, fmt, ##args) + 1; \
+	char *____buf = malloc(____neededpfx + ____neededmsg); \
+	sprintf(____buf, "[%s]: " fmt, src->rng_sname, ##args); \
+        message(priority, "%s", ____buf); \
+	free(____buf); \
 } while (0)
 
 extern int write_pid_file(const char *pid_fn);
