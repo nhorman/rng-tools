@@ -150,7 +150,6 @@ extern bool quiet;
 	} else if (!msg_squash) { \
 		if ((LOG_PRI(priority) != LOG_DEBUG) || (arguments->debug == true)) {\
 			fprintf(stderr, fmt, ##args); \
-			fprintf(stderr, "\n"); \
 			fflush(stderr); \
 		} \
 	} \
