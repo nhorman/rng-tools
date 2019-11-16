@@ -156,6 +156,8 @@ extern bool quiet;
 } while (0)
 
 #define message_entsrc(src, priority, fmt, args...) do { \
+        if (quiet) \
+                break; \
 	size_t ____neededpfx = snprintf(NULL, 0, "[%-6s]: ", src->rng_sname); \
 	size_t ____neededmsg = snprintf(NULL, 0, fmt, ##args) + 1; \
 	char *____buf = malloc(____neededpfx + ____neededmsg); \
