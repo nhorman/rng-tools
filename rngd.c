@@ -739,6 +739,7 @@ int main(int argc, char **argv)
 	int ent_sources = 0;
 	pid_t pid_fd = -1;
 	double test_time;
+        struct rng *ent_src;
 
 	openlog("rngd", 0, LOG_DAEMON);
 
@@ -783,17 +784,16 @@ int main(int argc, char **argv)
 	/* Init entropy sources */
 	
 	for (i=0; i < ENT_MAX; i++) {
-		if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
-			if (!entropy_sources[i].init(&entropy_sources[i])) {
+                ent_src = &entropy_sources[i];
+		if (ent_src->init && ent_src->disabled == false) {
+			if (!ent_src->init(ent_src)) {
 				ent_sources++;
-				entropy_sources[i].fipsctx = malloc(sizeof(fips_ctx_t));
-				fips_init(entropy_sources[i].fipsctx, discard_initial_data(&entropy_sources[i]));
-				message(LOG_INFO | LOG_DAEMON, "Initializing entropy source %s\n",
-					entropy_sources[i].rng_sname);
+				ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
+				fips_init(ent_src->fipsctx, discard_initial_data(ent_src));
+                                message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Initialized\n");
 			} else {
-				message(LOG_ERR | LOG_DAEMON, "Failed to init entropy source %s\n",
-					entropy_sources[i].rng_sname);
-				entropy_sources[i].disabled = true;
+                                message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Initialization Failed\n");
+				ent_src->disabled = true;
 			}
 		}
 	}
