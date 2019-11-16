@@ -155,6 +155,11 @@ extern bool quiet;
 	} \
 } while (0)
 
+#define message_entsrc(src, priority, fmt, args...) do { \
+        message(priority, "[%s]:", src->rng_sname); \
+        message(priority, fmt, ##args); \
+} while (0)
+
 extern int write_pid_file(const char *pid_fn);
 #endif /* RNGD__H */
 
