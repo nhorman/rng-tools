@@ -725,11 +725,16 @@ static int discard_initial_data(struct rng *ent_src)
 
 void close_all_entropy_sources()
 {
+        struct rng *ent_src;
 	int i;
-	for (i=0; i < ENT_MAX; i++)
-		if (entropy_sources[i].close && entropy_sources[i].disabled == false) {
-			entropy_sources[i].close(&entropy_sources[i]);
-			free(entropy_sources[i].fipsctx);
+	for (i=0; i < ENT_MAX; i++) {
+                ent_src = &entropy_sources[i];
+                if (ent_src->disabled == false)
+                        message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Shutting down\n");
+		if (ent_src->close && ent_src->disabled == false) {
+			ent_src->close(ent_src);
+			free(ent_src->fipsctx);
+                }
 	}
 }
 
