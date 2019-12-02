@@ -303,15 +303,11 @@ static void *thread_entropy_task(void *data)
 		while(written != me->buf_sz) {
 			message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "Writing to pipe\n");
 			ret = write(me->pipe_fd, &tmpbuf[written], me->buf_sz - written);
+                        if ((ret < 0) && (errno != EBADF))
+				message_entsrc(me->ent_src,LOG_DAEMON|LOG_WARNING, "Error on pipe write: %s\n", strerror(errno));
 			message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "DONE Writing to pipe with return %ld\n", ret);
 			if (first)
 				me->active = 1;
-			/*
- 			 * suppress EBADF errors, as those indicate the pipe is
- 			 * closed and we are exiting
- 			 */
-			if ((ret < 0) && (errno != EBADF))
-				message_entsrc(me->ent_src,LOG_DAEMON|LOG_WARNING, "Error on pipe write: %s\n", strerror(errno));
 			if (!first && !me->active)
 				break;
 			first = 0;
