@@ -94,6 +94,9 @@ void init_kernel_rng(const char* randomdev)
 			randomdev, strerror(errno));
 		exit(EXIT_USAGE);
 	}
+	/* Don't set the watermark if the watermark is zero */
+	if (!arguments->fill_watermark)
+		return;
 
 	f = fopen("/proc/sys/kernel/random/write_wakeup_threshold", "w");
 	if (!f) {
@@ -105,7 +108,7 @@ void init_kernel_rng(const char* randomdev)
 	}
 	if (err) {
 		message(LOG_DAEMON|LOG_WARNING,
-			"unable to adjust write_wakeup_threshold: %s",
+			"unable to adjust write_wakeup_threshold: %s\n",
 			strerror(errno));
 	}
 

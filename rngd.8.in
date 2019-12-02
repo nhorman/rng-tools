@@ -106,7 +106,9 @@ if the entropy pool size couldn't be determined.
 Setting this too high will cause \fIrngd\fR to dominate the contents of the
 entropy pool.  Low values will hurt system performance during entropy 
 starves.  Do not set \fIfill-watermark\fR above the size of the
-entropy pool (usually 4096 bits).
+entropy pool (usually 4096 bits).  A value of 0 to this option will cause no
+watermark to be set.
+
 .TP
 \fB\-q\fR, \fB\-\-quiet\fR
 Suppress all messages
