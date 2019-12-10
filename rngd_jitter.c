@@ -169,10 +169,9 @@ try_again:
 			rc = 0;
 			goto out;
 		} else if (request < need) {
-			if (request == -1) {
+			if (request == -1)
 				message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "failed read: %s\n", strerror(errno));
-				sched_yield();
-			} else
+			else
 				message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "request of random data returns %ld less than need %ld\n",
 					request, need);
 			if (retry_count < ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val) {
