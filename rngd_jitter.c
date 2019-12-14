@@ -47,7 +47,10 @@ struct thread_data {
 	struct rand_data *ec;
 	size_t buf_sz;
 	int slpmode;
-	int active;
+	/* mutex/condition to guard done variable */
+	pthread_cond_t statecond;
+	pthread_mutex_t statemtx;
+	/* done states -1 : init, 0 : ready, 1 : complete */
 	int done;
 	struct timespec slptm;
 	sigjmp_buf	jmpbuf;
@@ -169,10 +172,9 @@ try_again:
 			rc = 0;
 			goto out;
 		} else if (request < need) {
-			if (request == -1) {
+			if (request == -1)
 				message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "failed read: %s\n", strerror(errno));
-				sched_yield();
-			} else
+			else
 				message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "request of random data returns %ld less than need %ld\n",
 					request, need);
 			if (retry_count < ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val) {
@@ -250,10 +252,8 @@ static void *thread_entropy_task(void *data)
 	char *tmpbuf;
 	struct timespec start, end;
 	int written;
-	int first = 1;
 	/* STARTUP */
 
-	me->done = 0;
 	/*
 	 * Set our timeout value
 	 * -1 means adaptive, i.e. sleep for the last 
@@ -277,14 +277,19 @@ static void *thread_entropy_task(void *data)
 	}
 
 	/*
-	 * Use setjmp here to allow us to return early from
-	 * jent_read_entropy, as it can run for a long time
+	 * A signal will call siglongjmp and return us here when we exit 
 	 */
 	if (sigsetjmp(me->jmpbuf, 1))
 		goto out_interrupt;
 
+	/* Indicate we are ready */
+	pthread_mutex_lock(&me->statemtx);
+	me->done = 0;
+	pthread_cond_signal(&me->statecond);
+	pthread_mutex_unlock(&me->statemtx);
+
 	/* Now go to sleep until there is more work to do */
-	do {
+	for(;;) {
 		message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "JITTER thread on cpu %d wakes up for refill\n", me->core_id);
 
 		/* We are awake because we need to refil the buffer */
@@ -306,20 +311,18 @@ static void *thread_entropy_task(void *data)
                         if ((ret < 0) && (errno != EBADF))
 				message_entsrc(me->ent_src,LOG_DAEMON|LOG_WARNING, "Error on pipe write: %s\n", strerror(errno));
 			message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "DONE Writing to pipe with return %ld\n", ret);
-			if (first)
-				me->active = 1;
-			if (!first && !me->active)
-				break;
-			first = 0;
 			written += ret;
 		}
 
-	} while (me->active);
+	}
 
 out_interrupt:
 	free(tmpbuf);
 out:
+	pthread_mutex_lock(&me->statemtx);
 	me->done = 1;
+	pthread_cond_signal(&me->statecond);
+	pthread_mutex_unlock(&me->statemtx);
 	pthread_exit(NULL);
 }
 
@@ -433,8 +436,9 @@ int init_jitter_entropy_source(struct rng *ent_src)
 			core_id++;
 		tdata[i].core_id = core_id;
 		tdata[i].pipe_fd = pipefds[1];
-		tdata[i].active = 0;
-		tdata[i].done = 0;
+		pthread_cond_init(&tdata[i].statecond, NULL);
+		pthread_mutex_init(&tdata[i].statemtx, NULL);
+		tdata[i].done = -1;
 		core_id++;
 		tdata[i].buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
 		tdata[i].ec = jent_entropy_collector_alloc(1, 0);
@@ -447,9 +451,16 @@ int init_jitter_entropy_source(struct rng *ent_src)
 
 	/* Make sure all our threads are doing their jobs */
 	for (i=0; i < num_threads; i++) {
-		while (tdata[i].active == 0)
-			sched_yield();
-		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "CPU Thread %d is ready\n", i);
+		/* wait until the done state transitions from negative to zero or more */
+		pthread_mutex_lock(&tdata[i].statemtx);
+		if (tdata[i].done < 0)
+			pthread_cond_wait(&tdata[i].statecond, &tdata[i].statemtx);
+		if (tdata[i].done == 1)
+			/* we failed during startup */
+			message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "CPU thread %d failed\n", i);
+		else
+			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "CPU Thread %d is ready\n", i);
+		pthread_mutex_unlock(&tdata[i].statemtx);
 	}
 
 	flags = fcntl(pipefds[0], F_GETFL, 0);
@@ -491,23 +502,23 @@ void close_jitter_entropy_source(struct rng *ent_src)
 	char tmpbuf[1024];
 	int flags;
 
-	/* Flag all the threads so they exit */
-	for (i=0; i < num_threads; i++)
-		tdata[i].active = 0;
-
+	/* Close the pipes to prevent further writing */
 	close(pipefds[1]);
 
 	/* And wait for completion of each thread */
 	for (i=0; i < num_threads; i++) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Checking on done for thread %d\n", i);
+		/* Signal the threads to exit */
 		pthread_kill(threads[i], SIGUSR1);
-		while (!tdata[i].done)
-			if(tdata[i].done) {
-				message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Closing thread %d\n", tdata[i].core_id);
-				pthread_join(threads[i], NULL);
-				jent_entropy_collector_free(tdata[i].ec);
-			} else 
-				sched_yield();
+		/* and wait for them to shutdown */
+		pthread_mutex_lock(&tdata[i].statemtx);
+		if (!tdata[i].done) {
+			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Checking on done for thread %d\n", i);
+			pthread_cond_wait(&tdata[i].statecond, &tdata[i].statemtx);
+		}
+		pthread_mutex_unlock(&tdata[i].statemtx);
+		message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Closing thread %d\n", tdata[i].core_id);
+		pthread_join(threads[i], NULL);
+		jent_entropy_collector_free(tdata[i].ec);
 	}
 
 	close(pipefds[0]);
