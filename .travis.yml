@@ -1,6 +1,10 @@
 language: c
 dist: trusty
 
+arch:
+  - amd64
+  - arm64
+
 compiler:
   - clang
   - gcc
