@@ -112,7 +112,7 @@ AS_IF(
 		PKG_CHECK_MODULES([libcrypto], [libcrypto], [], [AC_MSG_ERROR([libcrypto is required])])
 		AC_DEFINE([HAVE_PKCS11],1,[Enable PKCS11])
                 AS_CASE([$host_cpu],
-                        [i?86|armv7l],
+                        [i?86|armv7hl],
                         [
                                 PKCS11_ENGINE=/usr/lib/opensc-pkcs11.so
                         ],
