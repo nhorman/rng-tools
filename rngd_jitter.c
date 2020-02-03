@@ -27,17 +27,23 @@
 #include <unistd.h>
 #include <signal.h>
 #include <setjmp.h>
+#include <openssl/conf.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
+
 #include "rng-tools-config.h"
 
 #include <jitterentropy.h>
-#ifdef HAVE_LIBGCRYPT
-#include <gcrypt.h>
-#endif
 
 #include "rngd.h"
 #include "fips.h"
 #include "exits.h"
 #include "rngd_entsource.h"
+
+/* Read data from the drng in chunks of 128 bytes for AES scrambling */
+#define AES_BLOCK               16
+#define CHUNK_SIZE              (AES_BLOCK*8)   /* 8 parallel streams */
+#define RDRAND_ROUNDS           512             /* 512:1 data reduction */
 
 static int num_threads = 0;
 struct thread_data {
@@ -56,92 +62,73 @@ struct thread_data {
 	sigjmp_buf	jmpbuf;
 };
 
+
 static struct thread_data *tdata;
 static pthread_t *threads;
 int pipefds[2];
 
 unsigned char *aes_buf;
 
-#ifdef HAVE_LIBGCRYPT
-
-#define MIN_GCRYPT_VERSION "1.0.0"
-
-static gcry_cipher_hd_t gcry_cipher_hd;
-
-/* Read data from the drng in chunks of 128 bytes for AES scrambling */
-#define AES_BLOCK               16
-#define CHUNK_SIZE              (AES_BLOCK*8)   /* 8 parallel streams */
-#define RDRAND_ROUNDS           512             /* 512:1 data reduction */
-
+char key[AES_BLOCK];
 static unsigned char iv_buf[CHUNK_SIZE] __attribute__((aligned(128)));
-#endif
 
-static int init_gcrypt(const void *key, struct rng *ent_src)
+static int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
+            unsigned char *iv, unsigned char *ciphertext)
 {
-#ifdef HAVE_LIBGCRYPT
-	gcry_error_t gcry_error;
+        EVP_CIPHER_CTX *ctx;
 
-	if (!gcry_check_version(MIN_GCRYPT_VERSION)) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR,
-			"libgcrypt version mismatch: have %s, require >= %s\n",
-			gcry_check_version(NULL), MIN_GCRYPT_VERSION);
-		return 1;
-	}
+        int len;
 
-	gcry_error = gcry_cipher_open(&gcry_cipher_hd, GCRY_CIPHER_AES128,
-				      GCRY_CIPHER_MODE_CBC, 0);
+        int ciphertext_len;
 
-	if (!gcry_error)
-		gcry_error = gcry_cipher_setkey(gcry_cipher_hd, key, AES_BLOCK);
+        /* Create and initialise the context */
+        if(!(ctx = EVP_CIPHER_CTX_new()))
+                return 0;
 
-	if (!gcry_error) {
-		/*
-		 * Only need the first 16 bytes of iv_buf. AES-NI can
-		 * encrypt multiple blocks in parallel but we can't.
-		 */
-		gcry_error = gcry_cipher_setiv(gcry_cipher_hd, iv_buf, AES_BLOCK);
-	}
+        if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv))
+                return 0;
+        /*
+        * Provide the message to be encrypted, and obtain the encrypted output.
+        * EVP_EncryptUpdate can be called multiple times if necessary
+        */
+        if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
+                return 0;
 
-	if (gcry_error) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR,
-			"could not set key or IV: %s\n",
-			gcry_strerror(gcry_error));
-		gcry_cipher_close(gcry_cipher_hd);
-		return 1;
-	}
-	return 0;
-#else
-	(void)key;
-	return 1;
-#endif
+        ciphertext_len = len;
+
+        /*
+        * Finalise the encryption. Further ciphertext bytes may be written at
+        * this stage.
+        */
+        if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
+                return 0;
+        ciphertext_len += len;
+
+        /* Clean up */
+        EVP_CIPHER_CTX_free(ctx);
+
+        return ciphertext_len;
 }
 
-static inline int gcrypt_mangle(unsigned char *tmp, size_t size, struct rng *ent_src)
+static inline int openssl_mangle(unsigned char *tmp, struct rng *ent_src)
 {
-#ifdef HAVE_LIBGCRYPT
-	int i;
-	int stride = AES_BLOCK * RDRAND_ROUNDS;
-	gcry_error_t gcry_error = 0;
+        int ciphertext_len;
 
-	/* Encrypt tmp in-place. */
+        /*
+        * Buffer for ciphertext. Ensure the buffer is long enough for the
+        * ciphertext which may be longer than the plaintext, depending on the
+        * algorithm and mode.
+        */
+        unsigned char ciphertext[CHUNK_SIZE * RDRAND_ROUNDS];
 
-	for (i = 0; i < (size - stride) && !gcry_error; i += stride) {
-		gcry_error = gcry_cipher_encrypt(gcry_cipher_hd, &tmp[i],
-					 AES_BLOCK * RDRAND_ROUNDS,
-					 NULL, 0);
-	}
+        /* Encrypt the plaintext */
+        ciphertext_len = encrypt (tmp, strlen(tmp), key, iv_buf,
+                              ciphertext);
+        if (!ciphertext_len)
+                return -1;
 
-	if (gcry_error) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR,
-			"gcry_cipher_encrypt error: %s\n",
-			gcry_strerror(gcry_error));
-		return -1;
-	}
-	return 0;
-#else
-	(void)tmp;
-	return -1;
-#endif
+        memcpy(tmp, ciphertext, strlen(tmp));
+        return 0;
 }
 
 int xread_jitter(void *buf, size_t size, struct rng *ent_src)
@@ -165,7 +152,7 @@ try_again:
 			while(need) {
 				request = (need >= current->buf_sz) ? current->buf_sz : need;
 				memcpy(buf, &aes_buf[total], request);
-				gcrypt_mangle(aes_buf, current->buf_sz, ent_src);
+				openssl_mangle(aes_buf, ent_src);
 				need -= request;
 				total += request;
 			}
@@ -371,9 +358,6 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	int size;
 	int flags;
 	int core_id = 0;
-#ifdef HAVE_LIBGCRYPT
-	char key[AES_BLOCK];
-#endif
 
 	signal(SIGUSR1, jitter_thread_exit_signal);
 
@@ -468,7 +452,6 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	fcntl(pipefds[0], F_SETFL, &flags);
 
 	if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
-#ifdef HAVE_LIBGCRYPT
 		/*
 		 * Temporarily disable aes so we don't try to use it during init
 		 */
@@ -480,17 +463,11 @@ int init_jitter_entropy_source(struct rng *ent_src)
 			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain AES key, disabling AES in JITTER source\n");
 		} else if (xread_jitter(iv_buf, CHUNK_SIZE, ent_src)) {
 			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain iv_buffer, disabling AES in JITTER source\n");
-		} else if (init_gcrypt(key, ent_src)) {
-			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to inity gcrypt lib, disabling AES in JITTER source\n");
 		} else {
 			/* re-enable AES */
 			ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 1;
 		}
 		xread_jitter(aes_buf, tdata[0].buf_sz, ent_src);
-#else
-		message_entsrc(ent_src,LOG_CONS|LOG_INFO, "libgcrypt not available. Disabling AES in JITTER source\n");
-		ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 0;
-#endif
 	}
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling JITTER rng support\n");
 	return 0;

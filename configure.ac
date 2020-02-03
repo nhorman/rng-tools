@@ -27,12 +27,6 @@ AC_CONFIG_MACRO_DIRS([m4])
 
 dnl Parse options
 
-AC_ARG_WITH([libgcrypt],
-	AS_HELP_STRING([--without-libgcrypt],
-		[Disable libgcrypt support. Systems that support RDRAND but not AES-NI will require libgcrypt in order to use RDRAND as an entropy source. (Default: --with-libgcrypt)]),
-	[],
-	[with_libgcrypt=check]
-)
 AC_ARG_WITH([nistbeacon],
 	AS_HELP_STRING([--without-nistbeacon],
 		[Disable nistbeacon support. ]),
@@ -75,7 +69,6 @@ AS_IF([test $target_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])]
 
 AM_CONDITIONAL([JITTER], [false])
 
-
 AC_ARG_ENABLE(jitterentropy,
 	AS_HELP_STRING([--disable-jitterentropy | --enable-jitterentropy=<path>],
 	[Disable jitterentropy source, or specify its location]),
@@ -100,7 +93,6 @@ AS_IF(
 	[
 		PKG_CHECK_MODULES([libcurl], [libcurl], [], [AC_MSG_ERROR([libcurl is required])])
 		PKG_CHECK_MODULES([libxml2], [libxml-2.0], [], [AC_MSG_ERROR([libxml2 is required])])
-		PKG_CHECK_MODULES([openssl], [openssl], [], [AC_MSG_ERROR([openssl is required])])
 		AC_DEFINE([HAVE_NISTBEACON],1,[Enable NISTBEACON])
 	]
 )
@@ -123,6 +115,7 @@ AS_IF(
 	]
 )
 
+PKG_CHECK_MODULES([openssl], [openssl], [], [AC_MSG_ERROR([openssl is required])])
 AM_CONDITIONAL([NISTBEACON], [test "x$with_nistbeacon" != "xno"])
 AM_CONDITIONAL([PKCS11], [test "x$with_pkcs11" != "xno"])
 
@@ -142,32 +135,6 @@ AC_SEARCH_LIBS(sysfs_get_mnt_path, sysfs, [], [AC_MSG_ERROR([libsysfs is require
 dnl -------------------------------------
 dnl Checks for optional library functions
 dnl -------------------------------------
-
-dnl -------------------------------------
-dnl Check for libgcrypt support
-dnl -------------------------------------
-
-AS_IF(
-	[test "x$with_libgcrypt" != "xno"],
-	[
-		AC_CHECK_HEADER([gcrypt.h],
-			[AC_CHECK_LIB(
-				[gcrypt],
-				[gcry_check_version], ,
-				[
-					if test "x$with_libgcrypt" != "xcheck"; then
-						AC_MSG_FAILURE([libgcrypt not found]); else
-						AC_MSG_NOTICE([libgcrypt support disabled])
-					fi
-				]
-			)],
-			[if test "x$with_libgcrypt" != "xcheck"; then
-				AC_MSG_FAILURE([libgcrypt headers not found]); else
-				AC_MSG_NOTICE([libgcrypt support disabled])
-			fi]
-		)
-	]
-)
 
 dnl Determine if we need libargp: either user requested, or libc has no argp
 AS_IF(

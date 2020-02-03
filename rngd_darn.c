@@ -24,14 +24,13 @@
 
 #include "rng-tools-config.h"
 
-#ifndef HAVE_LIBGCRYPT
-#error power DARN support requires libgcrypt!
-#endif
 
 #include <stdlib.h>
 #include <limits.h>
 #include <sys/auxv.h>
-#include <gcrypt.h>
+#include <openssl/conf.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
 
 
 #include "rngd.h"
@@ -53,7 +52,7 @@ static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t cop
 #define CHUNK_SIZE AES_BLOCK * 8
 #define THRESH_BITS 14
 
-static gcry_cipher_hd_t gcry_cipher_hd;
+static EVP_CIPHER_CTX *ctx = NULL;
 static unsigned char iv_buf[AES_BLOCK];
 
 static unsigned char darn_rand_buf[CHUNK_SIZE];
@@ -63,13 +62,12 @@ static size_t darn_buf_ptr = CHUNK_SIZE - 1;
 static size_t rekey_thresh = (1 << THRESH_BITS);
 static size_t rand_bytes_served = 0;
 
-static int init_gcrypt(struct rng *ent_src)
+static int init_openssl(struct rng *ent_src)
 {
 	unsigned char key[AES_BLOCK];
 	unsigned char xkey[AES_BLOCK];
 	int i;
 	uint64_t darn_val;
-	gcry_error_t gcry_error;
 
 	/*
 	 * Use stack junk to create a key, shuffle it a bit
@@ -87,27 +85,12 @@ static int init_gcrypt(struct rng *ent_src)
 		return 1;
 	memcpy(&iv_buf[8], &darn_val, sizeof(uint64_t));
 
-	gcry_error = gcry_cipher_open(&gcry_cipher_hd, GCRY_CIPHER_AES128,
-				      GCRY_CIPHER_MODE_CBC, 0);
-
-	if (!gcry_error)
-		gcry_error = gcry_cipher_setkey(gcry_cipher_hd, key, AES_BLOCK);
-
-	if (!gcry_error) {
-		/*
-		 * Only need the first 16 bytes of iv_buf. AES-NI can
-		 * encrypt multiple blocks in parallel but we can't.
-		 */
-		gcry_error = gcry_cipher_setiv(gcry_cipher_hd, iv_buf, AES_BLOCK);
+	if (ctx != NULL) {
+		/* Clean up */
+		EVP_CIPHER_CTX_free(ctx);
 	}
-
-	if (gcry_error) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR,
-			"could not set key or IV: %s\n",
-			gcry_strerror(gcry_error));
-		gcry_cipher_close(gcry_cipher_hd);
-		return 1;
-	}
+        if(!(ctx = EVP_CIPHER_CTX_new()))
+                return 1;
 
 	rand_bytes_served = 0;
 	if (refill_rand(ent_src))
@@ -119,9 +102,59 @@ static int init_gcrypt(struct rng *ent_src)
 	return 0;
 }
 
+int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
+            unsigned char *iv, unsigned char *ciphertext)
+{
+        int len;
+
+        int ciphertext_len;
+
+        if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv))
+                return 0;
+        /*
+        * Provide the message to be encrypted, and obtain the encrypted output.
+        * EVP_EncryptUpdate can be called multiple times if necessary
+        */
+        if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
+                return 0;
+
+        ciphertext_len = len;
+
+        /*
+        * Finalise the encryption. Further ciphertext bytes may be written at
+        * this stage.
+        */
+        if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
+                return 0;
+        ciphertext_len += len;
+
+	return ciphertext_len;
+}
+
+static inline int openssl_mangle(unsigned char *tmp, struct rng *ent_src)
+{
+        int ciphertext_len;
+
+        /*
+        * Buffer for ciphertext. Ensure the buffer is long enough for the
+        * ciphertext which may be longer than the plaintext, depending on the
+        * algorithm and mode.
+        */
+        unsigned char ciphertext[CHUNK_SIZE * RDRAND_ROUNDS];
+
+        /* Encrypt the plaintext */
+        ciphertext_len = encrypt (tmp, strlen(tmp), key, iv_buf,
+                              ciphertext);
+        printf("Calling mangle with len %d\n", ciphertext_len);
+        if (!ciphertext_len)
+                return -1;
+
+        memcpy(tmp, ciphertext, strlen(tmp));
+        return 0;
+}
+
 static int refill_rand(struct rng *ent_src)
 {
-	gcry_error_t gcry_error;
 	int i;
 
 	if (darn_buf_avail)
@@ -129,18 +162,11 @@ static int refill_rand(struct rng *ent_src)
 	if (ent_src->rng_options[DARN_OPT_AES].int_val) {
 		if (rand_bytes_served >= rekey_thresh) {
 			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "rekeying DARN rng\n");
-			gcry_cipher_close(gcry_cipher_hd);
-			if (init_gcrypt(ent_src))
+			if (init_openssl(ent_src))
 				return 1;
 		}
 
-		gcry_error = gcry_cipher_encrypt(gcry_cipher_hd, darn_rand_buf,
-						CHUNK_SIZE, NULL, 0);
-
-		if (gcry_error) {
-			message_entsrc(ent_src,LOG_DAEMON | LOG_ERR,
-				"gcry_cipher_encrypt_error: %s\n",
-				gcry_strerror(gcry_error));
+		if (openssl_mangle(darn_rand_buf, ent_src)) {
 			return 1;
 		}
 	} else {
@@ -217,7 +243,7 @@ int init_darn_entropy_source(struct rng *ent_src)
 		return 1;
 	}
 
-	if (init_gcrypt(ent_src))
+	if (init_openssl(ent_src))
 		return 1;
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling power DARN rng support\n");
 	return 0;
