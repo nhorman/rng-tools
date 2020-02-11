@@ -50,7 +50,7 @@ Fri Apr  5 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	* rngd.c: use C99 initializers syntax, and stop
 	  compilation if build env. is incomplete
 	* fips.c, fips.h: s/FIPS_TESTS/N_FIPS_TESTS/ and
-	  remove uneeded includes
+	  remove unneeded includes
 	* fips.c: reword error message when build env. is 
 	  incomplete, and also reorder some includes
 	* AUTHORS, configure.ac, fips.c, fips.h, rngd.c,
@@ -62,7 +62,7 @@ Fri Apr  5 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 
 Fri Apr  4 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	* Makefile.am: Add header and CVS Id tag; Do some cosmetic
-	  reformating; Add rngd_SOURCES.
+	  reformatting; Add rngd_SOURCES.
 	* rngd.c: move all FIPS test code to fips.h/fips.c
 	* fips.h, fips.c: add.  
 	  + Update comments with more FIPS 140-2 trivia. 
@@ -80,7 +80,7 @@ Fri Apr  3 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	* configure.in: rename to configure.ac
 	* configure.ac: Add GPL header.  Convert to autoconf
 	  2.50 macros, enable AM_MAINTAINER_MODE and disable
-	  useless cross-platform compatiblilty glue that
+	  useless cross-platform compatibility glue that
 	  isn't used anywere
 	* acconfig.h: remove
 	* .cvsignore: update for new autotools

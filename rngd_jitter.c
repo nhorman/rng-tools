@@ -259,7 +259,7 @@ static void *thread_entropy_task(void *data)
 
 	tmpbuf = malloc(me->buf_sz);
 	if (!tmpbuf) {
-		message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to allocte temp buffer on cpu %d\n", me->core_id);
+		message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to allocate temp buffer on cpu %d\n", me->core_id);
 		goto out;
 	}
 

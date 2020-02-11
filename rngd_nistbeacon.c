@@ -267,7 +267,7 @@ static size_t parse_nist_xml_block(char *ptr, size_t size, size_t nemb, void *us
 
 	reader = xmlReaderForMemory(xml, realsize, NIST_RECORD_URL, NULL, 0);
 	if (!reader) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unparseable XML\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unparsable XML\n");
 		return 0;
 	}
 
@@ -444,7 +444,7 @@ static int get_nist_record(struct rng *ent_src)
 	curl_easy_cleanup(curl);
 
 	if (validate_nist_block(ent_src)) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Recieved block failed validation\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Received block failed validation\n");
 		goto out;
 	}
 

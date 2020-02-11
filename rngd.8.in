@@ -68,7 +68,7 @@ Enable entropy sources based on index or (shortname) reported from --list option
 .TP
 \fB\-O\fR, \fB\-\-option\fR
 Provide specific config options to individual entropy sources, in the format
---option [index|shortname]:key:value.  See Entropy Sources section below for indicies and
+--option [index|shortname]:key:value.  See Entropy Sources section below for indices and
 source specific options.  Note that specifying \fB-O [<index>|<shortname>]\fR will print the
 available options for that index to the console
 .TP

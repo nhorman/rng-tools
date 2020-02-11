@@ -70,7 +70,7 @@ const unsigned int fips_test_mask[N_FIPS_TESTS] = {
 *
 *  For the continuous run test, we need to check all bits of data, so
 *  "periodic" above shall be read as "for every back-to-back block of
-*  20000 bits".  We verify 32 bits to accomodate the AMD TRNG, and
+*  20000 bits".  We verify 32 bits to accommodate the AMD TRNG, and
 *  to reduce false positives with other TRNGs.
 */
 
