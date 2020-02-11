@@ -51,6 +51,13 @@ static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t cop
 
 #define AES_BLOCK 16
 #define CHUNK_SIZE AES_BLOCK * 8
+#define RDRAND_ROUNDS		512		/* 512:1 data reduction */
+
+static unsigned char key[AES_BLOCK] = {
+	0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70,
+	0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0
+}; /* AES data reduction key */
+
 #define THRESH_BITS 14
 
 static EVP_CIPHER_CTX *ctx = NULL;
