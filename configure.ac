@@ -84,7 +84,7 @@ AS_IF(
 		AC_SEARCH_LIBS(jent_version,jitterentropy,
 				[AM_CONDITIONAL([JITTER], [true])
 				AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])],
-				AC_MSG_NOTICE([No Jitterentropy libary found]))
+				AC_MSG_NOTICE([No Jitterentropy library found]))
 	], [AC_MSG_NOTICE([Disabling JITTER entropy source])]
 )
 

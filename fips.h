@@ -62,7 +62,7 @@ extern const unsigned int fips_test_mask[N_FIPS_TESTS];
  *  FIPS 140-2, errata of 2002-12-03 removed tests for non-deterministic
  *  RNGs, other than Continuous Run test.
  *
- *  This funtion returns 0 if all tests passed, or a bitmask
+ *  This function returns 0 if all tests passed, or a bitmask
  *  with bits set for every test that failed.
  *
  *  It returns -1 if either fips_ctx or buf is NULL.

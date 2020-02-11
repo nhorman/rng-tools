@@ -594,9 +594,9 @@ continue_trying:
 		 * sources like jitterentropy can provide some entropy when needed
 		 * but can actually hinder performance when large amounts of entropy are needed
 		 * owing to the fact that they may block while generating said entropy
-		 * So, lets prioritize the faster sources.  Start by only trying to collect
+		 * So, lets prioritize the faster sources. Start by only trying to collect
 		 * entropy from the fast sources, then iff that fails, start including the slower
-		 * sources as well.  Once we get some entropy, return to only using fast sources
+		 * sources as well. Once we get some entropy, return to only using fast sources
 		 */
 		if (no_work)
 			try_slow_sources = true;
