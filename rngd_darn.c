@@ -26,6 +26,7 @@
 
 
 #include <stdlib.h>
+#include <string.h>
 #include <limits.h>
 #include <sys/auxv.h>
 #include <openssl/conf.h>
