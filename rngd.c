@@ -152,6 +152,7 @@ static enum {
 	ENT_NISTBEACON,
 	ENT_JITTER,
 	ENT_PKCS11,
+	ENT_RTLSDR,
 	ENT_MAX
 } entropy_indexes __attribute__((used));
 
@@ -234,16 +235,44 @@ static struct rng_option pkcs11_options[] = {
 	}
 };
 
+static struct rng_option rtlsdr_options[] = {
+	[RTLSDR_OPT_DEVID] = {
+		.key = "device_id",
+		.type = VAL_INT,
+		.int_val = 0,
+	},
+	[RTLSDR_OPT_FREQ_MIN] = {
+		.key = "freq_min",
+		.type = VAL_INT,
+		.int_val = 90000000,
+	},
+	[RTLSDR_OPT_FREQ_MAX] = {
+		.key = "freq_max",
+		.type = VAL_INT,
+		.int_val = 110000000,
+	},
+	[RTLSDR_OPT_SRATE_MIN] = {
+		.key = "sample_min",
+		.type = VAL_INT,
+		.int_val = 1000000,
+	},
+	[RTLSDR_OPT_SRATE_MAX] = {
+		.key = "sample_max",
+		.type = VAL_INT,
+		.int_val = 2800000,
+	}
+};
+
 static struct rng entropy_sources[ENT_MAX] = {
 	/* Note, the special char dev must be the first entry */
 	{
 		.rng_name	= "Hardware RNG Device",
 		.rng_sname	= "hwrng",
 		.rng_fname      = "/dev/hwrng",
-		.rng_fd         = -1,
+		.rng_fd	 = -1,
 		.flags		= { 0 }, 
-		.xread          = xread,
-		.init           = init_entropy_source,
+		.xread	  = xread,
+		.init	   = init_entropy_source,
 		.rng_options	= NULL,
 	},
 	/* must be at index 1 */
@@ -251,21 +280,21 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_name	= "TPM RNG Device",
 		.rng_sname	= "tpm",
 		.rng_fname      = "/dev/tpm0",
-		.rng_fd         = -1,
+		.rng_fd	 = -1,
 		.flags		= { 0 }, 
-		.xread          = xread_tpm,
-		.init           = init_tpm_entropy_source,
+		.xread	  = xread_tpm,
+		.init	   = init_tpm_entropy_source,
 		.rng_options	= NULL,
 		.disabled	= true,
 	},
 	{
 		.rng_name       = "Intel RDRAND Instruction RNG",
 		.rng_sname	= "rdrand",
-		.rng_fd         = -1,
+		.rng_fd	 = -1,
 		.flags		= { 0 }, 
 #ifdef HAVE_RDRAND
-		.xread          = xread_drng,
-		.init           = init_drng_entropy_source,
+		.xread	  = xread_drng,
+		.init	   = init_drng_entropy_source,
 #else
 		.disabled	= true,
 #endif
@@ -274,11 +303,11 @@ static struct rng entropy_sources[ENT_MAX] = {
 	{
 		.rng_name       = "Power9 DARN Instruction RNG",
 		.rng_sname	= "darn",
-		.rng_fd         = -1,
+		.rng_fd	 = -1,
 		.flags		= { 0 },
 #ifdef HAVE_DARN
-		.xread          = xread_darn,
-		.init           = init_darn_entropy_source,
+		.xread	  = xread_darn,
+		.init	   = init_darn_entropy_source,
 #else
 		.disabled	= true,
 #endif
@@ -330,6 +359,21 @@ static struct rng entropy_sources[ENT_MAX] = {
 #endif
 		.rng_options	= pkcs11_options,
 	},
+	{
+		.rng_name       = "RTLSDR software defined radio generator",
+		.rng_sname      = "rtlsdr",
+		.rng_fd	 = -1,
+		.flags	  = { 0 },
+#ifdef HAVE_RTLSDR
+		.xread	  = xread_rtlsdr,
+		.init	   = init_rtlsdr_entropy_source,
+		.close	  = close_rtlsdr_entropy_source,
+#else
+		.disabled       = false,
+#endif
+		.rng_options    = rtlsdr_options,
+	}
+
 };
 
 static int find_ent_src_idx_by_sname(const char *sname)
@@ -537,7 +581,7 @@ static int update_kernel_random(struct rng *rng, int random_step,
 	int rc;
 
 	fips = fips_run_rng_test(fipsctx_in, buf);
-	if (fips)
+	if (fips && !arguments->ignorefail)
 		return 1;
 
 	for (p = buf; p + random_step <= &buf[FIPS_RNG_BUFFER_SIZE];
@@ -725,16 +769,16 @@ static int discard_initial_data(struct rng *ent_src)
 
 void close_all_entropy_sources()
 {
-        struct rng *ent_src;
+	struct rng *ent_src;
 	int i;
 	for (i=0; i < ENT_MAX; i++) {
-                ent_src = &entropy_sources[i];
-                if (ent_src->disabled == false)
-                        message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Shutting down\n");
+		ent_src = &entropy_sources[i];
+		if (ent_src->disabled == false)
+			message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Shutting down\n");
 		if (ent_src->close && ent_src->disabled == false) {
 			ent_src->close(ent_src);
 			free(ent_src->fipsctx);
-                }
+		}
 	}
 }
 
@@ -744,7 +788,7 @@ int main(int argc, char **argv)
 	int ent_sources = 0;
 	pid_t pid_fd = -1;
 	double test_time;
-        struct rng *ent_src;
+	struct rng *ent_src;
 
 	openlog("rngd", 0, LOG_DAEMON);
 
@@ -789,15 +833,15 @@ int main(int argc, char **argv)
 	/* Init entropy sources */
 	
 	for (i=0; i < ENT_MAX; i++) {
-                ent_src = &entropy_sources[i];
+		ent_src = &entropy_sources[i];
 		if (ent_src->init && ent_src->disabled == false) {
 			if (!ent_src->init(ent_src)) {
 				ent_sources++;
 				ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
 				fips_init(ent_src->fipsctx, discard_initial_data(ent_src));
-                                message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Initialized\n");
+				message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Initialized\n");
 			} else {
-                                message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Initialization Failed\n");
+				message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Initialization Failed\n");
 				ent_src->disabled = true;
 			}
 		}

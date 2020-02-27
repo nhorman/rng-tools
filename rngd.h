@@ -98,6 +98,18 @@ enum {
 	PKCS11_OPT_CHUNK = 1,
 };
 
+/*
+ * RTLSDR options
+ */
+enum {
+	RTLSDR_OPT_DEVID = 0,
+	RTLSDR_OPT_FREQ_MIN = 1,
+	RTLSDR_OPT_FREQ_MAX = 2,
+	RTLSDR_OPT_SRATE_MIN = 3,
+	RTLSDR_OPT_SRATE_MAX = 4,
+	RTLSDR_OPT_MAX,
+};
+
 enum option_val_type {
 	VAL_INT = 0,
 	VAL_STRING = 1,

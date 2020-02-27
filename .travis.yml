@@ -18,6 +18,9 @@ addons:
       libssl-dev
       libcurl3-dev
       libp11-dev
+      librtlsdr-dev
+      libusb-1.0-0-dev
+
 
 script: rm -rf ./jitterentropy-library/* && ./autogen.sh && ./configure && make
 
