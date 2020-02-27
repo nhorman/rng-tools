@@ -115,6 +115,14 @@ AS_IF(
 	]
 )
 
+AS_IF(
+        [ test "x$with_rtlsdr" != "xno"],
+        [
+                PKG_CHECK_MODULES([librtlsdr], [librtlsdr], [], [AC_MSG_ERROR([librtlsdr is required])])
+                AC_DEFINE([HAVE_RTLSDR],1,[Enable RTLSDR])
+        ]
+)
+
 PKG_CHECK_MODULES([openssl], [openssl], [], [AC_MSG_ERROR([openssl is required])])
 AM_CONDITIONAL([NISTBEACON], [test "x$with_nistbeacon" != "xno"])
 AM_CONDITIONAL([PKCS11], [test "x$with_pkcs11" != "xno"])
