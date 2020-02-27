@@ -72,7 +72,6 @@ static size_t rand_bytes_served = 0;
 
 static int init_openssl(struct rng *ent_src)
 {
-	unsigned char key[AES_BLOCK];
 	unsigned char xkey[AES_BLOCK];
 	int i;
 	uint64_t darn_val;
