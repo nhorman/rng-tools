@@ -795,9 +795,8 @@ int main(int argc, char **argv)
 				ent_sources++;
 				ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
 				fips_init(ent_src->fipsctx, discard_initial_data(ent_src));
-                                message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Initialized\n");
+                                message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Initialized successfully\n");
 			} else {
-                                message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Initialization Failed\n");
 				ent_src->disabled = true;
 			}
 		}
