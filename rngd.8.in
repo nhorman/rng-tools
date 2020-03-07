@@ -192,6 +192,25 @@ Options
 be requested at a time, this option allows for the request to be subdivided into
 smaller chunks to be satisfied
 
+.TP
+.B
+RTLSDR (rtlsdr) [Index 7]
+Entropy gathered via the rtl software defined radio library, which can gather
+entropy using various usb software defined radios listening to random radio
+static
+.TP
+Options
+\fBdevid - \fR When multiple devices are available the integer index of the
+device to use
+
+\fBfreq_min - \fR The minimum frequence range to scan in
+
+\fBfreq_max - \fR The maximum frequency range to scan in
+
+\fBsample_min - \fR The minimum sample rate of the radio
+
+\fBsample_max - \fR The maximum sample rate of the radio
+
 .SH AUTHORS
 Philipp Rumpf
 .br

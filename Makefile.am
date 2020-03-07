@@ -27,14 +27,18 @@ if JITTER
 rngd_SOURCES	+= rngd_jitter.c
 endif
 
-rngd_LDADD	= librngd.a -lsysfs $(LIBS) ${libp11_LIBS} ${libcrypto_LIBS} ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS} $(PTHREAD_LIBS)
+if RTLSDR
+rngd_SOURCES	+= rngd_rtlsdr.c
+endif
+
+rngd_LDADD	= librngd.a -lsysfs $(LIBS) $(librtlsdr_LIBS) ${libp11_LIBS} ${libcrypto_LIBS} ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS} $(PTHREAD_LIBS)
 
 if PKCS11 
 rngd_SOURCES	+= rngd_pkcs11.c
 pkcs11_ENGINE = -DDEFAULT_PKCS11_ENGINE=\"$(PKCS11_ENGINE)\"
 endif
 
-rngd_CFLAGS	= ${pkcs11_CFLAGS} ${pkcs11_ENGINE} ${libp11_CFLAGS} ${libcrypto_CFLAGS} ${libxml2_CFLAGS} ${openssl_CFLAGS} $(PTHREAD_CFLAGS)
+rngd_CFLAGS	= ${pkcs11_CFLAGS} $(librtlsdr_CFLAGS) ${pkcs11_ENGINE} ${libp11_CFLAGS} ${libcrypto_CFLAGS} ${libxml2_CFLAGS} ${openssl_CFLAGS} $(PTHREAD_CFLAGS)
 rngd_LDFLAGS	= $(PTHREAD_CFLAGS) 
 
 rngtest_SOURCES	= exits.h stats.h stats.c rngtest.c

@@ -41,6 +41,13 @@ AC_ARG_WITH([pkcs11],
 	[with_pkcs11=check]
 )
 
+AC_ARG_WITH([rtlsdr],
+	AS_HELP_STRING([--without-rtlsdr],
+		[Disable rtlsdr support. ])
+	[],
+	[with_rtlsdr=no]
+)
+
 AC_ARG_WITH([libargp],
 	AS_HELP_STRING([--without-libargp],
 		[Disable libargp support. Systems whose libc lacks argp can use libargp instead. (Default: check if libc lacks argp)]),
@@ -103,21 +110,30 @@ AS_IF(
 		PKG_CHECK_MODULES([libp11], [libp11], [], [AC_MSG_ERROR([libp11 is required])])
 		PKG_CHECK_MODULES([libcrypto], [libcrypto], [], [AC_MSG_ERROR([libcrypto is required])])
 		AC_DEFINE([HAVE_PKCS11],1,[Enable PKCS11])
-                AS_CASE([$host_cpu],
-                        [i?86|armv7hl],
-                        [
-                                PKCS11_ENGINE=/usr/lib/opensc-pkcs11.so
-                        ],
-                        [
-                                PKCS11_ENGINE=/usr/lib64/opensc-pkcs11.so
-                        ])
-                AC_SUBST([PKCS11_ENGINE])
+		AS_CASE([$host_cpu],
+			[i?86|armv7hl],
+			[
+				PKCS11_ENGINE=/usr/lib/opensc-pkcs11.so
+			],
+			[
+				PKCS11_ENGINE=/usr/lib64/opensc-pkcs11.so
+			])
+		AC_SUBST([PKCS11_ENGINE])
+	]
+)
+
+AS_IF(
+	[ test "x$with_rtlsdr" != "xno"],
+	[
+		PKG_CHECK_MODULES([librtlsdr], [librtlsdr], [], [AC_MSG_ERROR([librtlsdr is required])])
+		AC_DEFINE([HAVE_RTLSDR],1,[Enable RTLSDR])
 	]
 )
 
 PKG_CHECK_MODULES([openssl], [openssl], [], [AC_MSG_ERROR([openssl is required])])
 AM_CONDITIONAL([NISTBEACON], [test "x$with_nistbeacon" != "xno"])
 AM_CONDITIONAL([PKCS11], [test "x$with_pkcs11" != "xno"])
+AM_CONDITIONAL([RTLSDR], [test "x$with_rtlsdr" != "xno"])
 
 dnl Checks for header files.
 dnl AC_HEADER_STDC
