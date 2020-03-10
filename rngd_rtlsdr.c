@@ -1,3 +1,15 @@
+/*
+ * Copyright (c) 2020, Neil Horman
+ * Author:  Neil Horman <nhorman@tuxdriver.com>
+ *
+ * Entropy source to derive random data from atmospheric static obtained by
+ * randomly varying the frequency and sample rate of rtl software defined radios
+ * through the rtlsdr library.
+ *
+ * Based in part on the work found at:
+ * http://rtl2832-entropyd.sourceforge.net/
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <rtl-sdr.h>
