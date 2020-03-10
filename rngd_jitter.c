@@ -493,7 +493,7 @@ void close_jitter_entropy_source(struct rng *ent_src)
 			pthread_cond_wait(&tdata[i].statecond, &tdata[i].statemtx);
 		}
 		pthread_mutex_unlock(&tdata[i].statemtx);
-		message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Closing thread %d\n", tdata[i].core_id);
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Closing thread %d\n", tdata[i].core_id);
 		pthread_join(threads[i], NULL);
 		jent_entropy_collector_free(tdata[i].ec);
 	}
