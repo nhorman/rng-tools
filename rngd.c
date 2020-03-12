@@ -369,7 +369,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.init	   = init_rtlsdr_entropy_source,
 		.close	  = close_rtlsdr_entropy_source,
 #else
-		.disabled       = false,
+		.disabled       = true,
 #endif
 		.rng_options    = rtlsdr_options,
 	}
