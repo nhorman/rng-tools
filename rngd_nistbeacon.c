@@ -42,6 +42,8 @@
 #include <sysfs/libsysfs.h>
 #include <curl/curl.h>
 #include <libxml/xmlreader.h>
+#include <jansson.h>
+#include <ctype.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
@@ -56,60 +58,75 @@
 #include "exits.h"
 #include "rngd_entsource.h"
 
-#define min(x,y) ({ \
-	typeof(x) _x = (x);     \
-	typeof(y) _y = (y);     \
-	(void) (&_x == &_y);    \
-	_x < _y ? _x : _y; })
-
-#define NIST_RECORD_URL "https://beacon.nist.gov/rest/record/last"
-#define NIST_BUF_SIZE 512
+#define NIST_RECORD_URL "https://beacon.nist.gov/beacon/2.0/pulse/last"
+#define NIST_CERT_BASE_URL "https://beacon.nist.gov/beacon/2.0/certificate/"
+#define NIST_BUF_SIZE 64 
 #define NIST_CERT "/home/nhorman/Downloads/beacon.cer"
-
-static char nist_pubkey[] =
-"-----BEGIN PUBLIC KEY-----\n"
-"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryY9m2YHOui12tk93ntM\n"
-"ZAL2uvlXr7jTaxx5WJ1PM6SJllJ3IopuwUQGLxUEDNinFWE2xlF5sayoR+CRZGDG\n"
-"6Hjtw2fBRcsQKiIpaws6CdusRaRMM7Wjajm3vk96gD7Mwcqo+uxuq9186UeNPLeA\n"
-"xMmFlcQcSD4pJgKrZKgHtOk0/t2kz9cgJ343aN0LuV7w91LvfXwdeCtcHM4nyt3g\n"
-"V+UyxAe6wPoOSsM6Px/YLHWqAqXMfSgEQrd920LyNb+VgNcPyqhLySDyfcUNtr1B\n"
-"S09nTcw1CaE6sTmtSNLiJCuWzhlzsjcFh5uMoElAaFzN1ilWCRk/02/B/SWYPGxW\n"
-"IQIDAQAB\n"
-"-----END PUBLIC KEY-----";
 
 static int get_nist_record(struct rng *ent_src);
 
-int read_nist_pubkey();
-void cleanup_nist_pubkey();
-
-int read_nist_certificate();
-void cleanup_nist_work();
 
 static size_t nist_buf_avail = 0;
 static size_t nist_buf_ptr = 0;
 static char nist_rand_buf[NIST_BUF_SIZE];
-static EVP_PKEY *pkey;
 static char errbuf[120];
 int cfp;
-BIO *bfp;
 
+/*
+ * Built from https://beacon.nist.gov/ns/beacon/pulse/2.0/beacon-2.0.xsd
+ * Note all values are big endian and must remain so for the purposes 
+ * of hashing, but must be converted to local endianess for the purpose of 
+ * copying to the hash library
+ */
 struct nist_data_block {
-	char *version;
-	uint32_t frequency;
-	uint64_t timestamp;
-	unsigned char *seedvalue;
-	size_t seedvaluelen;
-	unsigned char *previoushash;
-	size_t previoushashlen;
-	unsigned int errorcode;
-	size_t errorcodelen;
-	unsigned char *sigvalue;
-	size_t sigvaluelen;
-	unsigned char *sighash;
-	size_t sighashlen;
+        uint32_t urilen; /* strlen(uri) */
+        char *uri; /* UTF-8 seq of chars */
+        uint32_t verlen; /* strlen(version) */
+	char *version; /* UTF-8 seq of chars */
+        uint32_t cipherSuite; /* Big endian 32 bit value */
+        uint32_t period; /* Big endian 32 bit value */
+        uint32_t certificateIdLen; /* length of certificateid array */
+        char *certificateId; /* hex decoded seq of bytes */
+        uint32_t certificateIdStringLen; /* len of cert id string */
+        char *certificateIdString; /* certificate id string */
+        uint64_t chainIndex; /* 64 bit big endian integer value */
+        uint64_t pulseIndex; /* 64 bit big endian integer value */
+        uint32_t timeStampLen; /* strlen(timestamp) */
+        char *timeStamp; /* UTF-8 seq of chars */
+        uint32_t localRandomLen; /* length of localRandomValueArray */
+        char *localRandomValue; /* hex decoded seq of bytes */
+        uint32_t exSourceIdLen; /* length of external/SourceId array */
+        char *exSourceId; /* hex decoded seq of bytes */
+        uint32_t exStatusCode; /* 32 bit big endian value */
+        uint32_t exValueLen; /* length of exValue Array */
+        char *exValue; /* hex decoded seq of bytes */
+        uint32_t prevValueLen; /* Length of previous value arrah */
+        char *prevValue; /* hex decoded seq of bytes for prev value */
+        uint32_t hourValueLen; /* Length of previous value arrah */
+        char *hourValue; /* hex decoded seq of bytes for prev value */
+        uint32_t dayValueLen; /* Length of previous value arrah */
+        char *dayValue; /* hex decoded seq of bytes for prev value */
+        uint32_t monthValueLen; /* Length of previous value arrah */
+        char *monthValue; /* hex decoded seq of bytes for prev value */
+        uint32_t yearValueLen; /* Length of previous value arrah */
+        char *yearValue; /* hex decoded seq of bytes for prev value */
+        uint32_t preCommitValueLen; /* length of precommit value array */
+        char *preCommitValue; /* hex decoded array of bytes */
+        uint32_t statusCode; /* 32 bit big endian integer */
+        char *signatureValue; /* hex encoded byte array */
+        uint32_t signatureValueLen; /* length of signatureValue */ 
+        char *outputValue; /* expected sha 512 hex buffer */
+        uint32_t outputValueLen; /* Len of sha512 hex string */
 };
 
 static struct nist_data_block block;
+
+char *activeCertId = NULL;
+char *activeCert = NULL;
+BIO *bfp = NULL;
+X509 *cert = NULL;
+EVP_PKEY *pubkey;
+uint32_t lastpulse = 0;
 
 static int refill_rand(struct rng *ent_src)
 {
@@ -119,9 +136,12 @@ static int refill_rand(struct rng *ent_src)
 
 	if (get_nist_record(ent_src))
 		return 1;
+        if (block.pulseIndex == lastpulse)
+                return 0;
 
-	memcpy(nist_rand_buf, block.seedvalue, block.seedvaluelen);
-	nist_buf_avail = block.seedvaluelen;
+	memcpy(nist_rand_buf, block.outputValue, be32toh(block.outputValueLen));
+	nist_buf_avail = be32toh(block.outputValueLen);
+
 	nist_buf_ptr = 0;
 
 	return 0;
@@ -130,7 +150,7 @@ static int refill_rand(struct rng *ent_src)
 static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t copied)
 {
 	size_t left_to_copy = size - copied;
-	size_t to_copy = min(left_to_copy, nist_buf_avail);
+	size_t to_copy = left_to_copy < nist_buf_avail ? left_to_copy : nist_buf_avail;
 
 	memcpy(&buf[copied], &nist_rand_buf[nist_buf_ptr], to_copy);
 
@@ -145,200 +165,168 @@ int xread_nist(void *buf, size_t size, struct rng *ent_src)
 	size_t copied = 0;
 
 	while (copied < size) {
-		if (refill_rand(ent_src)) {
+                /*
+                 * Bail out if the daemon is shutting down
+                 */
+                if (server_running == false)
+                        return 1;
+		if (refill_rand(ent_src))
 			return 1;
-		}
+                if (nist_buf_avail == 0)
+                        return 1;
 		copied += copy_avail_rand_to_buf(buf, size, copied);
 	}
 	return 0;
 }
 
-static void dup_val(unsigned char **v, size_t *len, xmlTextReaderPtr reader)
-{
-	int i;
-	char tmp;
-	char *val = (char *)xmlTextReaderReadInnerXml(reader);
 
-	if (val && strlen(val) >= 1) {
-		*len = strlen(val);
-		*(char **)v = strdup(val);
-		for (i=0; i < *len; i++) {
-			tmp = (*v)[i+1];
-			(*v)[i+1] = '\0';
-			((char *)(*v))[i] = strtol(&((((char *)*v))[i]), NULL, 16);
-			(*v)[i+1] = tmp;
-		}
-	}
+static void get_json_string_and_len(json_t *parent, char *key, char **val, uint32_t *len)
+{
+        const char *tmpval;
+        uint32_t slen;
+        json_t *obj = json_object_get(parent, key);
+        tmpval = json_string_value(obj);
+        slen = json_string_length(obj);
+        *val = strdup(tmpval);
+        if (len != NULL)
+                *len = htobe32(slen);
+        return;
 }
 
-/*
- * The seed, previous and current hash values are ascii representations
- * of large ( > 8 byte) values.  Because of that, each byte in the ascii
- * representation only represent 4 bits of the actual value.  So to really work
- * with it we have to drop the most significant 4 bits of each byte, and
- * compress adjacent half words to form a proper real byte of the value.  Note
- * length of the value is the length of the string, not the real hash
- */
-static void dup_val_compress(unsigned char **v, size_t *len, xmlTextReaderPtr reader)
+static void get_json_u32_value(json_t *parent, char *key, uint32_t *val)
 {
-	int i,j;
-
-	dup_val(v, len, reader);
-
-        if (*len > 1) {
-		/* for each byte in value ... */
-		for(i=0;i<*len;i++){
-			/*
-			 * the output index is half the input index,
-			 * with trucation intended
-			 */
-			j=i/2;
-			/* odd bytes in input represent the upper 4 bits 
-			 * of the output bytes */
-			if (!(i & 0x1)) {
-				/*
-				 * odd bytes in input represent the upper
-				 * 4 bits of the output word
-				 */
-				(*v)[j] = (*v)[i] << 4;
-			} else {
-				/* 
-				 * even bytes are the lower 4 bits
-				 */
-				(*v)[j] |= (*v)[i];
-			}
-		}
-
-		/*
-		 * the output len is half the input len
-		 */
-		*len /= 2;
-	}
-
+        json_t *obj = json_object_get(parent, key);
+        *val = htobe32((uint32_t)(json_integer_value(obj)));
+        return;
 }
 
-/*
- * Because Microsoft forgot to make the output
- * signature arrive in network byte order, some values
- * always have to be byte reversed so openssl can digest 
- * them
- */
-unsigned char *reverse(unsigned char **srcp, size_t len)
+static void get_json_u64_value(json_t *parent, char *key, uint64_t *val)
 {
-	int i,j;
-	unsigned char *src = *srcp;
-	unsigned char *result = malloc(len);
+        json_t *obj = json_object_get(parent, key);
+        *val = htobe64((uint64_t)(json_integer_value(obj)));
+        return;
+}
 
-	if (!result)
-		return NULL;
+static void get_json_byte_array(json_t *parent, char *key, char **val, uint32_t *len)
+{
+        bool unibble;
+        int i,j;
+        json_t *obj = json_object_get(parent, key);
+        uint32_t rawlen = json_string_length(obj);
+        const char *rawstring = json_string_value(obj);
+        char *newval;
+        char tmpval;
 
-	for (i=0, j=len - 1; i <= j; ++i, --j) {
-	    result[i] = src[j];
-	    result[j] = src[i];
-	}
-
-	free(*srcp);
-	*srcp = result;
-	return result;
+        if (rawlen%2)
+                message(LOG_DAEMON|LOG_ERR, "Byte array isn't of even length!\n");
+ 
+        newval = malloc(rawlen/2);
+        unibble = true;
+ 
+        for(i=j=0;i<rawlen;i++) {
+                char nibble = rawstring[i];
+                if (isalpha(nibble)) {
+                        nibble = toupper(nibble);
+                        nibble = nibble - 0x37; /*convert to hex val*/
+                } else
+                        nibble = nibble - 0x30; /* convert to hex val*/                        
+                if (unibble) {
+                        tmpval = nibble << 4;
+                        unibble = false;
+                } else {
+                        tmpval = tmpval | nibble;
+                        newval[j] = tmpval;
+                        unibble = true;
+                        j++;
+                }
+        } 
+        *len = htobe32(rawlen/2); 
+        *val = newval;
+        return; 
 }
 
 /*
  * Note, I'm making the assumption that the entire xml block gets returned 
  * in a single call here, which I should fix
  */
-static size_t parse_nist_xml_block(char *ptr, size_t size, size_t nemb, void *userdata)
+static size_t parse_nist_json_block(char *ptr, size_t size, size_t nemb, void *userdata)
 {
+        size_t idx;
+        json_t *jidx;
 	xmlTextReaderPtr reader;
 	int ret = 1;
 	const char *name;
 	size_t realsize = size * nemb;
 	char *xml = (char *)ptr;
+        json_t *json, *pulse, *values, *obj;
+        json_error_t jsonerror;
         struct rng *ent_src = userdata;
 
-#define FREE_VAL(b) do {if (b) free(b); (b) = NULL;} while(0)
 
-	block.errorcode = block.timestamp = block.frequency = 0;
-	FREE_VAL(block.version);
-	FREE_VAL(block.seedvalue);
-	FREE_VAL(block.previoushash);
-	FREE_VAL(block.sigvalue);
-	FREE_VAL(block.sighash);
+        json = json_loads(ptr, size, &jsonerror);
+        if (!json) {
+                message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unparseable JSON\n");
+                return 0;
+        }
+        pulse = json_object_get(json, "pulse");
 
+        get_json_string_and_len(pulse, "uri", &block.uri, &block.urilen);
 
-	reader = xmlReaderForMemory(xml, realsize, NIST_RECORD_URL, NULL, 0);
-	if (!reader) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unparsable XML\n");
-		return 0;
-	}
+        get_json_string_and_len(pulse, "version", &block.version, &block.verlen);
 
-	while (ret == 1) {
-		name = (const char *)xmlTextReaderConstName(reader);
-		if (name) {
-			if (!strcmp(name, "version")) {
-				unsigned char *val = xmlTextReaderReadInnerXml(reader);
-				if (val && strlen((char *)val)) {
-					block.version = malloc(strlen((char *)val) + 1);
-					memset(block.version, 0, strlen((char *)val) + 1);
-					strcpy(block.version, (char *)val);
-				}
-			} else if (!strcmp(name, "frequency")) {
-				int freq;
-				if (!block.frequency) {
-					unsigned char *val = xmlTextReaderReadInnerXml(reader);
-					if (val && strlen((char *)val)) {
-						sscanf((char *)val, "%d", &freq);
-						block.frequency = be32toh(freq);
-					}
-				}
-			} else if (!strcmp(name, "timeStamp")) {
-				long stamp;
-				if (!block.timestamp) {
-					unsigned char *val = xmlTextReaderReadInnerXml(reader);
-					if (val && strlen((char *)val)) {
-						sscanf((char *)val, "%lu", &stamp);
-						block.timestamp = be64toh(stamp);
-					}
-				}
-			} else if (!strcmp(name, "seedValue")) {
-				if (!block.seedvalue)
-					dup_val_compress(&block.seedvalue, &block.seedvaluelen, reader);
-			} else if (!strcmp(name, "previousOutputValue")) {
-				if (!block.previoushash)
-					dup_val_compress(&block.previoushash, &block.previoushashlen, reader);
-			} else if (!strcmp(name, "signatureValue")) {
-				if (!block.sigvalue) {
-					dup_val_compress(&block.sigvalue, &block.sigvaluelen, reader);
-				}
-			} else if (!strcmp(name, "statusCode")) {
-				if (!block.errorcode) {
-					unsigned char *val = xmlTextReaderReadInnerXml(reader);
-					sscanf((char *)val, "%u", &block.errorcode);
-					block.errorcodelen = 4;
-				}
-			} else if (!strcmp(name, "outputValue")) {
-				if (!block.sighash)
-					dup_val_compress(&block.sighash, &block.sighashlen, reader);
-			}
-		}
-		ret = xmlTextReaderRead(reader);
-	}
+        get_json_u32_value(pulse, "cipherSuite", &block.cipherSuite);
 
+        get_json_u32_value(pulse, "period", &block.period);
+        get_json_byte_array(pulse, "certificateId", &block.certificateId, &block.certificateIdLen);
 
-	xmlTextReaderClose(reader);
-	return realsize;
+        get_json_string_and_len(pulse, "certificateId", &block.certificateIdString, &block.certificateIdStringLen);
+
+        get_json_u64_value(pulse, "chainIndex", &block.chainIndex);
+
+        get_json_u64_value(pulse, "pulseIndex", &block.pulseIndex);
+
+        get_json_string_and_len(pulse, "timeStamp", &block.timeStamp, &block.timeStampLen);
+        get_json_byte_array(pulse, "localRandomValue", &block.localRandomValue, &block.localRandomLen);
+        obj = json_object_get(pulse, "external");
+        get_json_byte_array(obj, "sourceId", &block.exSourceId, &block.exSourceIdLen);
+        get_json_u32_value(obj, "statusCode", &block.exStatusCode);
+        get_json_byte_array(obj, "value", &block.exValue, &block.exValueLen);
+        obj = json_object_get(pulse, "listValues");
+        json_array_foreach(obj, idx, jidx) {
+                json_t *tobj = json_object_get(jidx, "type");
+                const char *type = json_string_value(tobj);
+
+                if (!strncmp("previous", type, strlen("previous"))) {
+                        get_json_byte_array(jidx, "value", &block.prevValue, &block.prevValueLen); 
+                } else if (!strncmp("hour", type, strlen("hour"))) {
+                        get_json_byte_array(jidx, "value", &block.hourValue, &block.hourValueLen);
+                } else if (!strncmp("day", type, strlen("day"))) {
+                        get_json_byte_array(jidx, "value", &block.dayValue, &block.dayValueLen);
+                } else if (!strncmp("month", type, strlen("month"))) {
+                        get_json_byte_array(jidx, "value", &block.monthValue, &block.monthValueLen);
+                } else if (!strncmp("year", type, strlen("yar"))) {
+                        get_json_byte_array(jidx, "value", &block.yearValue, &block.yearValueLen);
+                }
+
+        }
+
+        get_json_byte_array(pulse, "precommitmentValue", &block.preCommitValue, &block.preCommitValueLen);
+        get_json_u32_value(pulse, "statusCode", &block.statusCode);
+
+        get_json_byte_array(pulse, "signatureValue", &block.signatureValue, &block.signatureValueLen);
+        get_json_byte_array(pulse, "outputValue", &block.outputValue, &block.outputValueLen);
+        json_decref(json);
+
+        return realsize;
 }
 
 static int validate_nist_block(struct rng *ent_src)
 {
-	SHA512_CTX sha_ctx = { 0 };
 	unsigned char digest[SHA512_DIGEST_LENGTH];
 	EVP_MD_CTX *mdctx;
 	const EVP_MD* md = EVP_get_digestbyname("RSA-SHA512");
 	int ret = 1;
-
-	if (read_nist_pubkey())
-		goto out;
-	
+        uint32_t flen;
 	mdctx = EVP_MD_CTX_create();
 
 	memset(digest, 0, SHA512_DIGEST_LENGTH);
@@ -346,44 +334,176 @@ static int validate_nist_block(struct rng *ent_src)
 	EVP_MD_CTX_init(mdctx);
 
 	if (!EVP_VerifyInit_ex(mdctx, md, NULL)) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to Init Verifyer");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to Init Verifier");
 		goto out;
 	}
 
-	if (SHA512_Init(&sha_ctx) != 1) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to init SHA512\n");
+        /*
+         * Validate the signature
+         */
+        flen = block.urilen;
+	if (EVP_VerifyUpdate(mdctx, &flen, sizeof(flen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
 		goto out;
 	}
 
-	if (SHA512_Update(&sha_ctx, block.sigvalue, block.sigvaluelen) != 1) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update sha512\n");
+	if (EVP_VerifyUpdate(mdctx, block.uri, be32toh(flen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
 		goto out;
 	}
 
-	if (SHA512_Final(digest, &sha_ctx) != 1) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to finalize sha512\n");
+        flen = block.verlen;
+	if (EVP_VerifyUpdate(mdctx, &flen, sizeof(flen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+	if (EVP_VerifyUpdate(mdctx, block.version, be32toh(flen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
 		goto out;
 	}
 
-	if (memcmp(digest, block.sighash, SHA512_DIGEST_LENGTH)) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Digest mismatch in nist block validation\n");
+	if (EVP_VerifyUpdate(mdctx, &block.cipherSuite, sizeof(block.cipherSuite)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
 		goto out;
 	}
 
-
-	EVP_VerifyUpdate(mdctx, block.version, strlen(block.version));
-	EVP_VerifyUpdate(mdctx, &block.frequency, sizeof(uint32_t));
-	EVP_VerifyUpdate(mdctx, &block.timestamp, sizeof(uint64_t));
-	EVP_VerifyUpdate(mdctx, block.seedvalue, block.seedvaluelen);
-	EVP_VerifyUpdate(mdctx, block.previoushash, block.previoushashlen);
-	EVP_VerifyUpdate(mdctx, &block.errorcode, block.errorcodelen);
-
-	if (!reverse(&block.sigvalue, block.sigvaluelen)) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to allocate memory for sig reversal\n");
+	if (EVP_VerifyUpdate(mdctx, &block.period, sizeof(block.period)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
 		goto out;
 	}
 
-	if (EVP_VerifyFinal(mdctx, block.sigvalue, block.sigvaluelen, pkey) != 1) {
+	if (EVP_VerifyUpdate(mdctx, &block.certificateIdLen, sizeof(block.certificateIdLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.certificateId, be32toh(block.certificateIdLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.chainIndex, sizeof(block.chainIndex)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.pulseIndex, sizeof(block.pulseIndex)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+        flen = block.timeStampLen;
+	if (EVP_VerifyUpdate(mdctx, &flen, sizeof(flen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.timeStamp, be32toh(flen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.localRandomLen, sizeof(block.localRandomLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.localRandomValue, be32toh(block.localRandomLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.exSourceIdLen, sizeof(block.exSourceIdLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.exSourceId, be32toh(block.exSourceIdLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.exStatusCode, sizeof(block.exStatusCode)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.exValueLen, sizeof(block.exValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.exValue, be32toh(block.exValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.prevValueLen, sizeof(block.prevValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.prevValue, be32toh(block.prevValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.hourValueLen, sizeof(block.hourValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.hourValue, be32toh(block.hourValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.dayValueLen, sizeof(block.dayValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.dayValue, be32toh(block.dayValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.monthValueLen, sizeof(block.monthValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.monthValue, be32toh(block.monthValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.yearValueLen, sizeof(block.yearValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.yearValue, be32toh(block.yearValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.preCommitValueLen, sizeof(block.preCommitValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, block.preCommitValue, be32toh(block.preCommitValueLen)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyUpdate(mdctx, &block.statusCode, sizeof(block.statusCode)) != 1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unable to update verifier\n");
+		goto out;
+	}
+
+	if (EVP_VerifyFinal(mdctx, block.signatureValue, be32toh(block.signatureValueLen), pubkey) < 1) {
 		unsigned long err;
 		message_entsrc(ent_src,LOG_DAEMON| LOG_ERR, "Unable to validate signature on message\n");
 		while( (err = ERR_get_error()) != 0 ) {
@@ -397,9 +517,54 @@ static int validate_nist_block(struct rng *ent_src)
 	ret = 0;
 	EVP_MD_CTX_destroy(mdctx);
 out:
-	cleanup_nist_pubkey();
 	return ret;
 
+}
+
+static size_t copy_nist_certificate(char *ptr, size_t size, size_t nemb, void *userdata)
+{
+        activeCert = strdup(ptr);
+
+        if (cert) {
+                X509_free(cert);
+                cert = NULL;
+        }
+        bfp = BIO_new_mem_buf(activeCert, -1);
+        cert = PEM_read_bio_X509(bfp, NULL, NULL,  NULL);
+        pubkey = X509_get_pubkey(cert); 
+        BIO_free(bfp);
+        bfp = NULL;
+        return size * nemb;
+}
+
+static void update_active_cert() {
+        CURL *curl;
+        CURLcode res;
+        char *certurl;
+        size_t urlsize = strlen(NIST_CERT_BASE_URL) + be32toh(block.certificateIdStringLen) + 1;
+
+        free(activeCert);
+        activeCert = NULL;
+                
+        curl = curl_easy_init();
+        if (!curl)
+                return;
+
+        certurl = alloca(urlsize);
+        if (!certurl)
+                return;
+        strcpy(certurl, NIST_CERT_BASE_URL);
+        certurl = strcat(certurl, block.certificateIdString);
+        curl_easy_setopt(curl, CURLOPT_URL, certurl);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, copy_nist_certificate);
+
+        curl_easy_perform(curl);
+	if (res != CURLE_OK) {
+		fprintf(stderr, "curl_easy_perform() failed in cert update: %s\n", 
+			curl_easy_strerror(res));
+	}
+        curl_easy_cleanup(curl);
+        return;
 }
 
 static int get_nist_record(struct rng *ent_src)
@@ -409,20 +574,10 @@ static int get_nist_record(struct rng *ent_src)
 	int rc = 1;
 	struct timeval ct;
 
-	if (block.frequency != 0) {
-		if (gettimeofday(&ct, NULL)) {
-			message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Gettimeofday failed\n");
-			goto out;
-		}
-
-		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "NIST: timestamp is %lu, frequency is %u, tv_sec is %lu\n",
-			block.timestamp, block.frequency, ct.tv_sec);
-		if (block.timestamp + block.frequency >= ct.tv_sec) {
-			message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Multiple nist reads in same frequency period of %d sec\n",
-				block.frequency);
-			goto out;
-		}
-	}
+        /*
+         * record our previous pulse index
+         */
+        lastpulse = block.pulseIndex;
 
 	curl = curl_easy_init();
 
@@ -430,8 +585,7 @@ static int get_nist_record(struct rng *ent_src)
 		goto out;
 
 	curl_easy_setopt(curl, CURLOPT_URL, NIST_RECORD_URL);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, nist_rand_buf);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, parse_nist_xml_block);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, parse_nist_json_block);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, ent_src);
 
 	res = curl_easy_perform(curl);
@@ -443,39 +597,23 @@ static int get_nist_record(struct rng *ent_src)
 
 	curl_easy_cleanup(curl);
 
+        if (!activeCertId || memcmp(activeCertId, block.certificateId, be32toh(block.certificateIdLen))) {
+                free(activeCertId);
+                activeCertId = strndup(block.certificateId, be32toh(block.certificateIdLen));
+                update_active_cert();
+        }
+
 	if (validate_nist_block(ent_src)) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Received block failed validation\n");
 		goto out;
 	}
 
+        
 	rc = 0;
 
 out:
 	return rc;
 	
-}
-
-int read_nist_pubkey()
-{
-	RSA *rsa = RSA_new();
-
-	pkey = EVP_PKEY_new();
-	bfp = BIO_new_mem_buf(nist_pubkey, -1);
-
-
-	rsa = PEM_read_bio_RSA_PUBKEY(bfp, &rsa, NULL,  NULL);
-
-	EVP_PKEY_assign_RSA(pkey, rsa);
-
-	return 0;
-}
-
-void cleanup_nist_pubkey()
-{
-	EVP_PKEY_free(pkey);
-	pkey = NULL;
-	BIO_free(bfp);
-	bfp = NULL;
 }
 
 /*

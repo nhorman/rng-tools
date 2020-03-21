@@ -31,7 +31,7 @@ if RTLSDR
 rngd_SOURCES	+= rngd_rtlsdr.c
 endif
 
-rngd_LDADD	= librngd.a -lsysfs $(LIBS) $(librtlsdr_LIBS) ${libp11_LIBS} ${libcrypto_LIBS} ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS} $(PTHREAD_LIBS)
+rngd_LDADD	= librngd.a -lsysfs $(LIBS) $(librtlsdr_LIBS) ${libp11_LIBS} ${libcrypto_LIBS} ${jansson_LIBS} ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS} $(PTHREAD_LIBS)
 
 if PKCS11 
 rngd_SOURCES	+= rngd_pkcs11.c
