@@ -43,7 +43,7 @@ AC_ARG_WITH([pkcs11],
 
 AC_ARG_WITH([rtlsdr],
 	AS_HELP_STRING([--without-rtlsdr],
-		[Disable rtlsdr support. ])
+		[Disable rtlsdr support. ]),
 	[],
 	[with_rtlsdr=no]
 )
