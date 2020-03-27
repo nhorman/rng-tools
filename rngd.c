@@ -235,6 +235,17 @@ static struct rng_option pkcs11_options[] = {
 	}
 };
 
+static struct rng_option nist_options[] = {
+	[NIST_OPT_USE_AES] = {
+		.key = "use_aes",
+		.type = VAL_INT,
+		.int_val = 1,
+	},
+	{
+		.key = NULL,
+	}
+};
+
 static struct rng_option rtlsdr_options[] = {
 	[RTLSDR_OPT_DEVID] = {
 		.key = "device_id",
@@ -325,7 +336,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.init		= init_nist_entropy_source,
 #endif
 		.disabled	= true,
-		.rng_options	= NULL,
+		.rng_options	= nist_options,
 	},
 	{
 		.rng_name	= "JITTER Entropy generator",

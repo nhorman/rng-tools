@@ -99,6 +99,14 @@ enum {
 };
 
 /*
+ * NIST options
+ */
+enum {
+	NIST_OPT_USE_AES = 0,
+	NIST_OPT_MAX,
+};
+
+/*
  * RTLSDR options
  */
 enum {
