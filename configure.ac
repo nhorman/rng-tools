@@ -100,6 +100,7 @@ AS_IF(
 	[
 		PKG_CHECK_MODULES([libcurl], [libcurl], [], [AC_MSG_ERROR([libcurl is required])])
 		PKG_CHECK_MODULES([libxml2], [libxml-2.0], [], [AC_MSG_ERROR([libxml2 is required])])
+                PKG_CHECK_MODULES([jansson], [jansson], [], [AC_MSG_ERROR([libjansson is required])])
 		AC_DEFINE([HAVE_NISTBEACON],1,[Enable NISTBEACON])
 	]
 )

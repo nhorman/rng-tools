@@ -178,6 +178,7 @@ extern bool quiet;
 	free(____buf); \
 } while (0)
 
+extern volatile bool server_running;
 extern int write_pid_file(const char *pid_fn);
 #endif /* RNGD__H */
 
