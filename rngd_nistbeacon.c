@@ -126,7 +126,7 @@ char *activeCert = NULL;
 BIO *bfp = NULL;
 X509 *cert = NULL;
 EVP_PKEY *pubkey;
-uint32_t lastpulse = 0;
+uint64_t lastpulse = 0;
 
 static int refill_rand(struct rng *ent_src)
 {
@@ -136,12 +136,14 @@ static int refill_rand(struct rng *ent_src)
 
 	if (get_nist_record(ent_src))
 		return 1;
-        if (block.pulseIndex == lastpulse)
+        if (block.pulseIndex == lastpulse) {
+                message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Duplicate pulse\n");
                 return 0;
+        }
 
 	memcpy(nist_rand_buf, block.outputValue, be32toh(block.outputValueLen));
 	nist_buf_avail = be32toh(block.outputValueLen);
-
+        message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Filling buffer with %d bytes data\n", nist_buf_avail);
 	nist_buf_ptr = 0;
 
 	return 0;
@@ -170,11 +172,12 @@ int xread_nist(void *buf, size_t size, struct rng *ent_src)
                  */
                 if (server_running == false)
                         return 1;
-		if (refill_rand(ent_src))
+		if ((nist_buf_avail == 0) && refill_rand(ent_src))
 			return 1;
                 if (nist_buf_avail == 0)
                         return 1;
 		copied += copy_avail_rand_to_buf(buf, size, copied);
+                message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Got %d/%d bytes data\n", copied, size);
 	}
 	return 0;
 }
@@ -186,7 +189,7 @@ static void get_json_string_and_len(json_t *parent, char *key, char **val, uint3
         uint32_t slen;
         json_t *obj = json_object_get(parent, key);
         tmpval = json_string_value(obj);
-        slen = json_string_length(obj);
+        slen = strlen(tmpval);
         *val = strdup(tmpval);
         if (len != NULL)
                 *len = htobe32(slen);
@@ -212,11 +215,12 @@ static void get_json_byte_array(json_t *parent, char *key, char **val, uint32_t 
         bool unibble;
         int i,j;
         json_t *obj = json_object_get(parent, key);
-        uint32_t rawlen = json_string_length(obj);
+        uint32_t rawlen;
         const char *rawstring = json_string_value(obj);
         char *newval;
         char tmpval;
 
+        rawlen = strlen(rawstring);
         if (rawlen%2)
                 message(LOG_DAEMON|LOG_ERR, "Byte array isn't of even length!\n");
  
@@ -574,11 +578,6 @@ static int get_nist_record(struct rng *ent_src)
 	int rc = 1;
 	struct timeval ct;
 
-        /*
-         * record our previous pulse index
-         */
-        lastpulse = block.pulseIndex;
-
 	curl = curl_easy_init();
 
 	if (!curl)
@@ -596,6 +595,8 @@ static int get_nist_record(struct rng *ent_src)
 	}
 
 	curl_easy_cleanup(curl);
+
+        lastpulse = block.pulseIndex;
 
         if (!activeCertId || memcmp(activeCertId, block.certificateId, be32toh(block.certificateIdLen))) {
                 free(activeCertId);
