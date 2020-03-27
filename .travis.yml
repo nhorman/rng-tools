@@ -20,7 +20,7 @@ addons:
       libp11-dev
       librtlsdr-dev
       libusb-1.0-0-dev
-
+      libjansson-dev
 
 script: rm -rf ./jitterentropy-library/* && ./autogen.sh && ./configure && make
 
