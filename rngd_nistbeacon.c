@@ -214,7 +214,6 @@ static int refill_rand(struct rng *ent_src)
         }
         if (block.pulseIndex == lastpulse) {
                 if (ent_src->rng_options[NIST_OPT_USE_AES].int_val) {
-                        message_entsrc(ent_src, LOG_DEBUG|LOG_DAEMON, "Mangling buffer\n");
                         if (openssl_mangle(nist_rand_buf, NIST_BUF_SIZE, ent_src) != 0) {
                                 message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Failed mangle\n");
                                 return 1;
@@ -224,7 +223,7 @@ static int refill_rand(struct rng *ent_src)
         }
 
 	memcpy(nist_rand_buf, block.outputValue, be32toh(block.outputValueLen));
-	nist_buf_avail = be32toh(block.outputValueLen);
+	nist_buf_avail = NIST_BUF_SIZE;
 	nist_buf_ptr = 0;
 
 	return 0;
