@@ -64,7 +64,7 @@
 #define NIST_BUF_SIZE 64 
 #define NIST_CERT "/home/nhorman/Downloads/beacon.cer"
 
-bool get_new_record = false;
+bool get_new_record = true;
 
 static int get_nist_record(struct rng *ent_src);
 
