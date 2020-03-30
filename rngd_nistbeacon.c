@@ -689,7 +689,9 @@ static int get_nist_record(struct rng *ent_src)
 		goto out;
 	}
 
-        
+	/* Wait 60 seconds before fetching the next record */
+	alarm(60);
+
 	rc = 0;
 
 out:
