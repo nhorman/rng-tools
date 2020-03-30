@@ -72,7 +72,7 @@ unsigned char *aes_buf;
 char key[AES_BLOCK];
 static unsigned char iv_buf[CHUNK_SIZE] __attribute__((aligned(128)));
 
-static int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
+static int osslencrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
             unsigned char *iv, unsigned char *ciphertext)
 {
         EVP_CIPHER_CTX *ctx;
@@ -122,7 +122,7 @@ static inline int openssl_mangle(unsigned char *tmp, struct rng *ent_src)
         unsigned char ciphertext[CHUNK_SIZE * RDRAND_ROUNDS];
 
         /* Encrypt the plaintext */
-        ciphertext_len = encrypt (tmp, strlen(tmp), key, iv_buf,
+        ciphertext_len = osslencrypt (tmp, strlen(tmp), key, iv_buf,
                               ciphertext);
         if (!ciphertext_len)
                 return -1;
