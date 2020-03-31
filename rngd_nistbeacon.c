@@ -37,7 +37,6 @@
 #include <stddef.h>
 #include <limits.h>
 #include <time.h>
-#include <signal.h>
 #include <sys/mman.h>
 #include <endian.h>
 #include <sysfs/libsysfs.h>
@@ -64,7 +63,11 @@
 #define NIST_BUF_SIZE 64 
 #define NIST_CERT "/home/nhorman/Downloads/beacon.cer"
 
-bool get_new_record = false;
+#ifdef CLOCK_MONOTONIC_COARSE
+#define NIST_CLOCK_SOURCE CLOCK_MONOTONIC_COARSE
+#else
+#define NIST_CLOCK_SOURCE CLOCK_MONOTONIC
+#endif
 
 static int get_nist_record(struct rng *ent_src);
 
@@ -203,12 +206,16 @@ static inline int openssl_mangle(unsigned char *tmp, size_t size, struct rng *en
 
 static int refill_rand(struct rng *ent_src)
 {
+	static struct timespec last = {0, 0};
+	struct timespec now;
 
 	if (nist_buf_avail > 0)
 		return 0;
 
-	if (get_new_record == true) {
-                get_new_record = false;
+	clock_gettime(NIST_CLOCK_SOURCE, &now);
+	if (last.tv_sec == 0 || (now.tv_sec-last.tv_sec > 60)) {
+		last.tv_sec = now.tv_sec;
+		message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Getting new record\n");
                 if (get_nist_record(ent_src))
                         return 1;
         }
@@ -218,11 +225,13 @@ static int refill_rand(struct rng *ent_src)
                                 message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Failed mangle\n");
                                 return 1;
                         }
+                        goto fresh_buffer;
                 } else
                         return 0;
         }
 
 	memcpy(nist_rand_buf, block.outputValue, be32toh(block.outputValueLen));
+fresh_buffer:
 	nist_buf_avail = NIST_BUF_SIZE;
 	nist_buf_ptr = 0;
 
@@ -697,11 +706,6 @@ out:
 	
 }
 
-void alarm_handler(int signal)
-{
-        get_new_record = true;
-}
-
 /*
  * Confirm DARN capabilities for drng entropy source
  */
@@ -717,7 +721,6 @@ int init_nist_entropy_source(struct rng *ent_src)
 						"Do not use this source in any entropy pool "
 						"which generates cryptographic objects!\n");
 	}
-        signal(SIGALRM, alarm_handler);
 
 	return rc;
 }
