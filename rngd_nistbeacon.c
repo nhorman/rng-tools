@@ -63,6 +63,12 @@
 #define NIST_BUF_SIZE 64 
 #define NIST_CERT "/home/nhorman/Downloads/beacon.cer"
 
+#ifdef CLOCK_MONOTONIC_COARSE
+#define NIST_CLOCK_SOURCE CLOCK_MONOTONIC_COARSE
+#else
+#define NIST_CLOCK_SOURCE CLOCK_MONOTONIC
+#endif
+
 static int get_nist_record(struct rng *ent_src);
 
 
@@ -206,7 +212,7 @@ static int refill_rand(struct rng *ent_src)
 	if (nist_buf_avail > 0)
 		return 0;
 
-	clock_gettime(CLOCK_MONOTONIC, &now);
+	clock_gettime(NIST_CLOCK_SOURCE, &now);
 	if (last.tv_sec == 0 || (now.tv_sec-last.tv_sec > 60)) {
 		last.tv_sec = now.tv_sec;
 		message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Getting new record\n");
