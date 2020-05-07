@@ -58,6 +58,7 @@ struct arguments {
 	bool enable_drng;
 	bool enable_tpm;
 	int entropy_count;
+	int force_reseed;
 };
 extern struct arguments *arguments;
 
@@ -186,6 +187,7 @@ extern bool quiet;
 	free(____buf); \
 } while (0)
 
+extern bool do_reseed;
 extern volatile bool server_running;
 extern int write_pid_file(const char *pid_fn);
 #endif /* RNGD__H */

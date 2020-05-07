@@ -66,7 +66,7 @@ bool am_daemon;				/* True if we went daemon */
 bool msg_squash = false;		/* True if we want no messages on the console */
 bool quiet = false;			/* True if we want no console output at all */
 volatile bool server_running = true;	/* set to false, to stop daemon */
-
+bool do_reseed = false;			/* force a reseed event */
 bool ignorefail = false; /* true if we ignore MAX_RNG_FAILURES */
 
 /* Command line arguments and processing */
@@ -123,6 +123,8 @@ static struct argp_option options[] = {
 
 	{ "entropy-count", 'e', "n", 0, "Number of entropy bits to support (default: 8), 1 <= n <= 8" },
 
+	{ "force-reseed", 'R', "n", 0, "Time in seconds to force adding entropy to the random device" },
+
 	{ 0 },
 };
 
@@ -135,6 +137,7 @@ static struct arguments default_arguments = {
 	.list		= false,
 	.ignorefail	= false,
 	.entropy_count	= 8,
+	.force_reseed	= 60 * 5,
 };
 struct arguments *arguments = &default_arguments;
 
@@ -574,6 +577,14 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			arguments->entropy_count = e;
 		break;
 	}
+	case 'R': {
+		int R;
+		if ((sscanf(arg,"%i", &R) == 0) || (R < 0))
+			argp_usage(state);
+		else
+			arguments->force_reseed = R;
+		break;
+	}
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -599,6 +610,10 @@ static int update_kernel_random(struct rng *rng, int random_step,
 		 p += random_step) {
 		if (!server_running)
 			return 0;
+		if (do_reseed) {
+			do_reseed = false;
+			alarm(arguments->force_reseed);
+		}
 		rc = random_add_entropy(p, random_step);
 		if (rc == -1)
 			return 1;
@@ -740,6 +755,11 @@ continue_trying:
 static void term_signal(int signo)
 {
 	server_running = false;
+}
+
+static void force_reseed_signal(int signo)
+{
+	do_reseed = true;
 }
 
 static void alarm_signal(int signo)
@@ -893,6 +913,14 @@ int main(int argc, char **argv)
 		message(LOG_CONS|LOG_INFO, "Entering test mode...no entropy will "
 			"be delivered to the kernel\n");
 		signal(SIGALRM, alarm_signal);
+	} else {
+		/*
+		 * Use the alarm signal instead to wake us up on the force_reseed value
+		 */
+		if (arguments->force_reseed) {
+			signal(SIGALRM, force_reseed_signal);
+			alarm(arguments->force_reseed);
+		}
 	}
 
 	if (arguments->ignorefail)
