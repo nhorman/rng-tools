@@ -1,0 +1,9 @@
+[Unit]
+Description=Hardware RNG Entropy Gatherer Daemon
+ConditionVirtualization=!container
+
+[Service]
+ExecStart=/usr/sbin/rngd -f
+
+[Install]
+WantedBy=multi-user.target
