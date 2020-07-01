@@ -266,7 +266,7 @@ int xread_nist(void *buf, size_t size, struct rng *ent_src)
                 if (nist_buf_avail == 0)
                         return 1;
 		copied += copy_avail_rand_to_buf(buf, size, copied);
-                message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Got %d/%d bytes data\n", copied, size);
+                message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Got %zu/%zu bytes data\n", copied, size);
 	}
 	return 0;
 }
