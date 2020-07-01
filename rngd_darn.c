@@ -228,7 +228,6 @@ static uint64_t get_darn()
 int xread_darn(void *buf, size_t size, struct rng *ent_src)
 {
 	uint64_t *darn_ptr =(uint64_t *)buf;
-	uint64_t darn_val;
 	size_t copied = 0;
 
 	while (copied < size) {

@@ -416,7 +416,7 @@ static int find_ent_src_idx(const char *name_idx)
 	} else {
 		idx = strtoul(name_idx, NULL, 10);
 		if ((idx == LONG_MAX) || (idx >= ENT_MAX)) {
-			message(LOG_CONS|LOG_INFO, "option index out of range: %u\n", idx);
+			message(LOG_CONS|LOG_INFO, "option index out of range: %d\n", idx);
 			return -ERANGE;
 		}
 		message(LOG_CONS|LOG_INFO, "Note, reference of entropy sources by index "
@@ -507,7 +507,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			}
 			options++;
 		}
-		message(LOG_CONS|LOG_INFO, "Option %s not found for source idx %lu\n", optkey, idx);
+		message(LOG_CONS|LOG_INFO, "Option %s not found for source idx %ld\n", optkey, idx);
 		return -ERANGE;
 		break;
 
@@ -517,7 +517,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			return idx;
 
 		entropy_sources[idx].disabled = true;
-		message(LOG_CONS|LOG_INFO, "Disabling %lu: %s (%s)\n", idx,
+		message(LOG_CONS|LOG_INFO, "Disabling %ld: %s (%s)\n", idx,
 			entropy_sources[idx].rng_name, entropy_sources[idx].rng_sname);
 		break;
 	case 'n':
@@ -526,7 +526,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			return idx;
 
 		entropy_sources[idx].disabled = false;
-		message(LOG_CONS|LOG_INFO, "Enabling %lu: %s (%s)\n", idx,
+		message(LOG_CONS|LOG_INFO, "Enabling %ld: %s (%s)\n", idx,
 			entropy_sources[idx].rng_name, entropy_sources[idx].rng_sname);
 		break;
 	case 'l':

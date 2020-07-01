@@ -67,7 +67,7 @@ int default_watermark(void)
 	/*
 	 * Default to 4096 if fscanf fails
 	 */
-	if(fscanf(f,"%d", &wm) < 1)
+	if(fscanf(f,"%u", &wm) < 1)
 		wm = 4096;
 	kent_pool_size = wm;
 	wm = wm*3/4;
@@ -102,7 +102,7 @@ void init_kernel_rng(const char* randomdev)
 	if (!f) {
 		err = 1;
 	} else {
-		fprintf(f, "%u\n", arguments->fill_watermark);
+		fprintf(f, "%d\n", arguments->fill_watermark);
 		/* Note | not || here... we always want to close the file */
 		err = ferror(f) | fclose(f);
 	}

@@ -137,7 +137,7 @@ uint64_t lastpulse = 0;
 #define AES_BLOCK               16
 #define CHUNK_SIZE              (AES_BLOCK*8)   /* 8 parallel streams */
 #define RDRAND_ROUNDS           512             /* 512:1 data reduction */
-unsigned char key[AES_BLOCK] = {0,};
+static unsigned char key[AES_BLOCK] = {0,};
 
 static int osslencrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
             unsigned char *iv, unsigned char *ciphertext)
@@ -266,7 +266,7 @@ int xread_nist(void *buf, size_t size, struct rng *ent_src)
                 if (nist_buf_avail == 0)
                         return 1;
 		copied += copy_avail_rand_to_buf(buf, size, copied);
-                message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Got %d/%d bytes data\n", copied, size);
+                message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Got %zu/%zu bytes data\n", copied, size);
 	}
 	return 0;
 }
@@ -651,7 +651,7 @@ static void update_active_cert() {
         curl_easy_setopt(curl, CURLOPT_URL, certurl);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, copy_nist_certificate);
 
-        curl_easy_perform(curl);
+        res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
 		fprintf(stderr, "curl_easy_perform() failed in cert update: %s\n", 
 			curl_easy_strerror(res));
@@ -665,7 +665,6 @@ static int get_nist_record(struct rng *ent_src)
 	CURL *curl;
 	CURLcode res;
 	int rc = 1;
-	struct timeval ct;
 
 	curl = curl_easy_init();
 
