@@ -651,7 +651,7 @@ static void update_active_cert() {
         curl_easy_setopt(curl, CURLOPT_URL, certurl);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, copy_nist_certificate);
 
-        curl_easy_perform(curl);
+        res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
 		fprintf(stderr, "curl_easy_perform() failed in cert update: %s\n", 
 			curl_easy_strerror(res));
