@@ -69,7 +69,7 @@ int pipefds[2];
 
 unsigned char *aes_buf;
 
-char key[AES_BLOCK];
+static char key[AES_BLOCK];
 static unsigned char iv_buf[CHUNK_SIZE] __attribute__((aligned(128)));
 
 static int osslencrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,

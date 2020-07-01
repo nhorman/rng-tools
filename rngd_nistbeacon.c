@@ -137,7 +137,7 @@ uint64_t lastpulse = 0;
 #define AES_BLOCK               16
 #define CHUNK_SIZE              (AES_BLOCK*8)   /* 8 parallel streams */
 #define RDRAND_ROUNDS           512             /* 512:1 data reduction */
-unsigned char key[AES_BLOCK] = {0,};
+static unsigned char key[AES_BLOCK] = {0,};
 
 static int osslencrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
             unsigned char *iv, unsigned char *ciphertext)
