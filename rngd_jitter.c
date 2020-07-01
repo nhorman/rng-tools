@@ -476,8 +476,6 @@ int init_jitter_entropy_source(struct rng *ent_src)
 void close_jitter_entropy_source(struct rng *ent_src)
 {
 	int i;
-	char tmpbuf[1024];
-	int flags;
 
 	/* Close the pipes to prevent further writing */
 	close(pipefds[1]);

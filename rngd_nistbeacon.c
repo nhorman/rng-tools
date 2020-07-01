@@ -665,7 +665,6 @@ static int get_nist_record(struct rng *ent_src)
 	CURL *curl;
 	CURLcode res;
 	int rc = 1;
-	struct timeval ct;
 
 	curl = curl_easy_init();
 
