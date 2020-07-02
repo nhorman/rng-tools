@@ -888,7 +888,7 @@ int main(int argc, char **argv)
 				message(LOG_CONS|LOG_INFO, "%d: %s (%s)\n", i,
 					entropy_sources[i].rng_name, entropy_sources[i].rng_sname);
 			}
-
+		quiet = true;
 		close_all_entropy_sources();
 		return rc;
 	}
