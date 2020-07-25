@@ -130,7 +130,7 @@ int random_add_entropy(void *buf, size_t size)
 	memcpy(ent + 1, buf, size);
 
 	if (write_to_output == false) {
-		if (ioctl(random_fd, RNDADDENTROPY, ent) != 0) {
+		if (ioctl(random_fd, RNDADDENTROPY, ent) < 0) {
 			if (errno == ENOTTY && !arguments->daemon) {
 				/*
 				 * This isn't a real random device.
