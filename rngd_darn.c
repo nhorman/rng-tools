@@ -46,7 +46,7 @@
 	_x < _y ? _x : _y; })
 
 static uint64_t get_darn();
-static int refill_rand(struct rng *ent_src);
+static int refill_rand(struct rng *ent_src, bool allow_reinit);
 static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t copied);
 
 #define AES_BLOCK 16
@@ -67,7 +67,7 @@ static unsigned char darn_rand_buf[CHUNK_SIZE];
 static size_t darn_buf_avail = 0;
 static size_t darn_buf_ptr = CHUNK_SIZE - 1;
 
-static size_t rekey_thresh = (1 << THRESH_BITS);
+static size_t rekey_thresh = 0;
 static size_t rand_bytes_served = 0;
 
 static int init_openssl(struct rng *ent_src)
@@ -100,7 +100,7 @@ static int init_openssl(struct rng *ent_src)
                 return 1;
 
 	rand_bytes_served = 0;
-	if (refill_rand(ent_src))
+	if (refill_rand(ent_src, false))
 		return 1;
 	if (copy_avail_rand_to_buf((unsigned char *)&rekey_thresh, sizeof(size_t), 0) < sizeof(size_t))
 		return 1;
@@ -138,7 +138,7 @@ static int osslencrypt(unsigned char *plaintext, int plaintext_len, unsigned cha
 	return ciphertext_len;
 }
 
-static inline int openssl_mangle(unsigned char *tmp, struct rng *ent_src)
+static inline int openssl_mangle(unsigned char *tmp, size_t size, struct rng *ent_src)
 {
         int ciphertext_len;
 
@@ -150,30 +150,29 @@ static inline int openssl_mangle(unsigned char *tmp, struct rng *ent_src)
         unsigned char ciphertext[CHUNK_SIZE * RDRAND_ROUNDS];
 
         /* Encrypt the plaintext */
-        ciphertext_len = osslencrypt (tmp, strlen(tmp), key, iv_buf,
+        ciphertext_len = osslencrypt (tmp, size, key, iv_buf,
                               ciphertext);
-        printf("Calling mangle with len %d\n", ciphertext_len);
         if (!ciphertext_len)
                 return -1;
 
-        memcpy(tmp, ciphertext, strlen(tmp));
+        memcpy(tmp, ciphertext, size);
         return 0;
 }
 
-static int refill_rand(struct rng *ent_src)
+static int refill_rand(struct rng *ent_src, bool allow_reinit)
 {
 	int i;
 
 	if (darn_buf_avail)
 		return 0;
 	if (ent_src->rng_options[DARN_OPT_AES].int_val) {
-		if (rand_bytes_served >= rekey_thresh) {
+		if (allow_reinit && (rand_bytes_served >= rekey_thresh)) {
 			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "rekeying DARN rng\n");
 			if (init_openssl(ent_src))
 				return 1;
 		}
 
-		if (openssl_mangle(darn_rand_buf, ent_src)) {
+		if (openssl_mangle(darn_rand_buf, CHUNK_SIZE, ent_src)) {
 			return 1;
 		}
 	} else {
@@ -231,7 +230,7 @@ int xread_darn(void *buf, size_t size, struct rng *ent_src)
 	size_t copied = 0;
 
 	while (copied < size) {
-		if (refill_rand(ent_src)) {
+		if (refill_rand(ent_src, true)) {
 			return 1;
 		}
 		copied += copy_avail_rand_to_buf(buf, size, copied);
@@ -246,11 +245,13 @@ int init_darn_entropy_source(struct rng *ent_src)
 {
 
 	if (!(getauxval(AT_HWCAP2) & PPC_FEATURE2_DARN)) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "No HW SUPPORT\n");
 		return 1;
 	}
 
-	if (init_openssl(ent_src))
+	if (refill_rand(ent_src, true))
 		return 1;
+
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling power DARN rng support\n");
 	return 0;
 }
