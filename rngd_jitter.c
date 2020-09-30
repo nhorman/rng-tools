@@ -447,10 +447,6 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		pthread_mutex_unlock(&tdata[i].statemtx);
 	}
 
-	flags = fcntl(pipefds[0], F_GETFL, 0);
-	flags |= O_NONBLOCK;
-	fcntl(pipefds[0], F_SETFL, flags);
-
 	if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
 		/*
 		 * Temporarily disable aes so we don't try to use it during init
@@ -469,6 +465,11 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		}
 		xread_jitter(aes_buf, tdata[0].buf_sz, ent_src);
 	}
+
+	flags = fcntl(pipefds[0], F_GETFL, 0);
+	flags |= O_NONBLOCK;
+	fcntl(pipefds[0], F_SETFL, flags);
+
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling JITTER rng support\n");
 	return 0;
 }
