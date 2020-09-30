@@ -449,7 +449,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 
 	flags = fcntl(pipefds[0], F_GETFL, 0);
 	flags |= O_NONBLOCK;
-	fcntl(pipefds[0], F_SETFL, &flags);
+	fcntl(pipefds[0], F_SETFL, flags);
 
 	if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
 		/*
