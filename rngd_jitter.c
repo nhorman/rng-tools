@@ -464,6 +464,17 @@ int init_jitter_entropy_source(struct rng *ent_src)
 			ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 1;
 		}
 		xread_jitter(aes_buf, tdata[0].buf_sz, ent_src);
+	} else {
+		/*
+		 * Make sure that an entropy gathering thread has generated
+		 * at least some entropy before setting O_NONBLOCK and finishing
+		 * the entropy source initialization.
+		 *
+		 * This avoids "Entropy Generation is slow" log spamming that
+		 * would otherwise happen until jent_read_entropy() has run
+		 * for the first time.
+		 */
+		xread_jitter(&i, 1, ent_src);
 	}
 
 	flags = fcntl(pipefds[0], F_GETFL, 0);
