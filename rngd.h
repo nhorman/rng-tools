@@ -166,13 +166,13 @@ extern bool quiet;
 #define message(priority,fmt,args...) do { \
 	if (quiet) \
 		break;\
+	if (arguments->debug == false && LOG_PRI(priority) == LOG_DEBUG) \
+		break;\
 	if (am_daemon) { \
 		syslog((priority), fmt, ##args); \
 	} else if (!msg_squash) { \
-		if ((LOG_PRI(priority) != LOG_DEBUG) || (arguments->debug == true)) {\
-			fprintf(stderr, fmt, ##args); \
-			fflush(stderr); \
-		} \
+		fprintf(stderr, fmt, ##args); \
+		fflush(stderr); \
 	} \
 } while (0)
 
