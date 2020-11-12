@@ -274,6 +274,9 @@ static struct rng_option rtlsdr_options[] = {
 		.key = "sample_max",
 		.type = VAL_INT,
 		.int_val = 2800000,
+	},
+	{
+		.key = NULL,
 	}
 };
 
