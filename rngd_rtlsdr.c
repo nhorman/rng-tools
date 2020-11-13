@@ -197,7 +197,7 @@ int xread_rtlsdr(void *buf, size_t size, struct rng *ent_src)
 	int read_len;
 	size_t gen_len;
 	char *buf_ptr = buf;
-	unsigned char outbuf[RAW_BUF_SZ];
+	unsigned char outbuf[RAW_BUF_SZ + EVP_MAX_BLOCK_LENGTH];
 	size_t copy_size;
 	size_t total_size = 0;
 	while (total_size < size) {
