@@ -160,8 +160,8 @@ int random_add_entropy(void *buf, size_t size)
 void random_sleep(void)
 {
 	struct pollfd pfd = {
-		fd:	random_fd,
-		events:	POLLOUT,
+		.fd = random_fd,
+		.events = POLLOUT,
 	};
 
 	poll(&pfd, 1, -1);
