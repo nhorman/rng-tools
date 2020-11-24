@@ -93,11 +93,10 @@ static void fips_test_store(fips_ctx_t *ctx, unsigned int rng_data)
 		if (ctx->current_bit != ctx->last_bit) {
 			/* If runlength is 1-6 count it in correct bucket. 0's go in
 			   runs[0-5] 1's go in runs[6-11] hence the 6*current_bit below */
-			if (ctx->rlength < 5) {
-				ctx->runs[ctx->rlength +
-				     (6 * ctx->current_bit)]++;
-			} else {
-				ctx->runs[5 + (6 * ctx->current_bit)]++;
+			if (ctx->rlength > 4) {
+				ctx->runs[5 + (6 * ctx->last_bit)]++;
+			} else if (ctx->rlength >= 0 ) {
+				ctx->runs[ctx->rlength + (6 * ctx->last_bit)]++;
 			}
 
 			/* Check if we just failed longrun test */
