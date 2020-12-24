@@ -358,6 +358,8 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	int size;
 	int flags;
 	int core_id = 0;
+	char *tmp_key = alloca(AES_BLOCK);
+	char *tmp_iv = alloca(CHUNK_SIZE);	
 
 	signal(SIGUSR1, jitter_thread_exit_signal);
 
@@ -454,15 +456,8 @@ int init_jitter_entropy_source(struct rng *ent_src)
 
 		message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Initializing AES buffer\n");
 		aes_buf = malloc(tdata[0].buf_sz);
-		ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 0;
-		if (xread_jitter(key, AES_BLOCK, ent_src)) {
-			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain AES key, disabling AES in JITTER source\n");
-		} else if (xread_jitter(iv_buf, CHUNK_SIZE, ent_src)) {
-			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain iv_buffer, disabling AES in JITTER source\n");
-		} else {
-			/* re-enable AES */
-			ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 1;
-		}
+		memcpy(key, tmp_key, AES_BLOCK);
+		memcpy(iv_buf, tmp_iv, CHUNK_SIZE);
 		xread_jitter(aes_buf, tdata[0].buf_sz, ent_src);
 	} else {
 		/*
