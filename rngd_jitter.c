@@ -143,7 +143,7 @@ int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 	size_t total;
 try_again:
 	while (need) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "xread_jitter requests %d bytes from pipe\n", need);
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "xread_jitter requests %ld bytes from pipe\n", need);
 		request = read(pipefds[0], &bptr[size-need], need);
 		if ((request < need) && ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
 			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "xread_jitter falls back to AES\n");
