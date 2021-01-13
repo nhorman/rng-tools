@@ -857,6 +857,7 @@ int main(int argc, char **argv)
 				found = 1;
 				message(LOG_CONS|LOG_INFO, "%d: %s (%s)\n", i,
 					entropy_sources[i].rng_name, entropy_sources[i].rng_sname);
+				entropy_sources[i].failed_init = false;
 			}
 		if (!found)
 			message(LOG_CONS|LOG_INFO, "None");
@@ -874,9 +875,11 @@ int main(int argc, char **argv)
 				ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
 				fips_init(ent_src->fipsctx, discard_initial_data(ent_src));
 				message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Initialized\n");
+				ent_src->failed_init = false;
 			} else {
 				message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Initialization Failed\n");
 				ent_src->disabled = true;
+				ent_src->failed_init = true;
 			}
 		}
 	}
@@ -891,6 +894,14 @@ int main(int argc, char **argv)
 				message(LOG_CONS|LOG_INFO, "%d: %s (%s)\n", i,
 					entropy_sources[i].rng_name, entropy_sources[i].rng_sname);
 			}
+		message(LOG_CONS|LOG_INFO, "Available entropy sources that failed initalization:\n");
+		for (i=0; i < ENT_MAX; i++) 
+			if (entropy_sources[i].init && entropy_sources[i].disabled == true && entropy_sources[i].failed_init == true) {
+				rc = 1;
+				message(LOG_CONS|LOG_INFO, "%d: %s (%s)\n", i,
+					entropy_sources[i].rng_name, entropy_sources[i].rng_sname);
+			}
+
 		quiet = true;
 		close_all_entropy_sources();
 		return rc;

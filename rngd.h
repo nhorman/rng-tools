@@ -140,6 +140,7 @@ struct rng {
 	char *rng_fname;
 	int rng_fd;
 	bool disabled;
+	bool failed_init;
 	int failures;
 	int success;
 	size_t ent_gathered;
