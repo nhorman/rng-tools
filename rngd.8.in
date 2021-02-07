@@ -21,7 +21,7 @@ rngd \- Check and feed random data from hardware device to kernel random device
 [\fB\-s\fR, \fB\-\-random-step=\fInnn\fR]
 [\fB\-t\fR, \fB\-\-test\fR]
 [\fB\-W\fR, \fB\-\-fill-watermark=\fInnn\fR]
-[\fB\-R\fR, \fB\-\-force_reseed=\fInnn\fR]
+[\fB\-R\fR, \fB\-\-force-reseed=\fInnn\fR]
 [\fB\-q\fR, \fB\-\-quiet\fR]
 [\fB\-?\fR, \fB\-\-help\fR]
 [\fB\-V\fR, \fB\-\-version\fR]
@@ -110,10 +110,10 @@ starves.  Do not set \fIfill-watermark\fR above the size of the
 entropy pool (usually 4096 bits).  A value of 0 to this option will cause no
 watermark to be set.
 .TP
-\fB\-R\fI n\fR, \fB\-\-force_reseed=\fInnn\fR
+\fB\-R\fI n\fR, \fB\-\-force-reseed=\fInnn\fR
 For newer kernels which support non-blocking entropy pools, it is still
 beneficial to periodically add fresh entropy as a reseeding event.
---force_reseed defines the number of seconds between which fresh entropy is
+--force-reseed defines the number of seconds between which fresh entropy is
 added to the kernel entropy pool.  Defaults to 5 minutes.
 .TP
 \fB\-q\fR, \fB\-\-quiet\fR
