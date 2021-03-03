@@ -144,11 +144,6 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 dnl AC_TYPE_SIZE_T
 dnl AC_TYPE_PID_T
 
-dnl -----------------------------
-dnl Checks for required libraries
-dnl -----------------------------
-AC_SEARCH_LIBS(sysfs_get_mnt_path, sysfs, [], [AC_MSG_ERROR([libsysfs is required])],[])
-
 dnl -------------------------------------
 dnl Checks for optional library functions
 dnl -------------------------------------

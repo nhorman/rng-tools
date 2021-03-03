@@ -36,7 +36,6 @@
 #include <syslog.h>
 #include <string.h>
 #include <stddef.h>
-#include <sysfs/libsysfs.h>
 
 #include "rngd.h"
 #include "fips.h"
@@ -159,7 +158,7 @@ error_out:
  */
 int init_entropy_source(struct rng *ent_src)
 {
-	struct sysfs_attribute *rngavail;
+	int rngavail_fd;
 	char buf[16];
 
 	ent_src->rng_fd = open(ent_src->rng_fname, O_RDONLY | O_NOCTTY);
@@ -177,24 +176,24 @@ int init_entropy_source(struct rng *ent_src)
 	/* RHEL7: since /dev/hwrng will exist now even if there isn't an rng backing it,
 	 * check to see if rng_available is empty, and return error if it is.
 	 */
-	rngavail = sysfs_open_attribute(RNG_AVAIL);
-	if (!rngavail) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to open sysfs attribute: %s\n", RNG_AVAIL);
+	rngavail_fd = open(RNG_AVAIL, O_RDONLY | O_NOCTTY);
+	if (rngavail_fd == -1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to open sysfs file: %s\n", RNG_AVAIL);
 		return 1;
 	}
 
-	if (sysfs_read_attribute(rngavail)) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Error reading sysfs attribute: %s\n", RNG_AVAIL);
-		sysfs_close_attribute(rngavail);
+	if (read(rngavail_fd, buf, sizeof(buf)) < 0) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Error reading sysfs file: %s\n", RNG_AVAIL);
+		close(rngavail_fd);
 		return 1;
 	}
 
-	if (strncmp(rngavail->value, "\n", 1) == 0) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "no available rng device\n");
-		sysfs_close_attribute(rngavail);
+	if (strncmp(buf, "\n", 1) == 0) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "No available rng device\n");
+		close(rngavail_fd);
 		return 1;
 	}
-	sysfs_close_attribute(rngavail);
+	close(rngavail_fd);
 
 source_valid:
 	/* Bootstrap FIPS tests */
