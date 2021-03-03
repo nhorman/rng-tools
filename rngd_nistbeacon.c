@@ -39,7 +39,6 @@
 #include <time.h>
 #include <sys/mman.h>
 #include <endian.h>
-#include <sysfs/libsysfs.h>
 #include <curl/curl.h>
 #include <libxml/xmlreader.h>
 #include <jansson.h>
