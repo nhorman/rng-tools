@@ -860,7 +860,7 @@ int main(int argc, char **argv)
 				entropy_sources[i].failed_init = false;
 			}
 		if (!found)
-			message(LOG_CONS|LOG_INFO, "None");
+			message(LOG_CONS|LOG_INFO, "None\n");
 		msg_squash = true;
 	} else
 		message(LOG_DAEMON|LOG_INFO, "Initializing available sources\n");
