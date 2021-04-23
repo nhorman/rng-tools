@@ -822,7 +822,7 @@ int main(int argc, char **argv)
 	int ent_sources = 0;
 	pid_t pid_fd = -1;
 	double test_time;
-	struct rng *ent_src;
+	struct rng *ent_src, *ent_src_jitter;
 
 	openlog("rngd", 0, LOG_DAEMON);
 
@@ -870,6 +870,10 @@ int main(int argc, char **argv)
 	for (i=0; i < ENT_MAX; i++) {
 		ent_src = &entropy_sources[i];
 		if (ent_src->init && ent_src->disabled == false) {
+			if (ent_src->rng_sname == "jitter") {
+				ent_src_jitter = ent_src;
+				continue;
+			}
 			if (!ent_src->init(ent_src)) {
 				ent_sources++;
 				ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
@@ -881,6 +885,20 @@ int main(int argc, char **argv)
 				ent_src->disabled = true;
 				ent_src->failed_init = true;
 			}
+		}
+	}
+	// only use the jitter entropy source when there is no other entropy source available
+	if (!ent_sources && ent_src_jitter) {
+		if (!ent_src_jitter->init(ent_src_jitter)) {
+			ent_sources++;
+			ent_src_jitter->fipsctx = malloc(sizeof(fips_ctx_t));
+			fips_init(ent_src_jitter->fipsctx, discard_initial_data(ent_src_jitter));
+			message_entsrc(ent_src_jitter, LOG_DAEMON|LOG_INFO, "Initialized\n");
+			ent_src_jitter->failed_init = false;
+		} else {
+			message_entsrc(ent_src_jitter, LOG_DAEMON|LOG_ERR, "Initialization Failed\n");
+			ent_src_jitter->disabled = true;
+			ent_src_jitter->failed_init = true;
 		}
 	}
 
