@@ -252,11 +252,6 @@ static void *thread_entropy_task(void *data)
 		me->slptm.tv_nsec = 0;
 	}
 
-	/* fill initial entropy */
-	CPU_ZERO(&cpuset);
-	CPU_SET(me->core_id, &cpuset);
-	pthread_setaffinity_np(pthread_self(), CPU_ALLOC_SIZE(me->core_id+1), &cpuset);
-
 	tmpbuf = malloc(me->buf_sz);
 	if (!tmpbuf) {
 		message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to allocate temp buffer on cpu %d\n", me->core_id);
