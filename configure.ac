@@ -45,7 +45,7 @@ AC_ARG_WITH([rtlsdr],
 	AS_HELP_STRING([--without-rtlsdr],
 		[Disable rtlsdr support. ]),
 	[],
-	[with_rtlsdr=no]
+	[with_rtlsdr=check]
 )
 
 AC_ARG_WITH([libargp],
