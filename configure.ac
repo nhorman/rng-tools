@@ -55,6 +55,20 @@ AC_ARG_WITH([libargp],
 	[with_libargp=check]
 )
 
+AC_ARG_WITH([pkcs11-engine],
+	AS_HELP_STRING([--with-pkcs11-engine=PATH],
+		[Path to OpenSC PKCS11 engine]),
+	[PKCS11_ENGINE=$withval],
+	[AS_CASE([$host_cpu],
+			[i?86|armv7hl],
+			[
+				PKCS11_ENGINE=/usr/lib/opensc-pkcs11.so
+			],
+			[
+				PKCS11_ENGINE=/usr/lib64/opensc-pkcs11.so
+			])]
+)
+
 dnl Make sure anyone changing configure.ac/Makefile.am has a clue
 AM_MAINTAINER_MODE
 AM_PROG_AS
@@ -111,14 +125,6 @@ AS_IF(
 		PKG_CHECK_MODULES([libp11], [libp11], [], [AC_MSG_ERROR([libp11 is required])])
 		PKG_CHECK_MODULES([libcrypto], [libcrypto], [], [AC_MSG_ERROR([libcrypto is required])])
 		AC_DEFINE([HAVE_PKCS11],1,[Enable PKCS11])
-		AS_CASE([$host_cpu],
-			[i?86|armv7hl],
-			[
-				PKCS11_ENGINE=/usr/lib/opensc-pkcs11.so
-			],
-			[
-				PKCS11_ENGINE=/usr/lib64/opensc-pkcs11.so
-			])
 		AC_SUBST([PKCS11_ENGINE])
 	]
 )
