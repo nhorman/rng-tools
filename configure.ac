@@ -74,6 +74,8 @@ AS_IF([test $target_cpu = x86_64 -o $target_cpu = i686], [AC_DEFINE([HAVE_RDRAND
 AM_CONDITIONAL([DARN], [test $target_cpu = powerpc64le])
 AS_IF([test $target_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
 
+AM_CONDITIONAL([RNDR], [test $target_cpu = aarch64])
+AS_IF([test $target_cpu = aarch64], [AC_DEFINE([HAVE_RNDR],1,[Enable RNDR])],[])
 AM_CONDITIONAL([JITTER], [false])
 
 AC_ARG_ENABLE(jitterentropy,

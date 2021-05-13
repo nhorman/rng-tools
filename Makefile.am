@@ -23,6 +23,10 @@ if DARN
 rngd_SOURCES	+= rngd_darn.c
 endif
 
+if RNDR
+rngd_SOURCES	+= rngd_rndr.c
+endif
+
 if JITTER
 rngd_SOURCES	+= rngd_jitter.c
 endif

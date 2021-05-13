@@ -45,6 +45,9 @@ extern int init_darn_entropy_source(struct rng *);
 #ifdef HAVE_NISTBEACON
 extern int init_nist_entropy_source(struct rng *);
 #endif
+#ifdef HAVE_RNDR
+extern int init_rndr_entropy_source(struct rng *);
+#endif
 #ifdef HAVE_JITTER
 extern int init_jitter_entropy_source(struct rng *);
 extern void close_jitter_entropy_source(struct rng *);
@@ -69,6 +72,10 @@ extern int xread_drng(void *buf, size_t size, struct rng *ent_src);
 
 #ifdef HAVE_DARN
 extern int xread_darn(void *buf, size_t size, struct rng *ent_src);
+#endif
+
+#ifdef HAVE_RNDR
+extern int xread_rndr(void *buf, size_t size, struct rng *ent_src);
 #endif
 
 #ifdef HAVE_JITTER

@@ -163,6 +163,18 @@ the entropy poll, or if it is used as a periodic seed to an aes based cprng
 
 .TP
 .B
+RNDR (rndr) [Index 8]
+Entropy drawn from the RNDR instruction (aarch64 only)
+
+.TP
+Options
+
+\fBuse_aes - \fR select if the arm rndr instruction is used to directly fill
+the entropy poll, or if it is used as a periodic seed to an aes based cprng
+(default 0)
+
+.TP
+.B
 NIST Entropy Beacon (nist) [Index 4]
 Entropy gathered from the NIST network entropy beacon.  Note that this entropy
 source is disabled by default as it should never be used for cryptographic

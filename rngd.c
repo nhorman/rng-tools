@@ -152,6 +152,7 @@ static enum {
 	ENT_TPM = 1,
 	ENT_RDRAND,
 	ENT_DARN,
+	ENT_RNDR,
 	ENT_NISTBEACON,
 	ENT_JITTER,
 	ENT_PKCS11,
@@ -329,6 +330,19 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.disabled	= true,
 #endif
 		.rng_options	= darn_options,
+	},
+	{
+		.rng_name       = "ARM v8.5 RNDR Instruction RNG",
+		.rng_sname	= "rndr",
+		.rng_fd	 = -1,
+		.flags		= { 0 },
+#ifdef HAVE_RNDR
+		.xread	  = xread_rndr,
+		.init	   = init_rndr_entropy_source,
+#else
+		.disabled	= true,
+#endif
+		.rng_options	= drng_options,
 	},
 	{
 		.rng_name	= "NIST Network Entropy Beacon",
