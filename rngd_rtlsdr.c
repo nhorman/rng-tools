@@ -19,11 +19,11 @@
 #include <openssl/err.h>
 
 #include "rngd.h"
+#include "ossl_helpers.h"
 
 #define RAW_BUF_SZ	    4096
 
 #define CHUNK_SIZE	      (AES_BLOCK*8)   /* 8 parallel streams */
-#define AES_BLOCK	       16
 
 static rtlsdr_dev_t *radio = NULL;
 static char raw_buffera[RAW_BUF_SZ];
@@ -32,6 +32,12 @@ static int freq_max;
 static int sample_min;
 static int sample_max;
 static int gain = 200;
+
+/* AES data reduction key */
+static unsigned char key[AES_BLOCK];
+static unsigned char iv[CHUNK_SIZE];
+static struct ossl_aes_ctx *ossl_ctx;
+
 
 static int get_random_freq()
 {
@@ -97,7 +103,13 @@ int init_rtlsdr_entropy_source(struct rng *ent_src)
 		message_entsrc(ent_src, LOG_DAEMON, "%d: %s %s\n", i, vendor, product);
 	}
 
-        /*
+	ossl_ctx = ossl_aes_init(key, iv);
+	if (!ossl_ctx) {
+		message_entsrc(ent_src, LOG_DAEMON, "Failed to setup openssl\n");
+		return 1;
+	}
+
+	/*
          * Get our default sample rate and freq settings, as well as the devid
          * to use
          */
@@ -144,51 +156,19 @@ void close_rtlsdr_entropy_source(struct rng *ent_src)
 {
 	if (radio)
 		rtlsdr_close(radio);
-	return;
+	if (ossl_ctx)
+		ossl_aes_exit(ossl_ctx);
 }
 
 static size_t condition_buffer(unsigned char *in, unsigned char *out, size_t insize, size_t outsize)
 {
-	EVP_CIPHER_CTX *ctx;
-	static unsigned char key[AES_BLOCK];
-	unsigned char iv[CHUNK_SIZE] __attribute__((aligned(128)));
-	int len;
-	size_t ciphertext_len = 0;
-
 	/*
 	 * Setup our key and iv
 	 */
 	memcpy(key, in, AES_BLOCK);
 	memcpy(iv, &in[AES_BLOCK], CHUNK_SIZE);
 
-	/* Create and initialise the context */
-	if(!(ctx = EVP_CIPHER_CTX_new()))
-		return 0;
-
-	if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv))
-		goto out;
-	/*
-	* Provide the message to be encrypted, and obtain the encrypted output.
-	* EVP_EncryptUpdate can be called multiple times if necessary
-	*/
-	if(1 != EVP_EncryptUpdate(ctx, out, &len, in, insize))
-		goto out;
-
-	ciphertext_len = len;
-
-	/*
-	* Finalise the encryption. Further ciphertext bytes may be written at
-	* this stage.
-	*/
-	if(1 != EVP_EncryptFinal_ex(ctx, out, &len))
-		return 0;
-	ciphertext_len += len;
-
-out:
-	/* Clean up */
-	EVP_CIPHER_CTX_free(ctx);
-
-	return ciphertext_len;
+	return ossl_aes_encrypt(ossl_ctx, in, insize, out);
 }
 
 int xread_rtlsdr(void *buf, size_t size, struct rng *ent_src)

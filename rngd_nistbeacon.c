@@ -56,6 +56,7 @@
 #include "fips.h"
 #include "exits.h"
 #include "rngd_entsource.h"
+#include "ossl_helpers.h"
 
 #define NIST_RECORD_URL "https://beacon.nist.gov/beacon/2.0/pulse/last"
 #define NIST_CERT_BASE_URL "https://beacon.nist.gov/beacon/2.0/certificate/"
@@ -133,75 +134,11 @@ X509 *cert = NULL;
 EVP_PKEY *pubkey;
 uint64_t lastpulse = 0;
 
-#define AES_BLOCK               16
 #define CHUNK_SIZE              (AES_BLOCK*8)   /* 8 parallel streams */
 #define RDRAND_ROUNDS           512             /* 512:1 data reduction */
-static unsigned char key[AES_BLOCK] = {0,};
-
-static int osslencrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
-            unsigned char *iv, unsigned char *ciphertext)
-{
-        EVP_CIPHER_CTX *ctx;
-
-        int len;
-
-        int ciphertext_len;
-
-        /* Create and initialise the context */
-        if(!(ctx = EVP_CIPHER_CTX_new()))
-                return 0;
-
-        if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv))
-                return 0;
-        /*
-        * Provide the message to be encrypted, and obtain the encrypted output.
-        * EVP_EncryptUpdate can be called multiple times if necessary
-        */
-        if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
-                return 0;
-
-        ciphertext_len = len;
-
-        /*
-        * Finalise the encryption. Further ciphertext bytes may be written at
-        * this stage.
-        */
-        if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
-                return 0;
-        ciphertext_len += len;
-
-        /* Clean up */
-        EVP_CIPHER_CTX_free(ctx);
-
-        return ciphertext_len;
-}
-
-static inline int openssl_mangle(unsigned char *tmp, size_t size, struct rng *ent_src)
-{
-        unsigned char xkey[AES_BLOCK];  /* Material to XOR into the key */
-        unsigned char iv_buf[CHUNK_SIZE];
-        int i;        
-        int ciphertext_len;
-
-        /*
-        * Buffer for ciphertext. Ensure the buffer is long enough for the
-        * ciphertext which may be longer than the plaintext, depending on the
-        * algorithm and mode.
-        */
-        unsigned char ciphertext[CHUNK_SIZE * RDRAND_ROUNDS];
-
-        for(i=0; i < AES_BLOCK; i++) 
-                key[i] = key[i] ^ xkey[i];
-
-        /* Encrypt the plaintext */
-        ciphertext_len = osslencrypt (tmp, size, key, iv_buf,
-                              ciphertext);
-        if (!ciphertext_len)
-                return -1;
-
-        memcpy(tmp, ciphertext, size);
-        return 0;
-}
+static unsigned char mangle_key[AES_BLOCK];
+static unsigned char mangle_iv_buf[CHUNK_SIZE];
+static struct ossl_aes_ctx *ossl_ctx;
 
 static int refill_rand(struct rng *ent_src)
 {
@@ -220,7 +157,7 @@ static int refill_rand(struct rng *ent_src)
         }
         if (block.pulseIndex == lastpulse) {
                 if (ent_src->rng_options[NIST_OPT_USE_AES].int_val) {
-                        if (openssl_mangle(nist_rand_buf, NIST_BUF_SIZE, ent_src) != 0) {
+                        if (ossl_aes_mangle(ossl_ctx, nist_rand_buf, NIST_BUF_SIZE) < 0) {
                                 message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Failed mangle\n");
                                 return 1;
                         }
@@ -712,6 +649,17 @@ int init_nist_entropy_source(struct rng *ent_src)
 	int rc;
 	memset(&block, 0, sizeof (struct nist_data_block));
 
+	if (ent_src->rng_options[NIST_OPT_USE_AES].int_val) {
+		unsigned char *p;
+		int i;
+
+		ossl_aes_random_key(mangle_key, NULL);
+		for (i = 0, p = mangle_iv_buf; i < 8; i++, p += AES_BLOCK)
+			ossl_aes_random_key(p, NULL);
+			
+		ossl_ctx = ossl_aes_init(mangle_key, mangle_iv_buf);
+	}
+	
 	rc = refill_rand(ent_src);
 	if (!rc) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "WARNING: NIST Randomness beacon "

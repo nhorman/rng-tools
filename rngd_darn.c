@@ -29,15 +29,12 @@
 #include <string.h>
 #include <limits.h>
 #include <sys/auxv.h>
-#include <openssl/conf.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
-
 
 #include "rngd.h"
 #include "fips.h"
 #include "exits.h"
 #include "rngd_entsource.h"
+#include "ossl_helpers.h"
 
 #define min(x,y) ({ \
 	typeof(x) _x = (x);     \
@@ -49,18 +46,13 @@ static uint64_t get_darn();
 static int refill_rand(struct rng *ent_src, bool allow_reinit);
 static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t copied);
 
-#define AES_BLOCK 16
 #define CHUNK_SIZE AES_BLOCK * 8
 #define RDRAND_ROUNDS		512		/* 512:1 data reduction */
-
-static unsigned char key[AES_BLOCK] = {
-	0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70,
-	0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0
-}; /* AES data reduction key */
-
 #define THRESH_BITS 14
 
-static EVP_CIPHER_CTX *ctx = NULL;
+/* ossl AES context */
+static struct ossl_aes_ctx *ossl_ctx;
+static unsigned char key[AES_BLOCK];
 static unsigned char iv_buf[AES_BLOCK];
 
 static unsigned char darn_rand_buf[CHUNK_SIZE];
@@ -72,15 +64,10 @@ static size_t rand_bytes_served = 0;
 
 static int init_openssl(struct rng *ent_src)
 {
-	unsigned char xkey[AES_BLOCK];
-	int i;
 	uint64_t darn_val;
+	int i;
 
-	/*
-	 * Use stack junk to create a key, shuffle it a bit
-	 */
-	for (i=0; i< sizeof(key); i++)
-		key[i] ^= xkey[i];
+	ossl_aes_random_key(key, NULL);
 
 	darn_val = get_darn();
 	if (darn_val == ULONG_MAX)
@@ -92,13 +79,11 @@ static int init_openssl(struct rng *ent_src)
 		return 1;
 	memcpy(&iv_buf[8], &darn_val, sizeof(uint64_t));
 
-	if (ctx != NULL) {
-		/* Clean up */
-		EVP_CIPHER_CTX_free(ctx);
-	}
-        if(!(ctx = EVP_CIPHER_CTX_new()))
-                return 1;
-
+	if (ossl_ctx != NULL)
+		ossl_aes_exit(ossl_ctx);
+	ossl_ctx = ossl_aes_init(key, iv_buf);
+	if (!ossl_ctx)
+		return 1;
 	rand_bytes_served = 0;
 	if (refill_rand(ent_src, false))
 		return 1;
@@ -107,56 +92,6 @@ static int init_openssl(struct rng *ent_src)
 	rekey_thresh &= ((1 << THRESH_BITS)-1);
 	
 	return 0;
-}
-
-static int osslencrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
-            unsigned char *iv, unsigned char *ciphertext)
-{
-        int len;
-
-        int ciphertext_len;
-
-        if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv))
-                return 0;
-        /*
-        * Provide the message to be encrypted, and obtain the encrypted output.
-        * EVP_EncryptUpdate can be called multiple times if necessary
-        */
-        if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
-                return 0;
-
-        ciphertext_len = len;
-
-        /*
-        * Finalise the encryption. Further ciphertext bytes may be written at
-        * this stage.
-        */
-        if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
-                return 0;
-        ciphertext_len += len;
-
-	return ciphertext_len;
-}
-
-static inline int openssl_mangle(unsigned char *tmp, size_t size, struct rng *ent_src)
-{
-        int ciphertext_len;
-
-        /*
-        * Buffer for ciphertext. Ensure the buffer is long enough for the
-        * ciphertext which may be longer than the plaintext, depending on the
-        * algorithm and mode.
-        */
-        unsigned char ciphertext[CHUNK_SIZE * RDRAND_ROUNDS];
-
-        /* Encrypt the plaintext */
-        ciphertext_len = osslencrypt (tmp, size, key, iv_buf,
-                              ciphertext);
-        if (!ciphertext_len)
-                return -1;
-
-        memcpy(tmp, ciphertext, size);
-        return 0;
 }
 
 static int refill_rand(struct rng *ent_src, bool allow_reinit)
@@ -172,9 +107,8 @@ static int refill_rand(struct rng *ent_src, bool allow_reinit)
 				return 1;
 		}
 
-		if (openssl_mangle(darn_rand_buf, CHUNK_SIZE, ent_src)) {
+		if (ossl_aes_mangle(ossl_ctx, darn_rand_buf, CHUNK_SIZE) < 0)
 			return 1;
-		}
 	} else {
 		uint64_t *ptr = (uint64_t *)darn_rand_buf;
 		for (i = 0; i < CHUNK_SIZE/sizeof(uint64_t); i++) {
