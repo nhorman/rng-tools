@@ -37,24 +37,22 @@
 #include <syslog.h>
 #include <string.h>
 #include <stddef.h>
-#include <openssl/conf.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
 
 #include "rngd.h"
 #include "fips.h"
 #include "exits.h"
 #include "rngd_entsource.h"
+#include "ossl_helpers.h"
 
 /* Read data from the drng in chunks of 128 bytes for AES scrambling */
-#define AES_BLOCK		16
 #define CHUNK_SIZE		(AES_BLOCK*8)	/* 8 parallel streams */
 #define RDRAND_ROUNDS		512		/* 512:1 data reduction */
 
-static unsigned char key[AES_BLOCK] = {
-	0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70,
-	0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0
-}; /* AES data reduction key */
+/* AES data reduction key */
+static unsigned char key[AES_BLOCK];
+
+/* ossl AES context */
+static struct ossl_aes_ctx *ossl_ctx;
 
 /* Struct for CPUID return values */
 struct cpuid {
@@ -142,65 +140,6 @@ static void cpuid(unsigned int leaf, unsigned int subleaf, struct cpuid *out)
 static unsigned char iv_buf[CHUNK_SIZE] __attribute__((aligned(128)));
 static int have_aesni, have_rdseed;
 
-static int osslencrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
-            unsigned char *iv, unsigned char *ciphertext)
-{
-	EVP_CIPHER_CTX *ctx;
-
-	int len;
-
-	int ciphertext_len;
-
-	/* Create and initialise the context */
-	if(!(ctx = EVP_CIPHER_CTX_new()))
-		return 0;
-
-	if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv))
-		return 0;
-	/*
-	* Provide the message to be encrypted, and obtain the encrypted output.
-	* EVP_EncryptUpdate can be called multiple times if necessary
-	*/
-	if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
-		return 0;
-
-	ciphertext_len = len;
-
-	/*
-	* Finalise the encryption. Further ciphertext bytes may be written at
-	* this stage.
-	*/
-	if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
-		return 0;
-	ciphertext_len += len;
-
-	/* Clean up */
-	EVP_CIPHER_CTX_free(ctx);
-
-	return ciphertext_len;
-}
-
-static inline int openssl_mangle(unsigned char *tmp, struct rng *ent_src)
-{
-	int ciphertext_len;
-
-	/*
-	* Buffer for ciphertext. Ensure the buffer is long enough for the
-	* ciphertext which may be longer than the plaintext, depending on the
-	* algorithm and mode.
-	*/
-	unsigned char ciphertext[CHUNK_SIZE * RDRAND_ROUNDS];
-
-	/* Encrypt the plaintext */
-	ciphertext_len = osslencrypt (tmp, strlen(tmp), key, iv_buf,
-			      ciphertext);
-	if (!ciphertext_len)
-		return -1;
-
-	memcpy(tmp, ciphertext, strlen(tmp));
-	return 0;
-}
-
 int xread_drng_with_aes(void *buf, size_t size, struct rng *ent_src)
 {
 	static unsigned char rdrand_buf[CHUNK_SIZE * RDRAND_ROUNDS]
@@ -227,7 +166,7 @@ int xread_drng_with_aes(void *buf, size_t size, struct rng *ent_src)
 				x86_aes_mangle(rdrand_buf, iv_buf);
 				data = iv_buf;
 				chunk = CHUNK_SIZE;
-			} else if (!openssl_mangle(rdrand_buf, ent_src)) {
+			} else if (ossl_aes_mangle(ossl_ctx, rdrand_buf, AES_BLOCK) >= 0) {
 				data = rdrand_buf +
 					AES_BLOCK * (RDRAND_ROUNDS - 1);
 				chunk = AES_BLOCK;
@@ -288,9 +227,6 @@ int xread_drng(void *buf, size_t size, struct rng *ent_src)
 
 static int init_aesni(const void *key)
 {
-	if (!have_aesni)
-		return 1;
-
 	x86_aes_expand_key(key);
 	return 0;
 }
@@ -335,21 +271,16 @@ int init_drng_entropy_source(struct rng *ent_src)
 	/* Randomize the AES data reduction key the best we can */
 	if (x86_rdrand_bytes(xkey, sizeof xkey) != sizeof xkey)
 		return 1;
-
-	fd = open("/dev/urandom", O_RDONLY);
-	if (fd >= 0) {
-		read(fd, key, sizeof key);
-		close(fd);
-	}
-
-	for (i = 0; i < (int)sizeof key; i++)
-		key[i] ^= xkey[i];
+	ossl_aes_random_key(key, xkey);
 
 	/* Initialize the IV buffer */
 	if (x86_rdrand_bytes(iv_buf, CHUNK_SIZE) != CHUNK_SIZE)
 		return 1;
 
-	init_aesni(key);
+	if (have_aesni)
+		init_aesni(key);
+	else
+		ossl_ctx = ossl_aes_init(key, iv_buf);
 
 	if (have_rdseed)
 		message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling RDSEED rng support\n");

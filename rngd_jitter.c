@@ -27,9 +27,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <setjmp.h>
-#include <openssl/conf.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
 
 #include "rng-tools-config.h"
 
@@ -39,9 +36,9 @@
 #include "fips.h"
 #include "exits.h"
 #include "rngd_entsource.h"
+#include "ossl_helpers.h"
 
 /* Read data from the drng in chunks of 128 bytes for AES scrambling */
-#define AES_BLOCK               16
 #define CHUNK_SIZE              (AES_BLOCK*8)   /* 8 parallel streams */
 #define RDRAND_ROUNDS           512             /* 512:1 data reduction */
 
@@ -71,65 +68,7 @@ unsigned char *aes_buf;
 
 static char key[AES_BLOCK];
 static unsigned char iv_buf[CHUNK_SIZE] __attribute__((aligned(128)));
-
-static int osslencrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
-            unsigned char *iv, unsigned char *ciphertext)
-{
-        EVP_CIPHER_CTX *ctx;
-
-        int len;
-
-        int ciphertext_len;
-
-        /* Create and initialise the context */
-        if(!(ctx = EVP_CIPHER_CTX_new()))
-                return 0;
-
-        if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv))
-                return 0;
-        /*
-        * Provide the message to be encrypted, and obtain the encrypted output.
-        * EVP_EncryptUpdate can be called multiple times if necessary
-        */
-        if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
-                return 0;
-
-        ciphertext_len = len;
-
-        /*
-        * Finalise the encryption. Further ciphertext bytes may be written at
-        * this stage.
-        */
-        if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
-                return 0;
-        ciphertext_len += len;
-
-        /* Clean up */
-        EVP_CIPHER_CTX_free(ctx);
-
-        return ciphertext_len;
-}
-
-static inline int openssl_mangle(unsigned char *tmp, struct rng *ent_src)
-{
-        int ciphertext_len;
-
-        /*
-        * Buffer for ciphertext. Ensure the buffer is long enough for the
-        * ciphertext which may be longer than the plaintext, depending on the
-        * algorithm and mode.
-        */
-        unsigned char ciphertext[CHUNK_SIZE * RDRAND_ROUNDS];
-
-        /* Encrypt the plaintext */
-        ciphertext_len = osslencrypt (tmp, strlen(tmp), key, iv_buf,
-                              ciphertext);
-        if (!ciphertext_len)
-                return -1;
-
-        memcpy(tmp, ciphertext, strlen(tmp));
-        return 0;
-}
+static struct ossl_aes_ctx *ossl_ctx;
 
 int xread_jitter(void *buf, size_t size, struct rng *ent_src)
 {
@@ -152,7 +91,7 @@ try_again:
 			while(need) {
 				request = (need >= current->buf_sz) ? current->buf_sz : need;
 				memcpy(buf, &aes_buf[total], request);
-				openssl_mangle(aes_buf, ent_src);
+				ossl_aes_mangle(ossl_ctx, aes_buf, request);
 				need -= request;
 				total += request;
 			}
@@ -462,6 +401,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		} else {
 			/* re-enable AES */
 			ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 1;
+			ossl_ctx = ossl_aes_init(key, iv_buf);
 		}
 		xread_jitter(aes_buf, tdata[0].buf_sz, ent_src);
 	} else {
@@ -511,6 +451,9 @@ void close_jitter_entropy_source(struct rng *ent_src)
 	close(pipefds[0]);
 	free(tdata);
 	free(threads);
-	return;
+	if (ossl_ctx) {
+		ossl_aes_exit(ossl_ctx);
+		ossl_ctx = NULL;
+	}
 }
 
