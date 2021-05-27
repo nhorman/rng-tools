@@ -38,6 +38,85 @@
 #include "rngd_entsource.h"
 #include "ossl_helpers.h"
 
+#ifdef HAVE_JITTER_NOTIME
+struct rngd_notime_ctx {
+	pthread_attr_t notime_pthread_attr;     /* pthreads library */
+	pthread_t notime_thread_id;             /* pthreads thread ID */
+};
+
+static int rngd_notime_init(void **ctx)
+{
+	struct rngd_notime_ctx *thread_ctx;
+
+	thread_ctx = calloc(1, sizeof(struct rngd_notime_ctx));
+	if (!thread_ctx)
+		return -errno;
+
+	*ctx = thread_ctx;
+
+	return 0;
+}
+
+static void rngd_notime_fini(void *ctx)
+{
+	struct rngd_notime_ctx *thread_ctx = (struct rngd_notime_ctx *)ctx;
+
+	if (thread_ctx)
+		free(thread_ctx);
+}
+
+static int rngd_notime_start(void *ctx,
+			     void *(*start_routine) (void *), void *arg)
+{
+	struct rngd_notime_ctx *thread_ctx = (struct rngd_notime_ctx *)ctx;
+	int ret;
+	int i;
+	cpu_set_t *cpus;
+	size_t cpusize;
+
+	if (!thread_ctx)
+		return -EINVAL;
+
+	ret = -pthread_attr_init(&thread_ctx->notime_pthread_attr);
+	if (ret)
+		return ret;
+
+	/*
+ 	 * the soft timer function should affine to all cpus
+ 	 */
+	i = sysconf(_SC_NPROCESSORS_CONF);
+	cpus = CPU_ALLOC(i);
+	cpusize = CPU_ALLOC_SIZE(i);
+	CPU_ZERO_S(cpusize, cpus);
+	for(i=i-1;i>=0;i--) {
+		CPU_SET(i,cpus);
+	}
+
+	ret = -pthread_create(&thread_ctx->notime_thread_id,
+				&thread_ctx->notime_pthread_attr,
+				start_routine, arg);
+
+	CPU_FREE(cpus);
+	return ret;
+}
+
+static void rngd_notime_stop(void *ctx)
+{
+	struct rngd_notime_ctx *thread_ctx = (struct rngd_notime_ctx *)ctx;
+
+	pthread_join(thread_ctx->notime_thread_id, NULL);
+	pthread_attr_destroy(&thread_ctx->notime_pthread_attr);
+}
+
+
+static struct jent_notime_thread rngd_notime_thread_builtin = {
+	.jent_notime_init  = rngd_notime_init,
+	.jent_notime_fini  = rngd_notime_fini,
+	.jent_notime_start = rngd_notime_start,
+	.jent_notime_stop  = rngd_notime_stop
+};
+#endif
+
 /* Read data from the drng in chunks of 128 bytes for AES scrambling */
 #define CHUNK_SIZE              (AES_BLOCK*8)   /* 8 parallel streams */
 #define RDRAND_ROUNDS           512             /* 512:1 data reduction */
@@ -296,11 +375,19 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	int i;
 	int size;
 	int flags;
+	int ret;
 	int core_id = 0;
 
 	signal(SIGUSR1, jitter_thread_exit_signal);
 
-	int ret = jent_entropy_init();
+#ifdef HAVE_JITTER_NOTIME
+	ret = jent_entropy_switch_notime_impl(&rngd_notime_thread_builtin);
+	if (ret) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_WARNING, "JITTER rng fails to register soft timer: %d\n", ret);
+		return 1;
+	}
+#endif
+	ret = jent_entropy_init();
 	if(ret) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "JITTER rng fails with code %d\n", ret);
 		return 1;
