@@ -38,6 +38,8 @@
 #include "rngd_entsource.h"
 #include "ossl_helpers.h"
 
+static bool using_soft_timer = false;
+
 #ifdef HAVE_JITTER_NOTIME
 static int rngd_notime_start(void *ctx,
 			     void *(*start_routine) (void *), void *arg)
@@ -67,7 +69,6 @@ static int rngd_notime_start(void *ctx,
 	}
 	pthread_attr_setaffinity_np(&thread_ctx->notime_pthread_attr, cpusize, cpus);
 
-	message(LOG_DAEMON|LOG_DEBUG, "starting internal timer %x\n", thread_ctx->notime_thread_id);
 	ret = -pthread_create(&thread_ctx->notime_thread_id,
 				&thread_ctx->notime_pthread_attr,
 				start_routine, arg);
@@ -80,14 +81,19 @@ static void rngd_notime_stop(void *ctx)
 {
 	struct jent_notime_ctx *thread_ctx = (struct jent_notime_ctx *)ctx;
 
-	message(LOG_DAEMON|LOG_DEBUG, "stopping internal timer\n");
 	pthread_join(thread_ctx->notime_thread_id, NULL);
 	pthread_attr_destroy(&thread_ctx->notime_pthread_attr);
 }
 
 
+static int rngd_notime_init(void **ctx)
+{
+	using_soft_timer = true;
+	return jent_notime_init(ctx);
+}
+
 static struct jent_notime_thread rngd_notime_thread_builtin = {
-	.jent_notime_init  = jent_notime_init,
+	.jent_notime_init  = rngd_notime_init,
 	.jent_notime_fini  = jent_notime_fini,
 	.jent_notime_start = rngd_notime_start,
 	.jent_notime_stop  = rngd_notime_stop
@@ -315,6 +321,8 @@ int validate_jitter_options(struct rng *ent_src)
 	int refill = ent_src->rng_options[JITTER_OPT_REFILL].int_val;
 	int delay = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
 	int rcount = ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val;
+	int soft_timer = ent_src->rng_options[JITTER_OPT_FORCE_INT_TIMER].int_val;
+	int num_threads = ent_src->rng_options[JITTER_OPT_THREADS].int_val;
 
 	/* Need at least one thread to do this work */
 	if (!threads) {
@@ -338,6 +346,12 @@ int validate_jitter_options(struct rng *ent_src)
 		return 1;
 	}
 
+#ifndef HAVE_JITTER_NOTIME
+	if (soft_timer) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "JITTER doesn't support soft timers in this build\n");
+		return 1;
+	}
+#endif
 	return 0;
 }
 
@@ -417,7 +431,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	tdata = calloc(num_threads, sizeof(struct thread_data));
 	threads = calloc(num_threads, sizeof(pthread_t));
 
-	message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "JITTER starts %d threads\n", num_threads);
+	message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "JITTER attempting to start %d threads\n", num_threads);
 
 	/*
  	 * Allocate and init the thread data that we need
@@ -436,14 +450,6 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		tdata[i].ec = jent_entropy_collector_alloc(1, entflags);
 		tdata[i].slpmode = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
 		pthread_create(&threads[i], NULL, thread_entropy_task, &tdata[i]);
-	}
-
-	CPU_FREE(cpus);
-	cpus = NULL;
-
-	/* Make sure all our threads are doing their jobs */
-	for (i=0; i < num_threads; i++) {
-		/* wait until the done state transitions from negative to zero or more */
 		pthread_mutex_lock(&tdata[i].statemtx);
 		if (tdata[i].done < 0)
 			pthread_cond_wait(&tdata[i].statecond, &tdata[i].statemtx);
@@ -453,7 +459,15 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		else
 			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "CPU Thread %d is ready\n", i);
 		pthread_mutex_unlock(&tdata[i].statemtx);
+		if (using_soft_timer == true) {
+			num_threads = 1;
+			message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Limiting jitter to one thread for soft timer use\n");
+			break;
+		}
 	}
+
+	CPU_FREE(cpus);
+	cpus = NULL;
 
 	if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
 		/*
