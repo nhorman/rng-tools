@@ -197,6 +197,8 @@ Options
 
 \fBretry_delay - \fR between each retry for retry_count above, sleep for this many seconds. May also be the special value -1, representing adaptive sleep, where each retry delay will be half the recorded execution time of the last entropy gathering round (default -1)
 
+\fBforce_soft_timer - \fR on platforms with a hardware timer that is too coarse to sample jitter, we can instead use a software based timer loop.  Detection and use of this mechanism is automatic, but this can be useful for testing purposes
+
 .TP
 .B
 PKCS11 (pkcs11) [Index 6]
