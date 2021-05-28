@@ -39,36 +39,10 @@
 #include "ossl_helpers.h"
 
 #ifdef HAVE_JITTER_NOTIME
-struct rngd_notime_ctx {
-	pthread_attr_t notime_pthread_attr;     /* pthreads library */
-	pthread_t notime_thread_id;             /* pthreads thread ID */
-};
-
-static int rngd_notime_init(void **ctx)
-{
-	struct rngd_notime_ctx *thread_ctx;
-
-	thread_ctx = calloc(1, sizeof(struct rngd_notime_ctx));
-	if (!thread_ctx)
-		return -errno;
-
-	*ctx = thread_ctx;
-
-	return 0;
-}
-
-static void rngd_notime_fini(void *ctx)
-{
-	struct rngd_notime_ctx *thread_ctx = (struct rngd_notime_ctx *)ctx;
-
-	if (thread_ctx)
-		free(thread_ctx);
-}
-
 static int rngd_notime_start(void *ctx,
 			     void *(*start_routine) (void *), void *arg)
 {
-	struct rngd_notime_ctx *thread_ctx = (struct rngd_notime_ctx *)ctx;
+	struct jent_notime_ctx *thread_ctx = (struct jent_notime_ctx *)ctx;
 	int ret;
 	int i;
 	cpu_set_t *cpus;
@@ -102,7 +76,7 @@ static int rngd_notime_start(void *ctx,
 
 static void rngd_notime_stop(void *ctx)
 {
-	struct rngd_notime_ctx *thread_ctx = (struct rngd_notime_ctx *)ctx;
+	struct jent_notime_ctx *thread_ctx = (struct jent_notime_ctx *)ctx;
 
 	pthread_join(thread_ctx->notime_thread_id, NULL);
 	pthread_attr_destroy(&thread_ctx->notime_pthread_attr);
@@ -110,8 +84,8 @@ static void rngd_notime_stop(void *ctx)
 
 
 static struct jent_notime_thread rngd_notime_thread_builtin = {
-	.jent_notime_init  = rngd_notime_init,
-	.jent_notime_fini  = rngd_notime_fini,
+	.jent_notime_init  = jent_notime_init,
+	.jent_notime_fini  = jent_notime_fini,
 	.jent_notime_start = rngd_notime_start,
 	.jent_notime_stop  = rngd_notime_stop
 };
