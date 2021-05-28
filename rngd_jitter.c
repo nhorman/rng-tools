@@ -65,7 +65,9 @@ static int rngd_notime_start(void *ctx,
 	for(i=i-1;i>=0;i--) {
 		CPU_SET(i,cpus);
 	}
+	pthread_attr_setaffinity_np(&thread_ctx->notime_pthread_attr, cpusize, cpus);
 
+	message(LOG_DAEMON|LOG_DEBUG, "starting internal timer %x\n", thread_ctx->notime_thread_id);
 	ret = -pthread_create(&thread_ctx->notime_thread_id,
 				&thread_ctx->notime_pthread_attr,
 				start_routine, arg);
@@ -78,6 +80,7 @@ static void rngd_notime_stop(void *ctx)
 {
 	struct jent_notime_ctx *thread_ctx = (struct jent_notime_ctx *)ctx;
 
+	message(LOG_DAEMON|LOG_DEBUG, "stopping internal timer\n");
 	pthread_join(thread_ctx->notime_thread_id, NULL);
 	pthread_attr_destroy(&thread_ctx->notime_pthread_attr);
 }
@@ -349,10 +352,14 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	int i;
 	int size;
 	int flags;
+	int entflags = 0;
 	int ret;
 	int core_id = 0;
 
 	signal(SIGUSR1, jitter_thread_exit_signal);
+
+	if (validate_jitter_options(ent_src))
+		return 1;
 
 #ifdef HAVE_JITTER_NOTIME
 	ret = jent_entropy_switch_notime_impl(&rngd_notime_thread_builtin);
@@ -360,15 +367,16 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		message_entsrc(ent_src, LOG_DAEMON|LOG_WARNING, "JITTER rng fails to register soft timer: %d\n", ret);
 		return 1;
 	}
+
+	if (ent_src->rng_options[JITTER_OPT_FORCE_INT_TIMER].int_val)
+		entflags |= JENT_FORCE_INTERNAL_TIMER;
 #endif
+
 	ret = jent_entropy_init();
 	if(ret) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "JITTER rng fails with code %d\n", ret);
 		return 1;
 	}
-
-	if (validate_jitter_options(ent_src))
-		return 1;
 
 	if (pipe(pipefds)) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "JITTER rng can't open pipe: %s\n", strerror(errno));
@@ -425,7 +433,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		tdata[i].done = -1;
 		core_id++;
 		tdata[i].buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
-		tdata[i].ec = jent_entropy_collector_alloc(1, 0);
+		tdata[i].ec = jent_entropy_collector_alloc(1, entflags);
 		tdata[i].slpmode = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
 		pthread_create(&threads[i], NULL, thread_entropy_task, &tdata[i]);
 	}
