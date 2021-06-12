@@ -42,22 +42,23 @@ void ossl_aes_random_key(unsigned char *key, const unsigned char *pepper)
 		0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70,
 		0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0
 	}; /* AES data reduction key */
-	unsigned char stack_junk[AES_BLOCK];
+	volatile unsigned char stack_junk[AES_BLOCK];
 	int fd, i;
 
 	/* Try getting some randomness from the kernel */
 	fd = open("/dev/urandom", O_RDONLY);
 	if (fd >= 0) {
-		int r = read(fd, key, sizeof key);
+		int r __attribute__((unused));
+		r = read(fd, key, AES_BLOCK);
 		close(fd);
 	}
 
 	/* Mix in our default key */
-	for (i = 0; i < AES_BLOCK && pepper; i++)
+	for (i = 0; i < AES_BLOCK; i++)
 		key[i] ^= default_key[i];
 
 	/* Mix in stack junk */
-	for (i = 0; i < AES_BLOCK && pepper; i++)
+	for (i = 0; i < AES_BLOCK; i++)
 		key[i] ^= stack_junk[i];
 
 	/* Spice it up if we can */
