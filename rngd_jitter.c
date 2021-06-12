@@ -126,7 +126,7 @@ static struct thread_data *tdata;
 static pthread_t *threads;
 int pipefds[2];
 
-unsigned char *aes_buf;
+unsigned char *aes_buf = NULL;
 
 static unsigned char key[AES_BLOCK];
 static unsigned char iv_buf[CHUNK_SIZE] __attribute__((aligned(128)));
@@ -533,9 +533,9 @@ void close_jitter_entropy_source(struct rng *ent_src)
 	close(pipefds[0]);
 	free(tdata);
 	free(threads);
+	free(aes_buf);
 	if (ossl_ctx) {
 		ossl_aes_exit(ossl_ctx);
 		ossl_ctx = NULL;
 	}
 }
-
