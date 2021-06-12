@@ -94,12 +94,13 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 	}
 
 	temp_buf = (unsigned char *) malloc(size + TPM_GET_RNG_OVERHEAD);
-	memset(temp_buf, 0, (size+TPM_GET_RNG_OVERHEAD));
 	if (temp_buf == NULL) {
 		message_entsrc(ent_src,LOG_ERR|LOG_INFO,"No memory for TPM buffer\n");
 		close(ent_src->rng_fd);
 		return -1;
 	}
+	memset(temp_buf, 0, (size+TPM_GET_RNG_OVERHEAD));
+
 	/* 32 bits has been reserved for random byte size */
 	rng_cmd[13] = (unsigned char)(size & 0xFF);
 	rng_cmd[12] = (unsigned char)((size >> 8) & 0xFF);

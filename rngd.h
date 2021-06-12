@@ -184,9 +184,11 @@ extern bool quiet;
 	size_t ____neededpfx = snprintf(NULL, 0, "[%-6s]: ", src->rng_sname); \
 	size_t ____neededmsg = snprintf(NULL, 0, fmt, ##args) + 1; \
 	char *____buf = malloc(____neededpfx + ____neededmsg); \
-	sprintf(____buf, "[%-6s]: " fmt, src->rng_sname, ##args); \
-	message(priority, "%s", ____buf); \
-	free(____buf); \
+	if (____buf) { \
+		sprintf(____buf, "[%-6s]: " fmt, src->rng_sname, ##args); \
+		message(priority, "%s", ____buf); \
+		free(____buf); \
+	} \
 } while (0)
 
 extern bool do_reseed;
