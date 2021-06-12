@@ -1,6 +1,6 @@
 *.a
 *.o
-/.deps/
+.deps/
 /aclocal.m4
 /ar-lib
 /autom4te.cache/
@@ -10,6 +10,7 @@
 /config.status
 /config.sub
 /configure
+/contrib/randstat
 /depcomp
 /install-sh
 /missing
