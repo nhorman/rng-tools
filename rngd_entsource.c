@@ -182,13 +182,14 @@ int init_entropy_source(struct rng *ent_src)
 		return 1;
 	}
 
-	if (read(rngavail_fd, buf, sizeof(buf)) < 0) {
+	int ret = read(rngavail_fd, buf, sizeof(buf));
+	if (ret < 0) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Error reading sysfs file: %s\n", RNG_AVAIL);
 		close(rngavail_fd);
 		return 1;
 	}
 
-	if (strncmp(buf, "\n", 1) == 0) {
+	if (ret == 0 || strncmp(buf, "\n", 1) == 0) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "No available rng device\n");
 		close(rngavail_fd);
 		return 1;
