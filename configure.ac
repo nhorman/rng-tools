@@ -20,7 +20,8 @@ dnl Foundation, Inc., 51 Franklin Street, Suite 500, Boston, MA  02110-1335  USA
 AC_INIT(rng-tools, 6.13, [Neil Horman <nhorman@tuxdriver.com>])
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR([rngd.c])
-AC_CANONICAL_TARGET
+AC_CANONICAL_HOST
+AC_CANONICAL_TARGET dnl required for broken AX_PTHREAD
 AM_INIT_AUTOMAKE([foreign])
 AC_CONFIG_HEADERS([rng-tools-config.h])
 AC_CONFIG_MACRO_DIRS([m4])
@@ -67,14 +68,14 @@ AC_PROG_GCC_TRADITIONAL
 
 AX_PTHREAD
 
-AM_CONDITIONAL([RDRAND], [test $target_cpu = x86_64 -o $target_cpu = i686])
-AS_IF([test $target_cpu = x86_64 -o $target_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
+AM_CONDITIONAL([RDRAND], [test $host_cpu = x86_64 || $host_cpu = i686])
+AS_IF([test $host_cpu = x86_64 || $host_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
 
-AM_CONDITIONAL([DARN], [test $target_cpu = powerpc64le])
-AS_IF([test $target_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
+AM_CONDITIONAL([DARN], [test $host_cpu = powerpc64le])
+AS_IF([test $host_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
 
-AM_CONDITIONAL([RNDR], [test $target_cpu = aarch64])
-AS_IF([test $target_cpu = aarch64], [AC_DEFINE([HAVE_RNDR],1,[Enable RNDR])],[])
+AM_CONDITIONAL([RNDR], [test $host_cpu = aarch64])
+AS_IF([test $host_cpu = aarch64], [AC_DEFINE([HAVE_RNDR],1,[Enable RNDR])],[])
 AM_CONDITIONAL([JITTER], [false])
 
 AC_ARG_ENABLE(jitterentropy,
