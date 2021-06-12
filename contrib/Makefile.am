@@ -1,3 +1,2 @@
-
-EXTRA_DIST = randstat.c
-
+bin_PROGRAMS = randstat
+randstat_SOURCES = randstat.c
