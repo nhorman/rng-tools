@@ -62,9 +62,8 @@ AM_PROG_AS
 dnl Checks for programs
 AC_PROG_CC
 AC_PROG_RANLIB
+AM_PROG_AR
 AC_PROG_GCC_TRADITIONAL
-
-AC_CHECK_TOOLS([AR], [ar gar], :)
 
 AX_PTHREAD
 
