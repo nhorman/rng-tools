@@ -128,7 +128,7 @@ int pipefds[2];
 
 unsigned char *aes_buf;
 
-static char key[AES_BLOCK];
+static unsigned char key[AES_BLOCK];
 static unsigned char iv_buf[CHUNK_SIZE] __attribute__((aligned(128)));
 static struct ossl_aes_ctx *ossl_ctx;
 
@@ -322,7 +322,6 @@ int validate_jitter_options(struct rng *ent_src)
 	int delay = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
 	int rcount = ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val;
 	int soft_timer = ent_src->rng_options[JITTER_OPT_FORCE_INT_TIMER].int_val;
-	int num_threads = ent_src->rng_options[JITTER_OPT_THREADS].int_val;
 
 	/* Need at least one thread to do this work */
 	if (!threads) {

@@ -65,7 +65,7 @@ static void scale_mult_unit(char *unit, int unitsize,
 	if (mult)
 		snprintf(unit, unitsize, "%ci%s", multchar[mult-1], baseunit);
 	else
-		strncpy(unit, baseunit, unitsize);
+		strncpy(unit, baseunit, unitsize-1);
 }
 
 /* Computes elapsed time in microseconds */

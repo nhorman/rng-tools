@@ -21,12 +21,12 @@
 #include "rngd.h"
 #include "ossl_helpers.h"
 
-#define RAW_BUF_SZ	    4096
+#define RAW_BUF_SZ              4096
 
-#define CHUNK_SIZE	      (AES_BLOCK*8)   /* 8 parallel streams */
+#define CHUNK_SIZE              (AES_BLOCK*8)   /* 8 parallel streams */
 
 static rtlsdr_dev_t *radio = NULL;
-static char raw_buffera[RAW_BUF_SZ];
+static unsigned char raw_buffera[RAW_BUF_SZ];
 static int freq_min;
 static int freq_max;
 static int sample_min;
