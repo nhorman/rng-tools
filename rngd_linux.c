@@ -56,22 +56,35 @@ extern int kent_pool_size;
 /*
  * Get the default watermark
  */
+
+#define DEFAULT_WATERMARK_GUESS 4096
+
 int default_watermark(void)
 {
 	FILE *f;
-	unsigned int wm;	/* Default guess */
+	unsigned int wm;
 
 	f = fopen("/proc/sys/kernel/random/poolsize", "r");
-	if (!f)
+	if (!f) {
+		wm = DEFAULT_WATERMARK_GUESS;
+		message(LOG_DAEMON|LOG_ERR, "can't open /proc/sys/kernel/random/poolsize: %s",
+			strerror(errno));
 		goto err;
-	/*
-	 * Default to 4096 if fscanf fails
-	 */
-	if(fscanf(f,"%u", &wm) < 1)
-		wm = 4096;
+	}
+
+	/* Use DEFAULT_WATERMARK_GUESS if fscanf fails */
+	if(fscanf(f,"%u", &wm) < 1) {
+		wm = DEFAULT_WATERMARK_GUESS;
+		message(LOG_DAEMON|LOG_ERR, "can't read /proc/sys/kernel/random/poolsize: %s",
+			strerror(errno));
+	}
+
+err:
 	kent_pool_size = wm;
 	wm = wm*3/4;
-err:
+	message(LOG_DAEMON|LOG_ERR, "kernel entropy pool size: %d pool watermark: %d",
+		kent_pool_size, wm);
+
 	if (f)
 		fclose(f);
 	return wm;
@@ -153,7 +166,7 @@ int random_add_entropy(void *buf, size_t size)
 	} else
 		write(random_fd, buf, size);
 
-	return ent->ent_count; 
+	return ent->ent_count;
 
 }
 

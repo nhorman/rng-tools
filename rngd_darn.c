@@ -46,9 +46,9 @@ static uint64_t get_darn();
 static int refill_rand(struct rng *ent_src, bool allow_reinit);
 static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t copied);
 
-#define CHUNK_SIZE AES_BLOCK * 8
+#define CHUNK_SIZE		(AES_BLOCK*8)
 #define RDRAND_ROUNDS		512		/* 512:1 data reduction */
-#define THRESH_BITS 14
+#define THRESH_BITS		14
 
 /* ossl AES context */
 static struct ossl_aes_ctx *ossl_ctx;

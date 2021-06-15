@@ -74,7 +74,7 @@ static int get_nist_record(struct rng *ent_src);
 
 static size_t nist_buf_avail = 0;
 static size_t nist_buf_ptr = 0;
-static char nist_rand_buf[NIST_BUF_SIZE];
+static unsigned char nist_rand_buf[NIST_BUF_SIZE];
 static char errbuf[120];
 int cfp;
 
@@ -275,22 +275,17 @@ static void get_json_byte_array(json_t *parent, char *key, char **val, uint32_t 
 }
 
 /*
- * Note, I'm making the assumption that the entire xml block gets returned 
+ * Note, I'm making the assumption that the entire xml block gets returned
  * in a single call here, which I should fix
  */
 static size_t parse_nist_json_block(char *ptr, size_t size, size_t nemb, void *userdata)
 {
         size_t idx;
         json_t *jidx;
-	xmlTextReaderPtr reader;
-	int ret = 1;
-	const char *name;
-	size_t realsize = size * nemb;
-	char *xml = (char *)ptr;
-        json_t *json, *pulse, *values, *obj;
+        size_t realsize = size * nemb;
+        json_t *json, *pulse, *obj;
         json_error_t jsonerror;
         struct rng *ent_src = userdata;
-
 
         json = json_loads(ptr, size, &jsonerror);
         if (!json) {
@@ -532,7 +527,8 @@ static int validate_nist_block(struct rng *ent_src)
 		goto out;
 	}
 
-	if (EVP_VerifyFinal(mdctx, block.signatureValue, be32toh(block.signatureValueLen), pubkey) < 1) {
+	if (EVP_VerifyFinal(mdctx, (unsigned char *)block.signatureValue,
+		be32toh(block.signatureValueLen), pubkey) < 1) {
 		unsigned long err;
 		message_entsrc(ent_src,LOG_DAEMON| LOG_ERR, "Unable to validate signature on message\n");
 		while( (err = ERR_get_error()) != 0 ) {
@@ -566,7 +562,8 @@ static size_t copy_nist_certificate(char *ptr, size_t size, size_t nemb, void *u
         return size * nemb;
 }
 
-static void update_active_cert() {
+static void update_active_cert(struct rng *ent_src)
+{
         CURL *curl;
         CURLcode res;
         char *certurl;
@@ -574,24 +571,46 @@ static void update_active_cert() {
 
         free(activeCert);
         activeCert = NULL;
-                
+
         curl = curl_easy_init();
-        if (!curl)
+        if (!curl) {
+                message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+                        "update_active_cert(): curl_easy_init() failed\n");
                 return;
+        }
 
         certurl = alloca(urlsize);
-        if (!certurl)
-                return;
+        if (!certurl) {
+                message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+                        "update_active_cert(): alloca() failed\n");
+                goto out_curl;
+        }
         strcpy(certurl, NIST_CERT_BASE_URL);
         certurl = strcat(certurl, block.certificateIdString);
-        curl_easy_setopt(curl, CURLOPT_URL, certurl);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, copy_nist_certificate);
+
+        res = curl_easy_setopt(curl, CURLOPT_URL, certurl);
+        if (res != CURLE_OK) {
+                message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+                        "update_active_cert(): curl_easy_setopt(URL) failed: %s\n",
+                        curl_easy_strerror(res));
+                goto out_curl;
+        }
+        res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, copy_nist_certificate);
+        if (res != CURLE_OK) {
+                message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+                        "update_active_cert(): curl_easy_setopt(WRITEFUNC) failed: %s\n",
+                        curl_easy_strerror(res));
+                goto out_curl;
+        }
 
         res = curl_easy_perform(curl);
-	if (res != CURLE_OK) {
-		fprintf(stderr, "curl_easy_perform() failed in cert update: %s\n", 
-			curl_easy_strerror(res));
-	}
+        if (res != CURLE_OK) {
+                message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+                        "update_active_cert(): curl_easy_perform() failed: %s\n",
+                        curl_easy_strerror(res));
+        }
+
+out_curl:
         curl_easy_cleanup(curl);
         return;
 }
@@ -603,42 +622,62 @@ static int get_nist_record(struct rng *ent_src)
 	int rc = 1;
 
 	curl = curl_easy_init();
-
-	if (!curl)
-		goto out;
-
-	curl_easy_setopt(curl, CURLOPT_URL, NIST_RECORD_URL);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, parse_nist_json_block);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, ent_src);
-
-	res = curl_easy_perform(curl);
-	if (res != CURLE_OK) {
-		fprintf(stderr, "curl_easy_perform() failed: %s\n", 
-			curl_easy_strerror(res));
+	if (!curl) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+			"get_nist_record(): curl_easy_init() failed\n");
 		goto out;
 	}
 
-	curl_easy_cleanup(curl);
+	res = curl_easy_setopt(curl, CURLOPT_URL, NIST_RECORD_URL);
+	if (res != CURLE_OK) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+			"get_nist_record(): curl_easy_setopt(URL) failed: %s\n",
+			curl_easy_strerror(res));
+		goto out_curl;
+	}
+	res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, parse_nist_json_block);
+	if (res != CURLE_OK) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+			"get_nist_record(): curl_easy_setopt(WRITEFUNC) failed: %s\n",
+			curl_easy_strerror(res));
+		goto out_curl;
+	}
+	res = curl_easy_setopt(curl, CURLOPT_WRITEDATA, ent_src);
+	if (res != CURLE_OK) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+			"get_nist_record(): curl_easy_setopt(WRITEDATA) failed: %s\n",
+			curl_easy_strerror(res));
+		goto out_curl;
+	}
+
+	/* parse_nist_json_block() runs here as a callback */
+	res = curl_easy_perform(curl);
+	if (res != CURLE_OK) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+			"get_nist_record(): curl_easy_perform() failed: %s\n",
+			curl_easy_strerror(res));
+		goto out_curl;
+	}
 
         lastpulse = block.pulseIndex;
 
         if (!activeCertId || memcmp(activeCertId, block.certificateId, be32toh(block.certificateIdLen))) {
                 free(activeCertId);
                 activeCertId = strndup(block.certificateId, be32toh(block.certificateIdLen));
-                update_active_cert();
+                update_active_cert(ent_src);
         }
 
 	if (validate_nist_block(ent_src)) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Received block failed validation\n");
-		goto out;
+		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Received block failed validation\n");
+		goto out_curl;
 	}
 
-        
 	rc = 0;
 
+out_curl:
+	curl_easy_cleanup(curl);
 out:
 	return rc;
-	
 }
 
 /*

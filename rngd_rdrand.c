@@ -243,8 +243,6 @@ int init_drng_entropy_source(struct rng *ent_src)
 	const uint32_t features_ebx7_rdseed = 1 << 18;
 	uint32_t max_cpuid_leaf;
 	unsigned char xkey[AES_BLOCK];	/* Material to XOR into the key */
-	int fd;
-	int i;
 
 	if (!x86_has_cpuid())
 		return 1;	/* No CPUID instruction */

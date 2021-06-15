@@ -47,7 +47,7 @@ static struct ossl_aes_ctx *ossl_ctx;
 static unsigned char key[AES_BLOCK];
 static unsigned char iv_buf[AES_BLOCK];
 
-#define CHUNK_SIZE AES_BLOCK * 8
+#define CHUNK_SIZE (AES_BLOCK*8)
 static unsigned char aes_buf[CHUNK_SIZE];
 static size_t aes_buf_pos;
 #define REKEY_BITS 8
