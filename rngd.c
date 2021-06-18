@@ -62,7 +62,7 @@
 int kent_pool_size;
 
 /* Background/daemon mode */
-bool am_daemon;				/* True if we went daemon */
+bool am_daemon = false;			/* True if we went daemon */
 bool msg_squash = false;		/* True if we want no messages on the console */
 bool quiet = false;			/* True if we want no console output at all */
 volatile bool server_running = true;	/* set to false, to stop daemon */
@@ -132,6 +132,7 @@ static struct arguments default_arguments = {
 	.random_name	= "/dev/random",
 	.pid_file	= "/var/run/rngd.pid",
 	.random_step	= 64,
+	.fill_watermark = -1,
 	.daemon		= true,
 	.test		= false,
 	.list		= false,
@@ -845,9 +846,6 @@ int main(int argc, char **argv)
 
 	openlog("rngd", 0, LOG_DAEMON);
 
-	/* Get the default watermark level for this platform */
-	arguments->fill_watermark = default_watermark();
-
 	/* Parsing of commandline parameters */
 	if (argp_parse(&argp, argc, argv, 0, 0, arguments) < 0)
 		return 1;
@@ -865,13 +863,12 @@ int main(int argc, char **argv)
 		pid_fd = write_pid_file(arguments->pid_file);
 		if (pid_fd < 0)
 			return 1;
-
 	}
 
 	if (arguments->list) {
 		int found = 0;
 		message(LOG_CONS|LOG_INFO, "Entropy sources that are available but disabled\n");
-		for (i=0; i < ENT_MAX; i++) 
+		for (i=0; i < ENT_MAX; i++)
 			if (entropy_sources[i].init && entropy_sources[i].disabled == true) {
 				found = 1;
 				message(LOG_CONS|LOG_INFO, "%d: %s (%s)\n", i,
@@ -885,7 +882,6 @@ int main(int argc, char **argv)
 		message(LOG_DAEMON|LOG_INFO, "Initializing available sources\n");
 
 	/* Init entropy sources */
-	
 	for (i=0; i < ENT_MAX; i++) {
 		ent_src = &entropy_sources[i];
 		if (ent_src->init && ent_src->disabled == false) {
@@ -907,14 +903,14 @@ int main(int argc, char **argv)
 		int rc = 1;
 		msg_squash = false;
 		message(LOG_CONS|LOG_INFO, "Available and enabled entropy sources:\n");
-		for (i=0; i < ENT_MAX; i++) 
+		for (i=0; i < ENT_MAX; i++)
 			if (entropy_sources[i].init && entropy_sources[i].disabled == false) {
 				rc = 1;
 				message(LOG_CONS|LOG_INFO, "%d: %s (%s)\n", i,
 					entropy_sources[i].rng_name, entropy_sources[i].rng_sname);
 			}
 		message(LOG_CONS|LOG_INFO, "Available entropy sources that failed initalization:\n");
-		for (i=0; i < ENT_MAX; i++) 
+		for (i=0; i < ENT_MAX; i++)
 			if (entropy_sources[i].init && entropy_sources[i].disabled == true && entropy_sources[i].failed_init == true) {
 				rc = 1;
 				message(LOG_CONS|LOG_INFO, "%d: %s (%s)\n", i,
