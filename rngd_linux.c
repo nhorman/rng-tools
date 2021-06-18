@@ -54,20 +54,26 @@ static int random_fd;
 extern int kent_pool_size;
 
 /*
- * Get the default watermark
+ * Initialize the interface to the Linux Kernel
+ * entropy pool (through /dev/random)
+ *
+ * randomdev is the path to the random device
  */
 
 #define DEFAULT_WATERMARK_GUESS 4096
 
-int default_watermark(void)
+void init_kernel_rng(const char* randomdev)
 {
 	FILE *f;
+	int err;
 	unsigned int wm;
 
+	/* Try to open and read poolsize sysfs file */
 	f = fopen("/proc/sys/kernel/random/poolsize", "r");
 	if (!f) {
 		wm = DEFAULT_WATERMARK_GUESS;
-		message(LOG_DAEMON|LOG_ERR, "can't open /proc/sys/kernel/random/poolsize: %s",
+		message(LOG_DAEMON|LOG_WARNING,
+			"can't open /proc/sys/kernel/random/poolsize: %s\n",
 			strerror(errno));
 		goto err;
 	}
@@ -75,42 +81,36 @@ int default_watermark(void)
 	/* Use DEFAULT_WATERMARK_GUESS if fscanf fails */
 	if(fscanf(f,"%u", &wm) < 1) {
 		wm = DEFAULT_WATERMARK_GUESS;
-		message(LOG_DAEMON|LOG_ERR, "can't read /proc/sys/kernel/random/poolsize: %s",
+		message(LOG_DAEMON|LOG_WARNING,
+			"can't read /proc/sys/kernel/random/poolsize: %s\n",
 			strerror(errno));
 	}
+	fclose(f);
 
 err:
+	/* Set the fill_watermark to wm if it was not set on a command line */
 	kent_pool_size = wm;
 	wm = wm*3/4;
-	message(LOG_DAEMON|LOG_ERR, "kernel entropy pool size: %d pool watermark: %d",
-		kent_pool_size, wm);
+	if (arguments->fill_watermark == -1)
+		arguments->fill_watermark = wm;
 
-	if (f)
-		fclose(f);
-	return wm;
-}
-
-/*
- * Initialize the interface to the Linux Kernel
- * entropy pool (through /dev/random)
- *
- * randomdev is the path to the random device
- */
-void init_kernel_rng(const char* randomdev)
-{
-	FILE *f;
-	int err;
-
+	/* Try to open randomdev file for writing */
 	random_fd = open(randomdev, O_RDWR);
 	if (random_fd == -1) {
 		message(LOG_DAEMON|LOG_ERR, "can't open %s: %s",
 			randomdev, strerror(errno));
 		exit(EXIT_USAGE);
 	}
-	/* Don't set the watermark if the watermark is zero */
-	if (!arguments->fill_watermark)
-		return;
 
+	/* Don't set the watermark if the watermark is zero */
+	if (!arguments->fill_watermark) {
+		message(LOG_DAEMON|LOG_DEBUG,
+			"Kernel entropy pool size %d, pool watermark is not set\n",
+			kent_pool_size);
+		return;
+	}
+
+	/* Actually set entropy pool watermark */
 	f = fopen("/proc/sys/kernel/random/write_wakeup_threshold", "w");
 	if (!f) {
 		err = 1;
@@ -119,12 +119,14 @@ void init_kernel_rng(const char* randomdev)
 		/* Note | not || here... we always want to close the file */
 		err = ferror(f) | fclose(f);
 	}
-	if (err) {
+	if (err)
 		message(LOG_DAEMON|LOG_WARNING,
 			"unable to adjust write_wakeup_threshold: %s\n",
 			strerror(errno));
-	}
-
+	else
+		message(LOG_DAEMON|LOG_DEBUG,
+			"Kernel entropy pool size %d, pool watermark %d\n",
+			kent_pool_size, arguments->fill_watermark);
 }
 
 struct entropy {
