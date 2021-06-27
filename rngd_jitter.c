@@ -88,6 +88,11 @@ static void rngd_notime_stop(void *ctx)
 
 static int rngd_notime_init(void **ctx)
 {
+
+	// Don't allow for software thread if there is only a single cpu
+	i = sysconf(_SC_NPROCESSORS_CONF);
+	if (i = 1)
+		return -ENOSYS;
 	using_soft_timer = true;
 	return jent_notime_init(ctx);
 }
@@ -448,6 +453,14 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		core_id++;
 		tdata[i].buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
 		tdata[i].ec = jent_entropy_collector_alloc(1, entflags);
+		if (tdata[i].ec == NULL) {
+			message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "Unable to start thread for jitter, likely due to lack of cpu count\n");
+			close(pipefds[0]);
+			close(pipefds[1]);
+			free(tdata);
+			free(threads);
+			return 1;
+		}
 		tdata[i].slpmode = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
 		pthread_create(&threads[i], NULL, thread_entropy_task, &tdata[i]);
 		pthread_mutex_lock(&tdata[i].statemtx);
