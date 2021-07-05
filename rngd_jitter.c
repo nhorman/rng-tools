@@ -60,7 +60,7 @@ static int rngd_notime_start(void *ctx,
 	/*
  	 * the soft timer function should affine to all cpus
  	 */
-	i = sysconf(_SC_NPROCESSORS_CONF);
+	i = sysconf(_SC_NPROCESSORS_ONLN);
 	cpus = CPU_ALLOC(i);
 	cpusize = CPU_ALLOC_SIZE(i);
 	CPU_ZERO_S(cpusize, cpus);
@@ -90,7 +90,7 @@ static int rngd_notime_init(void **ctx)
 {
 
 	// Don't allow for software thread if there is only a single cpu
-	i = sysconf(_SC_NPROCESSORS_CONF);
+	i = sysconf(_SC_NPROCESSORS_ONLN);
 	if (i = 1)
 		return -ENOSYS;
 	using_soft_timer = true;
@@ -407,7 +407,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
  	 * 2 threads for two or more cpus
  	 * 4 threads for four or more cpus
  	 */
-	i = sysconf(_SC_NPROCESSORS_CONF);
+	i = sysconf(_SC_NPROCESSORS_ONLN);
 	cpus = CPU_ALLOC(i);
 	cpusize = CPU_ALLOC_SIZE(i);
 	CPU_ZERO_S(cpusize, cpus);

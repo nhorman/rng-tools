@@ -928,7 +928,7 @@ int main(int argc, char **argv)
 
 	if (!ent_sources) {
 		message(LOG_DAEMON|LOG_ERR,
-			"can't open any entropy source");
+			"Can't open any entropy source\n");
 		message(LOG_DAEMON|LOG_ERR,
 			"Maybe RNG device modules are not loaded\n");
 		return 1;
