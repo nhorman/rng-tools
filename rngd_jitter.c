@@ -46,7 +46,7 @@ static int rngd_notime_start(void *ctx,
 {
 	struct jent_notime_ctx *thread_ctx = (struct jent_notime_ctx *)ctx;
 	int ret;
-	int i;
+	long i;
 	cpu_set_t *cpus;
 	size_t cpusize;
 
@@ -64,8 +64,8 @@ static int rngd_notime_start(void *ctx,
 	cpus = CPU_ALLOC(i);
 	cpusize = CPU_ALLOC_SIZE(i);
 	CPU_ZERO_S(cpusize, cpus);
-	for(i=i-1;i>=0;i--) {
-		CPU_SET(i,cpus);
+	for(i=i-1; i>=0; i--) {
+		CPU_SET(i, cpus);
 	}
 	pthread_attr_setaffinity_np(&thread_ctx->notime_pthread_attr, cpusize, cpus);
 
@@ -85,14 +85,20 @@ static void rngd_notime_stop(void *ctx)
 	pthread_attr_destroy(&thread_ctx->notime_pthread_attr);
 }
 
-
 static int rngd_notime_init(void **ctx)
 {
+	long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
+
+	if (ncpu == -1)
+		return -errno;
+
+	if (ncpu == 0)
+		return -EFAULT;
 
 	// Don't allow for software thread if there is only a single cpu
-	i = sysconf(_SC_NPROCESSORS_ONLN);
-	if (i = 1)
-		return -ENOSYS;
+	if (ncpu < 2)
+		return -EOPNOTSUPP;
+
 	using_soft_timer = true;
 	return jent_notime_init(ctx);
 }
@@ -110,8 +116,9 @@ static struct jent_notime_thread rngd_notime_thread_builtin = {
 #define RDRAND_ROUNDS           512             /* 512:1 data reduction */
 
 static int num_threads = 0;
+
 struct thread_data {
-        struct rng *ent_src;
+	struct rng *ent_src;
 	int core_id;
 	int pipe_fd;
 	struct rand_data *ec;
@@ -123,7 +130,7 @@ struct thread_data {
 	/* done states -1 : init, 0 : ready, 1 : complete */
 	int done;
 	struct timespec slptm;
-	sigjmp_buf	jmpbuf;
+	sigjmp_buf jmpbuf;
 };
 
 
@@ -197,8 +204,8 @@ static inline double elapsed_time(struct timespec *start, struct timespec *end)
 	if (start->tv_nsec >= end->tv_nsec)
 		delta = (delta * 1.0e9) + (start->tv_nsec - end->tv_nsec);
 	else
-		delta = ((delta + 1) * 1.0e9) + (end->tv_nsec - start->tv_nsec);	
-	delta = delta / 1.0e9; 
+		delta = ((delta + 1) * 1.0e9) + (end->tv_nsec - start->tv_nsec);
+	delta = delta / 1.0e9;
 
 	return delta;
 }
@@ -207,7 +214,6 @@ static inline void update_sleep_time(struct thread_data *me,
 				     struct timespec *start,
 				     struct timespec *end)
 {
-
 	/*
 	 * if slpmode is anything other than -1
 	 * it will be a positive integer representing
@@ -249,7 +255,7 @@ static void *thread_entropy_task(void *data)
 
 	/*
 	 * Set our timeout value
-	 * -1 means adaptive, i.e. sleep for the last 
+	 * -1 means adaptive, i.e. sleep for the last
 	 * recorded execution time of a jitter read
 	 * otherwise sleep for slpmode seconds
 	 */
@@ -270,7 +276,7 @@ static void *thread_entropy_task(void *data)
 	}
 
 	/*
-	 * A signal will call siglongjmp and return us here when we exit 
+	 * A signal will call siglongjmp and return us here when we exit
 	 */
 	if (sigsetjmp(me->jmpbuf, 1))
 		goto out_interrupt;
@@ -360,7 +366,6 @@ int validate_jitter_options(struct rng *ent_src)
 	return 0;
 }
 
-
 /*
  * Init JITTER
  */
@@ -368,7 +373,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 {
 	cpu_set_t *cpus;
 	size_t cpusize;
-	int i;
+	long i;
 	int size;
 	int flags;
 	int entflags = 0;
@@ -392,7 +397,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 #endif
 
 	ret = jent_entropy_init();
-	if(ret) {
+	if (ret) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "JITTER rng fails with code %d\n", ret);
 		return 1;
 	}
@@ -413,7 +418,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	CPU_ZERO_S(cpusize, cpus);
 	if (sched_getaffinity(0, cpusize, cpus) < 0) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Can not determine affinity of process, defaulting to 1 thread\n");
-		CPU_SET(0,cpus);
+		CPU_SET(0, cpus);
 	}
 
 	num_threads = CPU_COUNT_S(cpusize, cpus);
@@ -468,9 +473,9 @@ int init_jitter_entropy_source(struct rng *ent_src)
 			pthread_cond_wait(&tdata[i].statecond, &tdata[i].statemtx);
 		if (tdata[i].done == 1)
 			/* we failed during startup */
-			message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "CPU thread %d failed\n", i);
+			message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "CPU thread %ld failed\n", i);
 		else
-			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "CPU Thread %d is ready\n", i);
+			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "CPU Thread %ld is ready\n", i);
 		pthread_mutex_unlock(&tdata[i].statemtx);
 		if (using_soft_timer == true) {
 			num_threads = 1;
@@ -552,4 +557,3 @@ void close_jitter_entropy_source(struct rng *ent_src)
 		ossl_ctx = NULL;
 	}
 }
-
