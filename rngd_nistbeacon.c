@@ -208,7 +208,7 @@ int xread_nist(void *buf, size_t size, struct rng *ent_src)
 }
 
 
-static void get_json_string_and_len(json_t *parent, char *key, char **val, uint32_t *len)
+static int get_json_string_and_len(json_t *parent, char *key, char **val, uint32_t *len)
 {
         const char *tmpval;
         uint32_t slen;
@@ -218,24 +218,24 @@ static void get_json_string_and_len(json_t *parent, char *key, char **val, uint3
         *val = strdup(tmpval);
         if (len != NULL)
                 *len = htobe32(slen);
-        return;
+        return 0;
 }
 
-static void get_json_u32_value(json_t *parent, char *key, uint32_t *val)
+static int get_json_u32_value(json_t *parent, char *key, uint32_t *val)
 {
         json_t *obj = json_object_get(parent, key);
         *val = htobe32((uint32_t)(json_integer_value(obj)));
-        return;
+        return 0;
 }
 
-static void get_json_u64_value(json_t *parent, char *key, uint64_t *val)
+static int get_json_u64_value(json_t *parent, char *key, uint64_t *val)
 {
         json_t *obj = json_object_get(parent, key);
         *val = htobe64((uint64_t)(json_integer_value(obj)));
-        return;
+        return 0;
 }
 
-static void get_json_byte_array(json_t *parent, char *key, char **val, uint32_t *len)
+static int get_json_byte_array(json_t *parent, char *key, char **val, uint32_t *len)
 {
         bool unibble;
         int i,j;
@@ -250,6 +250,9 @@ static void get_json_byte_array(json_t *parent, char *key, char **val, uint32_t 
                 message(LOG_DAEMON|LOG_ERR, "Byte array isn't of even length!\n");
  
         newval = malloc(rawlen/2);
+	if (!newval)
+		return -1;
+
         unibble = true;
  
         for(i=j=0;i<rawlen;i++) {
@@ -271,8 +274,23 @@ static void get_json_byte_array(json_t *parent, char *key, char **val, uint32_t 
         } 
         *len = htobe32(rawlen/2); 
         *val = newval;
-        return; 
+        return 0; 
 }
+
+/*
+ * This is an ugly hack, but it saves alot of repetitious code. Thres lots of
+ * stuff in parse_nist_json_block that can fail, and because as a side effect we
+ * alter the global nist data block, we need a way to inform the code that
+ * reads random data that the block is invalid if something goes sideways.  To
+ * do that we need to return 0 from parse_nist_data_block, so the curl library
+ * knows to abort the operation and fail in the call to curl_easy_perform.  That
+ * in turn means checking a ton of return code when parsing out individual
+ * elements.  To do that, we codify the individual element parse call, rc chedk,
+ * and return here in this macro.  Yes, it means returning from a function in a
+ * macro, which is ugly, but thats why I'm writing this huge comment here, so
+ * you won't be caught off guard.  You've been warned.
+ */
+#define CURL_ABRT_IF_FAIL(call, args...) do {int ____rc = call(args); if(____rc == -1) {return 0;}} while(0)
 
 /*
  * Note, I'm making the assumption that the entire xml block gets returned
@@ -294,51 +312,51 @@ static size_t parse_nist_json_block(char *ptr, size_t size, size_t nemb, void *u
         }
         pulse = json_object_get(json, "pulse");
 
-        get_json_string_and_len(pulse, "uri", &block.uri, &block.urilen);
+        CURL_ABRT_IF_FAIL(get_json_string_and_len, pulse, "uri", &block.uri, &block.urilen);
 
-        get_json_string_and_len(pulse, "version", &block.version, &block.verlen);
+        CURL_ABRT_IF_FAIL(get_json_string_and_len, pulse, "version", &block.version, &block.verlen);
 
-        get_json_u32_value(pulse, "cipherSuite", &block.cipherSuite);
+        CURL_ABRT_IF_FAIL(get_json_u32_value,pulse, "cipherSuite", &block.cipherSuite);
 
-        get_json_u32_value(pulse, "period", &block.period);
-        get_json_byte_array(pulse, "certificateId", &block.certificateId, &block.certificateIdLen);
+        CURL_ABRT_IF_FAIL(get_json_u32_value, pulse, "period", &block.period);
+        CURL_ABRT_IF_FAIL(get_json_byte_array, pulse, "certificateId", &block.certificateId, &block.certificateIdLen);
 
-        get_json_string_and_len(pulse, "certificateId", &block.certificateIdString, &block.certificateIdStringLen);
+        CURL_ABRT_IF_FAIL(get_json_string_and_len, pulse, "certificateId", &block.certificateIdString, &block.certificateIdStringLen);
 
-        get_json_u64_value(pulse, "chainIndex", &block.chainIndex);
+        CURL_ABRT_IF_FAIL(get_json_u64_value, pulse, "chainIndex", &block.chainIndex);
 
-        get_json_u64_value(pulse, "pulseIndex", &block.pulseIndex);
+        CURL_ABRT_IF_FAIL(get_json_u64_value, pulse, "pulseIndex", &block.pulseIndex);
 
-        get_json_string_and_len(pulse, "timeStamp", &block.timeStamp, &block.timeStampLen);
-        get_json_byte_array(pulse, "localRandomValue", &block.localRandomValue, &block.localRandomLen);
+        CURL_ABRT_IF_FAIL(get_json_string_and_len, pulse, "timeStamp", &block.timeStamp, &block.timeStampLen);
+        CURL_ABRT_IF_FAIL(get_json_byte_array, pulse, "localRandomValue", &block.localRandomValue, &block.localRandomLen);
         obj = json_object_get(pulse, "external");
-        get_json_byte_array(obj, "sourceId", &block.exSourceId, &block.exSourceIdLen);
-        get_json_u32_value(obj, "statusCode", &block.exStatusCode);
-        get_json_byte_array(obj, "value", &block.exValue, &block.exValueLen);
+        CURL_ABRT_IF_FAIL(get_json_byte_array, obj, "sourceId", &block.exSourceId, &block.exSourceIdLen);
+        CURL_ABRT_IF_FAIL(get_json_u32_value, obj, "statusCode", &block.exStatusCode);
+        CURL_ABRT_IF_FAIL(get_json_byte_array, obj, "value", &block.exValue, &block.exValueLen);
         obj = json_object_get(pulse, "listValues");
         json_array_foreach(obj, idx, jidx) {
                 json_t *tobj = json_object_get(jidx, "type");
                 const char *type = json_string_value(tobj);
 
                 if (!strncmp("previous", type, strlen("previous"))) {
-                        get_json_byte_array(jidx, "value", &block.prevValue, &block.prevValueLen); 
+                        CURL_ABRT_IF_FAIL(get_json_byte_array, jidx, "value", &block.prevValue, &block.prevValueLen); 
                 } else if (!strncmp("hour", type, strlen("hour"))) {
-                        get_json_byte_array(jidx, "value", &block.hourValue, &block.hourValueLen);
+                        CURL_ABRT_IF_FAIL(get_json_byte_array, jidx, "value", &block.hourValue, &block.hourValueLen);
                 } else if (!strncmp("day", type, strlen("day"))) {
-                        get_json_byte_array(jidx, "value", &block.dayValue, &block.dayValueLen);
+                        CURL_ABRT_IF_FAIL(get_json_byte_array, jidx, "value", &block.dayValue, &block.dayValueLen);
                 } else if (!strncmp("month", type, strlen("month"))) {
-                        get_json_byte_array(jidx, "value", &block.monthValue, &block.monthValueLen);
+                        CURL_ABRT_IF_FAIL(get_json_byte_array, jidx, "value", &block.monthValue, &block.monthValueLen);
                 } else if (!strncmp("year", type, strlen("yar"))) {
-                        get_json_byte_array(jidx, "value", &block.yearValue, &block.yearValueLen);
+                        CURL_ABRT_IF_FAIL(get_json_byte_array, jidx, "value", &block.yearValue, &block.yearValueLen);
                 }
 
         }
 
-        get_json_byte_array(pulse, "precommitmentValue", &block.preCommitValue, &block.preCommitValueLen);
-        get_json_u32_value(pulse, "statusCode", &block.statusCode);
+        CURL_ABRT_IF_FAIL(get_json_byte_array, pulse, "precommitmentValue", &block.preCommitValue, &block.preCommitValueLen);
+        CURL_ABRT_IF_FAIL(get_json_u32_value, pulse, "statusCode", &block.statusCode);
 
-        get_json_byte_array(pulse, "signatureValue", &block.signatureValue, &block.signatureValueLen);
-        get_json_byte_array(pulse, "outputValue", &block.outputValue, &block.outputValueLen);
+        CURL_ABRT_IF_FAIL(get_json_byte_array, pulse, "signatureValue", &block.signatureValue, &block.signatureValueLen);
+        CURL_ABRT_IF_FAIL(get_json_byte_array, pulse, "outputValue", &block.outputValue, &block.outputValueLen);
         json_decref(json);
 
         return realsize;
