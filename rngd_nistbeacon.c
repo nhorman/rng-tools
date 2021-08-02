@@ -285,12 +285,17 @@ static int get_json_byte_array(json_t *parent, char *key, char **val, uint32_t *
  * do that we need to return 0 from parse_nist_data_block, so the curl library
  * knows to abort the operation and fail in the call to curl_easy_perform.  That
  * in turn means checking a ton of return code when parsing out individual
- * elements.  To do that, we codify the individual element parse call, rc chedk,
+ * elements.  To do that, we codify the individual element parse call, rc check,
  * and return here in this macro.  Yes, it means returning from a function in a
  * macro, which is ugly, but thats why I'm writing this huge comment here, so
  * you won't be caught off guard.  You've been warned.
  */
-#define CURL_ABRT_IF_FAIL(call, args...) do {int ____rc = call(args); if(____rc == -1) {return 0;}} while(0)
+#define CURL_ABRT_IF_FAIL(call, args...) do {\
+int ____rc = call(args);\
+if(____rc == -1) {\
+	message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Out of memory in %s\n", call);\
+	return 0;\
+}} while(0)
 
 /*
  * Note, I'm making the assumption that the entire xml block gets returned
