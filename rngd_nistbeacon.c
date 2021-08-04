@@ -293,7 +293,7 @@ static int get_json_byte_array(json_t *parent, char *key, char **val, uint32_t *
 #define CURL_ABRT_IF_FAIL(call, args...) do {\
 int ____rc = call(args);\
 if(____rc == -1) {\
-	message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Out of memory in %s\n", call);\
+	message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Out of memory in %s\n", #call);\
 	return 0;\
 }} while(0)
 
