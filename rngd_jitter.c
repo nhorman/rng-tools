@@ -332,7 +332,9 @@ int validate_jitter_options(struct rng *ent_src)
 	int refill = ent_src->rng_options[JITTER_OPT_REFILL].int_val;
 	int delay = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
 	int rcount = ent_src->rng_options[JITTER_OPT_RETRY_COUNT].int_val;
+#ifndef HAVE_JITTER_NOTIME
 	int soft_timer = ent_src->rng_options[JITTER_OPT_FORCE_INT_TIMER].int_val;
+#endif
 
 	/* Need at least one thread to do this work */
 	if (!threads) {
