@@ -25,6 +25,7 @@ AC_CANONICAL_TARGET dnl required for broken AX_PTHREAD
 AM_INIT_AUTOMAKE([foreign])
 AC_CONFIG_HEADERS([rng-tools-config.h])
 AC_CONFIG_MACRO_DIRS([m4])
+AC_USE_SYSTEM_EXTENSIONS
 
 dnl Parse options
 
@@ -99,6 +100,12 @@ AS_IF(
 				AC_MSG_NOTICE([No Jitterentropy library found]),-lpthread)
 	], [AC_MSG_NOTICE([Disabling JITTER entropy source])]
 )
+
+AC_CHECK_DECL(pthread_attr_setaffinity_np,
+		[AC_DEFINE([HAVE_PTHREAD_ATTR_SETAFFINITY], 1,[Set ATTR_SETAFFINITY])],
+		[ AC_CHECK_DECL(pthread_setaffinity_np,
+		   [AC_DEFINE([HAVE_PTHREAD_SETAFFINITY],1, [Set PTHREAD_SETAFFINITY])], [ AC_MSG_ERROR([Neither pthread_setaffinity_np nor pthread_attr_setaffinity_np found])],[[#include <pthread.h>]])
+		], [[#include <pthread.h>]])
 
 AS_IF(
 	[ test "x$with_nistbeacon" != "xno"],

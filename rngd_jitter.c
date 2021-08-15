@@ -67,11 +67,24 @@ static int rngd_notime_start(void *ctx,
 	for(i=i-1; i>=0; i--) {
 		CPU_SET(i, cpus);
 	}
-	pthread_attr_setaffinity_np(&thread_ctx->notime_pthread_attr, cpusize, cpus);
 
+        /*
+	 * Note that only one of:
+	 * HAVE_PTHREAD_ATTR_SETAFFINITY
+	 * and
+	 * HAVE_PTHREAD_SETAFFINITY
+	 * Will ever be set, as per the configure.ac logic
+	 */
+#ifdef HAVE_PTHREAD_ATTR_SETAFFINITY
+	pthread_attr_setaffinity_np(&thread_ctx->notime_pthread_attr, cpusize, cpus);
+#endif
 	ret = -pthread_create(&thread_ctx->notime_thread_id,
 				&thread_ctx->notime_pthread_attr,
 				start_routine, arg);
+
+#ifdef HAVE_PTHREAD_SETAFFINITY
+	pthread_setaffinity_np(&thread_ctx->notime_thread_id, cpusize, cpus);
+#endif
 
 	CPU_FREE(cpus);
 	return ret;
