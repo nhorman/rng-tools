@@ -257,6 +257,7 @@ void jitter_thread_exit_signal(int signum)
 
 static void *thread_entropy_task(void *data)
 {
+	sigset_t blockset;
 	cpu_set_t cpuset;
 
 	ssize_t ret;
@@ -265,6 +266,12 @@ static void *thread_entropy_task(void *data)
 	struct timespec start, end;
 	int written;
 	/* STARTUP */
+
+	sigemptyset(&blockset);
+	sigaddset(&blockset, SIGINT);
+	sigaddset(&blockset, SIGTERM);
+	sigaddset(&blockset, SIGALRM);
+	pthread_sigmask(SIG_BLOCK, &blockset, NULL);
 
 	/*
 	 * Set our timeout value
