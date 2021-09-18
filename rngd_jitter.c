@@ -556,10 +556,10 @@ void close_jitter_entropy_source(struct rng *ent_src)
 
 	/* And wait for completion of each thread */
 	for (i=0; i < num_threads; i++) {
-		/* Signal the threads to exit */
-		pthread_kill(threads[i], SIGUSR1);
 		/* and wait for them to shutdown */
 		pthread_mutex_lock(&tdata[i].statemtx);
+		pthread_kill(threads[i], SIGUSR1);
+		/* Signal the threads to exit */
 		if (!tdata[i].done) {
 			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Checking on done for thread %d\n", i);
 			pthread_cond_wait(&tdata[i].statecond, &tdata[i].statemtx);
