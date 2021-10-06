@@ -83,7 +83,7 @@ static int rngd_notime_start(void *ctx,
 				start_routine, arg);
 
 #ifdef HAVE_PTHREAD_SETAFFINITY
-	pthread_setaffinity_np(&thread_ctx->notime_thread_id, cpusize, cpus);
+	pthread_setaffinity_np(thread_ctx->notime_thread_id, cpusize, cpus);
 #endif
 
 	CPU_FREE(cpus);
