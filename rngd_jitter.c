@@ -488,7 +488,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		core_id++;
 		tdata[i].buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
 #ifdef HAVE_JENT_INIT_EX
-		tdata[i].ec = jent_entropy_collector_alloc(0, JENT_MAX_MEMSIZE_MAX);
+		tdata[i].ec = jent_entropy_collector_alloc(1, entflags | JENT_MAX_MEMSIZE_MAX);
 #else
 		tdata[i].ec = jent_entropy_collector_alloc(1, entflags);
 #endif
