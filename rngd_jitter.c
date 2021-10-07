@@ -313,12 +313,17 @@ static void *thread_entropy_task(void *data)
 
 		/* We are awake because we need to refil the buffer */
 		clock_gettime(CLOCK_REALTIME, &start);
+#ifdef HAVE_JENT_INIT_EX
+		ret = jent_read_entropy_safe(&me->ec, tmpbuf, me->buf_sz);
+#else
 		ret = jent_read_entropy(me->ec, tmpbuf, me->buf_sz);
+#endif
 		clock_gettime(CLOCK_REALTIME, &end);
 		message_entsrc(me->ent_src,LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
 			me->core_id, elapsed_time(&start, &end));
-		if (ret < 0)
-			message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
+		if (ret < 0) {
+			message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY, exiting\n");
+		}
 		/* Need to hold the mutex to update the sleep time */
 		update_sleep_time(me, &start, &end);
 
@@ -417,7 +422,11 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		entflags |= JENT_FORCE_INTERNAL_TIMER;
 #endif
 
+#ifdef HAVE_JENT_INIT_EX
+	ret = jent_entropy_init_ex(0, JENT_MAX_MEMSIZE_MAX);
+#else
 	ret = jent_entropy_init();
+#endif
 	if (ret) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "JITTER rng fails with code %d\n", ret);
 		return 1;
@@ -478,7 +487,11 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		tdata[i].done = -1;
 		core_id++;
 		tdata[i].buf_sz = ent_src->rng_options[JITTER_OPT_BUF_SZ].int_val;
+#ifdef HAVE_JENT_INIT_EX
+		tdata[i].ec = jent_entropy_collector_alloc(0, JENT_MAX_MEMSIZE_MAX);
+#else
 		tdata[i].ec = jent_entropy_collector_alloc(1, entflags);
+#endif
 		if (tdata[i].ec == NULL) {
 			message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "Unable to start thread for jitter, likely due to lack of cpu count\n");
 			close(pipefds[0]);
