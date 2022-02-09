@@ -591,7 +591,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 'v':
 		message(LOG_CONS|LOG_INFO, "%s\n", argp_program_version);
-		return -EAGAIN;
+		exit(0);
+		break;
 	case 'e': {
 		int e;
 		if ((sscanf(arg,"%i", &e) == 0) || (e < 0) || (e > 8))
@@ -847,8 +848,7 @@ int main(int argc, char **argv)
 	openlog("rngd", 0, LOG_DAEMON);
 
 	/* Parsing of commandline parameters */
-	if (argp_parse(&argp, argc, argv, 0, 0, arguments) < 0)
-		return 1;
+	argp_parse(&argp, argc, argv, ARGP_NO_HELP, 0, arguments);
 
 	if (arguments->daemon && !arguments->list) {
 		am_daemon = true;
