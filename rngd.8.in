@@ -24,7 +24,7 @@ rngd \- Check and feed random data from hardware device to kernel random device
 [\fB\-R\fR, \fB\-\-force-reseed=\fInnn\fR]
 [\fB\-q\fR, \fB\-\-quiet\fR]
 [\fB\-?\fR, \fB\-\-help\fR]
-[\fB\-V\fR, \fB\-\-version\fR]
+[\fB\-v\fR, \fB\-\-version\fR]
 .RI
 
 .SH DESCRIPTION
@@ -122,7 +122,7 @@ Suppress all messages
 \fB\-?\fR, \fB\-\-help\fR
 Give a short summary of all program options.
 .TP
-\fB\-V\fR, \fB\-\-version\fR
+\fB\-v\fR, \fB\-\-version\fR
 Print program version
 
 .SH
