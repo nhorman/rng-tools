@@ -70,7 +70,7 @@ bool do_reseed = false;			/* force a reseed event */
 bool ignorefail = false; /* true if we ignore MAX_RNG_FAILURES */
 
 /* Command line arguments and processing */
-const char *argp_program_version =
+const char *rngd_program_version =
 	"rngd " VERSION "\n"
 	"Copyright 2001-2004 Jeff Garzik\n"
 	"Copyright 2017 Neil Horman\n"
@@ -294,7 +294,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_sname	= "hwrng",
 		.rng_fname      = "/dev/hwrng",
 		.rng_fd	 = -1,
-		.flags		= { 0 }, 
+		.flags		= { 0 },
 		.xread	  = xread,
 		.init	   = init_entropy_source,
 		.rng_options	= NULL,
@@ -305,7 +305,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_sname	= "tpm",
 		.rng_fname      = "/dev/tpm0",
 		.rng_fd	 = -1,
-		.flags		= { 0 }, 
+		.flags		= { 0 },
 		.xread	  = xread_tpm,
 		.init	   = init_tpm_entropy_source,
 		.rng_options	= NULL,
@@ -315,7 +315,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_name       = "Intel RDRAND Instruction RNG",
 		.rng_sname	= "rdrand",
 		.rng_fd	 = -1,
-		.flags		= { 0 }, 
+		.flags		= { 0 },
 #ifdef HAVE_RDRAND
 		.xread	  = xread_drng,
 		.init	   = init_drng_entropy_source,
@@ -356,7 +356,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_fd		= -1,
 		.flags		= {
 			.slow_source = 1,
-		}, 
+		},
 #ifdef HAVE_NISTBEACON
 		.xread		= xread_nist,
 		.init		= init_nist_entropy_source,
@@ -384,7 +384,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_name	= "PKCS11 Entropy generator",
 		.rng_sname	= "pkcs11",
 		.rng_fd		= -1,
-		.flags		= { 
+		.flags		= {
 			.slow_source = 1,
 		},
 #ifdef HAVE_PKCS11
@@ -590,7 +590,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		quiet = true;
 		break;
 	case 'v':
-		message(LOG_CONS|LOG_INFO, "%s\n", argp_program_version);
+		message(LOG_CONS|LOG_INFO, "%s\n", rngd_program_version);
 		exit(0);
 		break;
 	case 'e': {
@@ -750,7 +750,7 @@ continue_trying:
 	}
 
 	/*
-	 * No entropy source produced entropy in 
+	 * No entropy source produced entropy in
 	 * 100 rounds, disable anything that isn't
 	 * flagged as a slow source
 	 */
@@ -848,7 +848,8 @@ int main(int argc, char **argv)
 	openlog("rngd", 0, LOG_DAEMON);
 
 	/* Parsing of commandline parameters */
-	argp_parse(&argp, argc, argv, ARGP_NO_HELP, 0, arguments);
+	if (argp_parse(&argp, argc, argv, 0, 0, arguments) < 0)
+		return 1;
 
 	if (arguments->daemon && !arguments->list) {
 		am_daemon = true;
