@@ -2,7 +2,9 @@
 Description=Hardware RNG Entropy Gatherer Daemon
 ConditionVirtualization=!container
 
+# The "-f" option is required for the systemd service rngd to work with Type=simple
 [Service]
+Type=simple
 ExecStart=/usr/sbin/rngd -f
 
 [Install]

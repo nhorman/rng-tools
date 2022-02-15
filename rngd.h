@@ -59,6 +59,10 @@ struct arguments {
 	bool enable_tpm;
 	int entropy_count;
 	int force_reseed;
+
+	bool drop_privs;
+	uid_t drop_uid;
+	gid_t drop_gid;
 };
 extern struct arguments *arguments;
 

@@ -40,6 +40,8 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/capability.h>
+#include <sys/prctl.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
@@ -49,6 +51,8 @@
 #include <limits.h>
 #include <ctype.h>
 #include <time.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include "rngd.h"
 #include "fips.h"
@@ -125,6 +129,8 @@ static struct argp_option options[] = {
 
 	{ "force-reseed", 'R', "n", 0, "Time in seconds to force adding entropy to the random device" },
 
+	{ "drop-privileges", 'D', "user:group", 0, "Drop privileges to a user and group specified" },
+
 	{ 0 },
 };
 
@@ -139,6 +145,7 @@ static struct arguments default_arguments = {
 	.ignorefail	= false,
 	.entropy_count	= 8,
 	.force_reseed	= 60 * 5,
+	.drop_privs = false,
 };
 struct arguments *arguments = &default_arguments;
 
@@ -609,6 +616,65 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			arguments->force_reseed = R;
 		break;
 	}
+	case 'D': {
+		struct passwd *usrent;
+		struct group *grpent;
+		char *endptr;
+		long int nuid, ngid;
+
+		search = strchr(arg, ':');
+
+		/* Check for corner cases */
+		if (search == NULL) {
+			message(LOG_CONS|LOG_ERR, "No colon found in user:group tuple\n");
+			return -EINVAL;
+		}
+		if (search == arg || search[1] == '\0') {
+			message(LOG_CONS|LOG_ERR, "No user or group name found in user:group tuple\n");
+			return -EINVAL;
+		}
+
+		*search = '\0';
+
+		/* Translate user argument into a user struct pointer.
+		 * First, try to get it as specified. If that fails,
+		 * try it as a number.
+		 */
+		usrent = getpwnam(arg);
+		if (usrent == NULL) {
+			/* Try as a number */
+			nuid = strtol(arg, &endptr, 10);
+
+			if (*endptr || !(usrent = getpwuid(nuid))) {
+				message(LOG_CONS|LOG_ERR, "User '%s' not found\n", arg);
+				*search = ':';
+				return -EINVAL;
+			}
+		}
+		*search = ':';
+
+		/* Do the same with a group name or number */
+		grpent = getgrnam(search + 1);
+		if (grpent == NULL) {
+
+			/* Try as a number */
+			ngid = strtol(search + 1, &endptr, 10);
+			if (*endptr || !(grpent = getgrgid(ngid))) {
+				message(LOG_CONS|LOG_ERR, "Group '%s' not found\n", search + 1);
+				return -EINVAL;
+			}
+		}
+
+		/* Found both user and group in a system */
+		arguments->drop_uid = usrent->pw_uid;
+		arguments->drop_gid = grpent->gr_gid;
+		arguments->drop_privs = true;
+
+		message(LOG_CONS|LOG_DEBUG, "Trying to drop privileges to %s(%d)/%s(%d)\n",
+			usrent->pw_name, usrent->pw_uid, grpent->gr_name, grpent->gr_gid);
+
+		break;
+	}
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -661,6 +727,110 @@ static int random_test_sink(struct rng *rng, int random_step,
 	return 0;
 }
 
+static int drop_privileges(uid_t drop_uid, gid_t drop_gid)
+{
+	cap_value_t ioctl_caps[1] = { CAP_SYS_ADMIN };
+	cap_t caps;
+	uid_t curr_uid = geteuid();
+	gid_t curr_gid = getegid(), supp_gid = drop_gid;
+
+	/* We need CAP_SYS_ADMIN capability to perform privileged
+	 * ioctl(2) operations on the /dev/random device (see random(4)).
+	 */
+	if (!CAP_IS_SUPPORTED(CAP_SYS_ADMIN)) {
+		message(LOG_DAEMON|LOG_ERR, "Capability CAP_SYS_ADMIN is not present\n");
+		return 1;
+	}
+
+	/* We wish to retain the capabilities across the identity change,
+	 * so we need to tell the kernel. See prctl(2).
+	 */
+	if (prctl(PR_SET_KEEPCAPS, 1L)) {
+		message(LOG_DAEMON|LOG_ERR, "Cannot keep capabilities after dropping privileges: %s\n",
+			strerror(errno));
+		return 1;
+	}
+
+	/* Actually try to drop privileges */
+	if (setgroups(1, &supp_gid)) {
+		message(LOG_DAEMON|LOG_ERR, "setgroups() failed: %s\n", strerror(errno));
+		return 1;
+	}
+
+	if (setresgid(drop_gid, drop_gid, drop_gid)) {
+		message(LOG_DAEMON|LOG_ERR, "setresgid() failed: %s\n", strerror(errno));
+		return 1;
+	}
+
+	if (setresuid(drop_uid, drop_uid, drop_uid)) {
+		message(LOG_DAEMON|LOG_ERR, "setresuid() failed: %s\n", strerror(errno));
+		return 1;
+	}
+
+	/* Drop all the capabilities except CAP_SYS_ADMIN. We can do this only
+	 * if CAP_SYS_ADMIN is present in the PERMITTED subset initially.
+	 */
+	caps = cap_init();
+	if (caps == NULL) {
+		message(LOG_DAEMON|LOG_ERR, "cap_init() failed: %s\n", strerror(errno));
+		return 1;
+	}
+
+	/* We need CAP_SYS_ADMIN capability in the EFFECTIVE and PERMITTED subsets */
+	if (cap_set_flag(caps, CAP_PERMITTED, 1, ioctl_caps, CAP_SET) ||
+	    cap_set_flag(caps, CAP_EFFECTIVE, 1, ioctl_caps, CAP_SET)) {
+		message(LOG_DAEMON|LOG_ERR, "Cannot manipulate capability data structure: %s\n",
+			strerror(errno));
+		cap_free(caps);
+		return 1;
+	}
+
+	/* Above, we just manipulated the data structure describing the flags,
+	 * not the capabilities themselves. So, set those capabilities now.
+	 */
+	if (cap_set_proc(caps)) {
+		message(LOG_DAEMON|LOG_ERR, "Cannot set CAP_SYS_ADMIN capability: %s\n",
+			strerror(errno));
+		cap_free(caps);
+		return 1;
+	}
+
+	/* Free capabilities data */
+	if (cap_free(caps))
+		message(LOG_DAEMON|LOG_DEBUG, "cap_free() failed: %s\n", strerror(errno));
+		/* We can continue with this error */
+
+	/* Tell the kernel we do not want to retain the capability over
+	 * any further identity changes (be paranoid)
+	 */
+	if (prctl(PR_SET_KEEPCAPS, 0L)) {
+		message(LOG_DAEMON|LOG_ERR, "prctl() failed: %s\n", strerror(errno));
+		return 1;
+	}
+
+	/* Be paranoid, verify that the changes were successful.
+	 * Fail if current user or group is not ones to drop to
+	 * or if older user or group can be obtained.
+	 */
+	if (curr_gid != drop_gid && (getegid() != drop_gid || setegid(curr_gid) >= 0)) {
+		message(LOG_DAEMON|LOG_ERR, "Group privileges drop was not successfull\n");
+		return 1;
+	}
+	if (curr_uid != drop_uid && (geteuid() != drop_uid || seteuid(curr_uid) >= 0)) {
+		message(LOG_DAEMON|LOG_ERR, "User privileges drop was not successfull\n");
+		return 1;
+	}
+	/* The same check for supplemental groups */
+	int ret = getgroups(1, &supp_gid);
+	if (ret < 0 || ret > 1 || (ret == 1 && supp_gid != drop_gid)) {
+		message(LOG_DAEMON|LOG_ERR, "Supplemental groups drop was not successfull\n");
+		return 1;
+	}
+
+	message(LOG_DAEMON|LOG_INFO, "Process privileges have been dropped to %d:%d\n",
+			geteuid(), getegid());
+	return 0;
+}
 
 static void do_loop(int random_step)
 {
@@ -932,6 +1102,13 @@ int main(int argc, char **argv)
 	}
 	/* Init entropy sink and open random device */
 	init_kernel_rng(arguments->random_name);
+
+	/* All privileged operations are completed,
+	 * drop privileges if it was requested
+	 */
+	if (arguments->drop_privs &&
+		drop_privileges(arguments->drop_uid, arguments->drop_gid))
+		return 1;
 
 	/*
 	 * We always catch these to ensure that we gracefully shutdown
