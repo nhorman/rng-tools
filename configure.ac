@@ -144,6 +144,7 @@ AS_IF(
 )
 
 PKG_CHECK_MODULES([openssl], [openssl], [], [AC_MSG_ERROR([openssl is required])])
+PKG_CHECK_MODULES([libcap], [libcap], [], [AC_MSG_ERROR([libcap is required])])
 AM_CONDITIONAL([NISTBEACON], [test "x$with_nistbeacon" != "xno"])
 AM_CONDITIONAL([PKCS11], [test "x$with_pkcs11" != "xno"])
 AM_CONDITIONAL([RTLSDR], [test "x$with_rtlsdr" != "xno"])
