@@ -171,7 +171,7 @@ static int fill_from_rndr(void *buf, size_t size)
 
 int xread_rndr(void *buf, size_t size, struct rng *ent_src)
 {
-	if (ent_src->rng_options[DARN_OPT_AES].int_val)
+	if (ent_src->rng_options[DRNG_OPT_AES].int_val)
 		return fill_from_aes(ent_src, buf, size);
 	else
 		return fill_from_rndr(buf, size);
@@ -187,7 +187,7 @@ int init_rndr_entropy_source(struct rng *ent_src)
 		return 1;
 	}
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling aarch64 RNDR rng support\n");
-	if (ent_src->rng_options[DARN_OPT_AES].int_val && init_openssl(ent_src))
+	if (ent_src->rng_options[DRNG_OPT_AES].int_val && init_openssl(ent_src))
 		return 1;
 	return 0;
 }
