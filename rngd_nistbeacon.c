@@ -704,7 +704,7 @@ out:
 }
 
 /*
- * Confirm DARN capabilities for drng entropy source
+ * Init NISTBEACON
  */
 int init_nist_entropy_source(struct rng *ent_src)
 {
