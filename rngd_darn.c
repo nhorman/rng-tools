@@ -65,7 +65,6 @@ static size_t rand_bytes_served = 0;
 static int init_openssl(struct rng *ent_src)
 {
 	uint64_t darn_val;
-	int i;
 
 	ossl_aes_random_key(key, NULL);
 
@@ -140,8 +139,7 @@ static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t cop
  */
 static uint64_t get_darn()
 {
-	uint64_t darn_val;
-	darn_val = 0;
+	uint64_t darn_val = 0;
 	int i;
 
 	/*
@@ -160,7 +158,6 @@ static uint64_t get_darn()
 
 int xread_darn(void *buf, size_t size, struct rng *ent_src)
 {
-	uint64_t *darn_ptr =(uint64_t *)buf;
 	size_t copied = 0;
 
 	while (copied < size) {
