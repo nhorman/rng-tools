@@ -22,6 +22,7 @@ rngd \- Check and feed random data from hardware device to kernel random device
 [\fB\-t\fR, \fB\-\-test\fR]
 [\fB\-W\fR, \fB\-\-fill-watermark=\fInnn\fR]
 [\fB\-R\fR, \fB\-\-force-reseed=\fInnn\fR]
+[\fB\-D\fR, \fB\-\-drop-privileges=\fIuser:group\fR]
 [\fB\-q\fR, \fB\-\-quiet\fR]
 [\fB\-?\fR, \fB\-\-help\fR]
 [\fB\-v\fR, \fB\-\-version\fR]
@@ -41,7 +42,7 @@ The \fB\-r\fR or \fB\-\-rng-device\fR options can be used to select an
 alternate source of input, besides the default /dev/hwrng.
 The \fB\-o\fR or \fB\-\-random-device\fR options can be used to select
 an alternate entropy output device, besides the default /dev/random.
-Note that this device must support the Linux kernel /dev/random 
+Note that this device must support the Linux kernel /dev/random
 ioctl API.
 .PP
 
@@ -71,7 +72,7 @@ Enable entropy sources based on index or (shortname) reported from --list option
 Provide specific config options to individual entropy sources, in the format
 --option [index|shortname]:key:value.  See Entropy Sources section below for indices and
 source specific options.  Note that specifying \fB-O [<index>|<shortname>]\fR will print the
-available options for that index to the console
+available options for that index to the console.
 .TP
 \fB\-p\fI file\fR, \fB\-\-pid-file=\fIfile\fR
 File used for recording daemon PID, and multiple exclusion
@@ -93,7 +94,7 @@ Number of bytes written to random-device at a time (default: 64)
 .TP
 \fB\-t, \fB\-\-test\fR
 Enter test mode.  In this mode (which implies -f), all generated entropy is
-discarded and rngd reports the amount of entropy generated every second
+discarded and rngd reports the amount of entropy generated every second.
 .TP
 \fB\-e\fI nnn\fR, \fB\-\-entropy-count=\fInnn\fR
 Number of bits to consider random when adding entropy. 1<=e<=8
@@ -105,7 +106,7 @@ Once we start doing it, feed entropy to \fIrandom-device\fR until at least
 By default, this value is set to 75% of the entropy pool size or 2048 bits
 if the entropy pool size couldn't be determined.
 Setting this too high will cause \fIrngd\fR to dominate the contents of the
-entropy pool.  Low values will hurt system performance during entropy 
+entropy pool.  Low values will hurt system performance during entropy
 starves.  Do not set \fIfill-watermark\fR above the size of the
 entropy pool (usually 4096 bits).  A value of 0 to this option will cause no
 watermark to be set.
@@ -116,11 +117,16 @@ beneficial to periodically add fresh entropy as a reseeding event.
 --force-reseed defines the number of seconds between which fresh entropy is
 added to the kernel entropy pool.  Defaults to 5 minutes.
 .TP
+\fB\-D\fR, \fB\-\-drop-privileges=\fIuser:group\fR
+Drop privileges to a user and a group specified after initialization. A user
+and a group can be specified as a name or as a numerical id and must be separated
+with a colon. A user and a group must exist. A default is not to drop privileges.
+.TP
 \fB\-q\fR, \fB\-\-quiet\fR
 Suppress all messages
 .TP
 \fB\-?\fR, \fB\-\-help\fR
-Give a short summary of all program options.
+Give a short summary of all program options
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print program version
@@ -198,9 +204,9 @@ Entropy gathered by measuring timing variance of operations on the local cpu
 Options
 \fBthread_count - \fR Set the number of threads that the jitter entropy source will spawn
 
-\fBbuffer_size - \fR Set the size of the buffer cache that each thread maintains 
+\fBbuffer_size - \fR Set the size of the buffer cache that each thread maintains
 
-\fBrefill_thresh - \fR Set the low watermark for the cache that triggers its corresponding thread to start refill operations 
+\fBrefill_thresh - \fR Set the low watermark for the cache that triggers its corresponding thread to start refill operations
 
 \fBretry_count - \fR If all entropy buffers are empty, retry this many times before giving up.  Note that jitterentropy can take several seconds to refill a buffer, and so retries after a delay may be preferable to repeatedly spining on an empty buffer (default 1)
 
