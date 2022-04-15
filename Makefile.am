@@ -19,10 +19,6 @@ if RDRAND
 rngd_SOURCES	+= rngd_rdrand.c rdrand_asm.S
 endif
 
-if DARN
-rngd_SOURCES	+= rngd_darn.c
-endif
-
 if RNDR
 rngd_SOURCES	+= rngd_rndr.c
 endif
@@ -36,6 +32,17 @@ rngd_SOURCES	+= rngd_rtlsdr.c
 endif
 
 rngd_LDADD	= librngd.a $(LIBS) $(librtlsdr_LIBS) ${libp11_LIBS} ${libcrypto_LIBS} ${jansson_LIBS} ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS} ${libcap_LIBS} $(PTHREAD_LIBS)
+
+if DARN
+rngd_SOURCES	+= rngd_darn.c
+
+# Build Power9-only code with Power9
+# compile flags in a separate library
+rngd_LDADD		+= libdarn_impl.a
+noinst_LIBRARIES	+= libdarn_impl.a
+libdarn_impl_a_SOURCES	= darn_impl.c
+libdarn_impl_a_CFLAGS	= -mcpu=power9 -mtune=power9
+endif
 
 if PKCS11
 rngd_SOURCES	+= rngd_pkcs11.c
