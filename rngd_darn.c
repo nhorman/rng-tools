@@ -112,6 +112,8 @@ static int refill_rand(struct rng *ent_src, bool allow_reinit)
 		uint64_t *ptr = (uint64_t *)darn_rand_buf;
 		for (i = 0; i < CHUNK_SIZE/sizeof(uint64_t); i++) {
 			*ptr = get_darn();
+			if (*ptr == ULONG_MAX)
+				return 1;
 			ptr++;
 		}
 	}
@@ -135,19 +137,22 @@ static size_t copy_avail_rand_to_buf(unsigned char *buf, size_t size, size_t cop
 }
 
 /*
- * Runs the get_darn instruction, returns ULONG_MAX on error
+ * Runs get_darn_impl(), returns ULONG_MAX on error
  */
+
+extern uint64_t get_darn_impl();
+
 static uint64_t get_darn()
 {
-	uint64_t darn_val = 0;
+	uint64_t darn_val;
 	int i;
 
 	/*
-	 * For loop is taken from PowerISA_public.v3.0B 
+	 * For loop is taken from PowerISA_public.v3.0B
 	 * programming guide
 	 */
-	for (i=0; i < 10; i++){
-		asm volatile("darn %0, 1" : "=r" (darn_val) );
+	for (i=0; i < 10; i++) {
+		darn_val = get_darn_impl();
 		if (darn_val != ULONG_MAX)
 			break;
 	}
