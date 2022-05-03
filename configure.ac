@@ -36,6 +36,13 @@ AC_ARG_WITH([nistbeacon],
 	[with_nistbeacon=check]
 )
 
+AC_ARG_WITH([qrypt],
+	AS_HELP_STRING([--without-qrypt],
+		[Disable qrypt support. ]),
+	[],
+	[with_qrypt=check]
+)
+
 AC_ARG_WITH([pkcs11],
 	AS_HELP_STRING([--without-pkcs11],
 		[Disable pkcs11 support. ]),
@@ -110,10 +117,25 @@ AC_CHECK_DECL(pthread_attr_setaffinity_np,
 AS_IF(
 	[ test "x$with_nistbeacon" != "xno"],
 	[
-		PKG_CHECK_MODULES([libcurl], [libcurl], [], [AC_MSG_ERROR([libcurl is required])])
 		PKG_CHECK_MODULES([libxml2], [libxml-2.0], [], [AC_MSG_ERROR([libxml2 is required])])
-                PKG_CHECK_MODULES([jansson], [jansson], [], [AC_MSG_ERROR([libjansson is required])])
 		AC_DEFINE([HAVE_NISTBEACON],1,[Enable NISTBEACON])
+	]
+)
+
+AS_IF(
+	[ test "x$with_qrypt" != "xno" ],
+	[
+		AC_DEFINE([HAVE_QRYPT],1,[Enable QRYPT])
+	]
+)
+
+AM_CONDITIONAL([QRYPT], [test "x$with_qrypt" != "xno"])
+
+AS_IF(
+	[ test "x$with_nistbeacon" != "xno" -o "x$with_qrypt" != "xno" ],
+	[
+		PKG_CHECK_MODULES([libcurl], [libcurl], [], [AC_MSG_ERROR([libcurl is required])])
+                PKG_CHECK_MODULES([jansson], [jansson], [], [AC_MSG_ERROR([libjansson is required])])
 	]
 )
 
