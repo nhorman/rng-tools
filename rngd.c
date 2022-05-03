@@ -165,6 +165,7 @@ static enum {
 	ENT_JITTER,
 	ENT_PKCS11,
 	ENT_RTLSDR,
+	ENT_QRYPT,
 	ENT_MAX
 } entropy_indexes __attribute__((used));
 
@@ -294,6 +295,17 @@ static struct rng_option rtlsdr_options[] = {
 	}
 };
 
+static struct rng_option qrypt_options[] = {
+	[QRYPT_OPT_TOKEN_FILE] = {
+		.key = "tokenfile",
+		.type = VAL_STRING,
+		.str_val = "/etc/qrypt.token",
+	},
+	{
+		.key = NULL,
+	}
+};
+
 static struct rng entropy_sources[ENT_MAX] = {
 	/* Note, the special char dev must be the first entry */
 	{
@@ -416,6 +428,17 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.disabled       = true,
 #endif
 		.rng_options    = rtlsdr_options,
+	},
+	{
+		.rng_name	= "Qrypt quantum entropy beacon",
+		.rng_sname	= "qrypt",
+		.rng_fd		= -1,
+		.flags		= { 0 },
+		.xread		= xread_qrypt,
+		.init		= init_qrypt_entropy_source,
+		.close		= close_qrypt_entropy_source,
+		.disabled	= true,
+		.rng_options	= qrypt_options,
 	}
 
 };

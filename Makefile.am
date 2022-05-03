@@ -31,6 +31,10 @@ if RTLSDR
 rngd_SOURCES	+= rngd_rtlsdr.c
 endif
 
+if QRYPT
+rngd_SOURCES	+= rngd_qrypt.c
+endif
+
 rngd_LDADD	= librngd.a $(LIBS) $(librtlsdr_LIBS) ${libp11_LIBS} ${libcrypto_LIBS} ${jansson_LIBS} ${libcurl_LIBS} ${libxml2_LIBS} ${openssl_LIBS} ${libcap_LIBS} $(PTHREAD_LIBS)
 
 if DARN
