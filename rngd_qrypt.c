@@ -226,6 +226,8 @@ static void *refill_task(void *data __attribute__((unused)))
 	extract_and_refill_entropy(&response_data);
 	
 out:
+	if (list)
+		curl_slist_free_all(list);
 	if (curl)
 		curl_easy_cleanup(curl);
 	if (response_data.response)
