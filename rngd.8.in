@@ -199,10 +199,10 @@ entity.
 .TP
 .B
 Qrypt Entropy Beacon (qrypt) [Index 9]
-Entropy gathered from the qrypt entropy beacon.  Note this beacon works in a
-fashion to the NIST beacon, fetching remotely generated entropy and delivering
-it over a network.  Like NIST, this should not be used for cryptographic
-operations unless the network can be guaranteed secure from outside observers
+Entropy gathered from the qrypt entropy beacon.  Note this beacon provides
+entropy to remote clients over a TLS connection.  As such this source should not
+be used for cryptographic operations unless the security of the network can be
+guaranteed against man in the middle and other network based attacks.
 
 .TP
 Options
