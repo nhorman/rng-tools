@@ -195,8 +195,6 @@ static void *refill_task(void *data __attribute__((unused)))
 	pthread_cond_signal(&ent_cond);
 	pthread_mutex_unlock(&ent_lock);
 
-	message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "refilling\n");
-	
 	response_data.response = NULL;
 	response_data.size = 0;
 	curl = curl_easy_init();
@@ -268,14 +266,12 @@ int xread_qrypt(void *buf, size_t size, struct rng *ent_src)
 	size_t to_copy;
 	pthread_mutex_lock(&ent_lock);
 	to_copy = (size >= avail_ent) ? avail_ent : size;
-	message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "requesting %d bytes\n", size);
 	if (to_copy) {
 		memcpy(buf, &entropy_buffer[ent_idx], to_copy);
 		avail_ent -= to_copy;
 		ent_idx += to_copy;
 		new_avail = avail_ent;
 		satisfied = true;
-		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "satisfied %d bytes\n", to_copy);
 	}
 	pthread_mutex_unlock(&ent_lock);
 	if (new_avail <= REFILL_THRESH) {
@@ -332,7 +328,8 @@ int init_qrypt_entropy_source(struct rng *ent_src)
 		return -1;
 	}
 	snprintf(bearer,tokstat.st_size + header_extra_size, "Authorization: Bearer %s", token);
-		
+	bearer = strtok(bearer, "\r\n");
+	
 	my_ent_src = ent_src;
 
 	refill_ent_buffer();
