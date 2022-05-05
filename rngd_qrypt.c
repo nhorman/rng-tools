@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/param.h>
 #include <syslog.h>
 #include <string.h>
 #include <stddef.h>
@@ -153,7 +154,7 @@ static void extract_and_refill_entropy(struct body_buffer *buf)
 	}
 
 	pthread_mutex_lock(&ent_lock);
-	memcpy(entropy_buffer, decode_data, decode_len);
+	memcpy(entropy_buffer, decode_data, MIN(decode_len, ENT_BUF));
 	ent_idx = 0;
 	avail_ent = decode_len;
 	pthread_mutex_unlock(&ent_lock);
