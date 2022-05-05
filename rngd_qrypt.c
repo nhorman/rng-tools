@@ -152,9 +152,9 @@ static void extract_and_refill_entropy(struct body_buffer *buf)
 		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "failed to decode random data\n");
 		goto out;
 	}
-
 	pthread_mutex_lock(&ent_lock);
-	memcpy(entropy_buffer, decode_data, MIN(decode_len, ENT_BUF));
+	decode_len = MIN(decode_len, ENT_BUF);
+	memcpy(entropy_buffer, decode_data, decode_len);
 	ent_idx = 0;
 	avail_ent = decode_len;
 	pthread_mutex_unlock(&ent_lock);
@@ -262,22 +262,30 @@ out:
 int xread_qrypt(void *buf, size_t size, struct rng *ent_src)
 {
 	size_t new_avail = 0;
-	bool satisfied = false;
 	size_t to_copy;
-	pthread_mutex_lock(&ent_lock);
-	to_copy = (size >= avail_ent) ? avail_ent : size;
-	if (to_copy) {
-		memcpy(buf, &entropy_buffer[ent_idx], to_copy);
-		avail_ent -= to_copy;
-		ent_idx += to_copy;
-		new_avail = avail_ent;
-		satisfied = true;
-	}
-	pthread_mutex_unlock(&ent_lock);
-	if (new_avail <= REFILL_THRESH) {
-		refill_ent_buffer();
-	}
-	return satisfied ? 0 : -1;
+	uint8_t *buf_ptr = buf;
+	size_t oldsize = size;
+	int i;
+	do {
+		pthread_mutex_lock(&ent_lock);
+		to_copy = (size >= avail_ent) ? avail_ent : size;
+		if (to_copy) {
+			oldsize = size;
+			memcpy(buf_ptr, &entropy_buffer[ent_idx], to_copy);
+			buf_ptr += to_copy;
+			avail_ent -= to_copy;
+			ent_idx += to_copy;
+			new_avail = avail_ent;
+			size -= to_copy;
+		}
+		pthread_mutex_unlock(&ent_lock);
+		if (new_avail <= REFILL_THRESH) {
+			refill_ent_buffer();
+		}
+	} while(size && (oldsize > size));
+
+	return size ? -1 : 0;
+	
 }
 
 
