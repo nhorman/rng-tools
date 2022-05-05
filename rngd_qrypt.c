@@ -58,7 +58,7 @@ static pthread_mutex_t ent_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t ent_cond = PTHREAD_COND_INITIALIZER;
 static bool refilling = false;
 static struct rng *my_ent_src;
-static char bearer[4096];
+static char *bearer;
 
 struct body_buffer {
 	char *response;
@@ -288,25 +288,44 @@ int init_qrypt_entropy_source(struct rng *ent_src)
 	FILE *tokdata;
 	char token[2048];
 	size_t toksize;
+	struct stat tokstat;
+	size_t header_extra_size = strlen("Authorization: Bearer  ");
+
 	message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Initalizing qrypt beacon\n");
 	if (!tokfile) {
 		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "No qrypt token file\n");
 		return -1;
 	}
 
+	if (stat(tokfile, &tokstat) < 0) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Unable to stat qrypt token file\n");
+		return -1;
+	}
+
+	tokdata = alloca(tokstat.st_size);
+	if (!tokdata) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Unable to allocate token data\n");
+		return -1;
+	}
+	bearer = calloc(tokstat.st_size + header_extra_size, 1);
+	if (!bearer) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Unable to allocate Bearer space\n");
+		return -1;
+	}
 	tokdata = fopen(tokfile, "r");
 	if (!tokdata) {
+		free(bearer);
 		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "cant open token file\n");
 		return -1;
 	}
-	toksize = fread(token, 1, 2048, tokdata);
+	toksize = fread(token, 1, tokstat.st_size, tokdata);
 	fclose(tokdata);
 	if (!toksize) {
+		free(bearer);
 		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "empty token file\n");
 		return -1;
 	}
-	memset(bearer, 0, 4096);
-	snprintf(bearer,4096, "Authorization: Bearer %s", token);
+	snprintf(bearer,tokstat.st_size + header_extra_size, "Authorization: Bearer %s", token);
 		
 	my_ent_src = ent_src;
 
@@ -316,5 +335,7 @@ int init_qrypt_entropy_source(struct rng *ent_src)
 
 void close_qrypt_entropy_source(struct rng *ent_src)
 {
+	free(bearer);
+	bearer = NULL;
 	return;
 }
