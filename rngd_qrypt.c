@@ -65,58 +65,117 @@ struct body_buffer {
 	size_t size;
 };
 
-static int decoding_table[] = { 62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58,
-	59, 60, 61, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5,
-	6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-	21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1, 26, 27, 28,
-	29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
-	43, 44, 45, 46, 47, 48, 49, 50, 51 };
+static const char base64[] =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static size_t decodeQuantum(unsigned char *dest, const char *src)
+{
+	size_t padding = 0;
+	const char *s, *p;
+	unsigned long i, x = 0;
+
+	for(i = 0, s = src; i < 4; i++, s++) {
+		if(*s == '=') {
+			x = (x << 6);
+			padding++;
+		}
+		else {
+			unsigned long v = 0;
+			p = base64;
+
+			while(*p && (*p != *s)) {
+				v++;
+				p++;
+			}
+
+			if(*p == *s)
+				x = (x << 6) + v;
+			else
+				return 0;
+		}
+	}
+
+	if(padding < 1)
+		dest[2] = (unsigned char)(x & 0xFFUL);
+
+	x >>= 8;
+	if(padding < 2)
+		dest[1] = (unsigned char)(x & 0xFFUL);
+
+	x >>= 8;
+	dest[0] = (unsigned char)(x & 0xFFUL);
+
+	return 3 - padding;
+}
 
 uint8_t *base64_decode(const char *     data,
 		       size_t	   input_length,
 		       size_t *	 output_length)
 {
-	if (input_length % 4 != 0) {
+	size_t srclen = 0;
+	size_t length = 0;
+	size_t padding = 0;
+	size_t i;
+	size_t numQuantums;
+	size_t rawlen = 0;
+	unsigned char *pos;
+	unsigned char *newstr;
+
+	*output_length = 0;
+	srclen = input_length;
+
+	/* Check the length of the input string is valid */
+	if(!srclen || srclen % 4)
 		return NULL;
+
+	/* Find the position of any = padding characters */
+	while((data[length] != '=') && data[length])
+		length++;
+
+	/* A maximum of two = padding characters is allowed */
+	if(data[length] == '=') {
+		padding++;
+		if(data[length + 1] == '=')
+			padding++;
 	}
 
-	*output_length = input_length / 4 * 3;
-	if (data[input_length - 1] == '=') {
-		(*output_length)--;
-	}
-	if (data[input_length - 2] == '=') {
-		(*output_length)--;
-	}
-
-	uint8_t *decoded_data = malloc(*output_length);
-
-	if (decoded_data == NULL) {
+	/* Check the = padding characters weren't part way through the input */
+	if(length + padding != srclen)
 		return NULL;
+
+	/* Calculate the number of quantums */
+	numQuantums = srclen / 4;
+
+	/* Calculate the size of the decoded string */
+	rawlen = (numQuantums * 3) - padding;
+
+	/* Allocate our buffer including room for a zero terminator */
+	newstr = malloc(rawlen + 1);
+	if(!newstr)
+		return NULL;
+
+	pos = newstr;
+
+	/* Decode the quantums */
+	for(i = 0; i < numQuantums; i++) {
+		size_t result = decodeQuantum(pos, data);
+		if(!result) {
+			free(newstr);
+
+			return NULL;
+		}
+
+		pos += result;
+		data += 4;
 	}
 
-	for (int i = 0, j = 0; i < input_length;) {
-		uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[(int)data[i++]];
-		uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[(int)data[i++]];
-		uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[(int)data[i++]];
-		uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[(int)data[i++]];
+	/* Zero terminate */
+	*pos = '\0';
 
-		uint32_t triple = (sextet_a << 3 * 6)
-				  + (sextet_b << 2 * 6)
-				  + (sextet_c << 1 * 6)
-				  + (sextet_d << 0 * 6);
+	/* Return the decoded data */
+	*output_length = rawlen;
 
-		if (j < *output_length) {
-			decoded_data[j++] = (triple >> 2 * 8) & 0xFF;
-		}
-		if (j < *output_length) {
-			decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
-		}
-		if (j < *output_length) {
-			decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
-		}
-	}
-
-	return decoded_data;
+	return newstr;	
 }
 
 static void extract_and_refill_entropy(struct body_buffer *buf)
