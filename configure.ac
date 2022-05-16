@@ -101,9 +101,9 @@ AS_IF(
 		AC_SEARCH_LIBS(jent_version,jitterentropy,
 				[AM_CONDITIONAL([JITTER], [true])
 				AC_DEFINE([HAVE_JITTER],1,[Enable JITTER])
-				AC_CHECK_LIB(jitterentropy, jent_notime_settick,
-				[AC_DEFINE([HAVE_JITTER_NOTIME],1,[Enable JITTER_NOTIME])],
-				[],-lpthread)],
+				AC_CHECK_LIB(jitterentropy, jent_notime_init,
+				[],
+				[AC_DEFINE([HAVE_JITTER_NOTIME],1, [Enable JITTER_NOTIME])],-lpthread)],
 				AC_MSG_NOTICE([No Jitterentropy library found]),-lpthread)
 	], [AC_MSG_NOTICE([Disabling JITTER entropy source])]
 )
