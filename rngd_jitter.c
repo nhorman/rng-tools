@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Neil Horman 
+ * Copyright (c) 2017, Neil Horman
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -58,8 +58,8 @@ static int rngd_notime_start(void *ctx,
 		return ret;
 
 	/*
- 	 * the soft timer function should affine to all cpus
- 	 */
+	 * the soft timer function should affine to all cpus
+	 */
 	i = sysconf(_SC_NPROCESSORS_ONLN);
 	cpus = CPU_ALLOC(i);
 	cpusize = CPU_ALLOC_SIZE(i);
@@ -429,10 +429,10 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	}
 
 	/*
- 	 * Determine the number of threads we want to run
- 	 * 2 threads for two or more cpus
- 	 * 4 threads for four or more cpus
- 	 */
+	 * Determine the number of threads we want to run
+	 * 2 threads for two or more cpus
+	 * 4 threads for four or more cpus
+	 */
 	i = sysconf(_SC_NPROCESSORS_ONLN);
 	cpus = CPU_ALLOC(i);
 	cpusize = CPU_ALLOC_SIZE(i);
@@ -465,8 +465,8 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "JITTER attempting to start %d threads\n", num_threads);
 
 	/*
- 	 * Allocate and init the thread data that we need
- 	 */
+	 * Allocate and init the thread data that we need
+	 */
 	for (i=0; i < num_threads; i++) {
                 tdata[i].ent_src = ent_src;
 		while (!CPU_ISSET_S(core_id, cpusize, cpus))
@@ -485,6 +485,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 			close(pipefds[1]);
 			free(tdata);
 			free(threads);
+			CPU_FREE(cpus);
 			return 1;
 		}
 		tdata[i].slpmode = ent_src->rng_options[JITTER_OPT_RETRY_DELAY].int_val;
@@ -541,7 +542,10 @@ int init_jitter_entropy_source(struct rng *ent_src)
 
 	flags = fcntl(pipefds[0], F_GETFL, 0);
 	flags |= O_NONBLOCK;
-	fcntl(pipefds[0], F_SETFL, flags);
+	if (fcntl(pipefds[0], F_SETFL, flags) == -1) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Failed to set pipe flag O_NONBLOCK: %s\n",
+			       size, strerror(errno));
+	}
 
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling JITTER rng support\n");
 	return 0;
