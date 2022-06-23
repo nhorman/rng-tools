@@ -198,6 +198,18 @@ entity.
 
 .TP
 .B
+Qrypt Entropy Beacon (qrypt) [Index 9]
+Entropy gathered from the qrypt entropy beacon.  Note this beacon provides
+entropy to remote clients over a TLS connection.  As such this source should not
+be used for cryptographic operations unless the security of the network can be
+guaranteed against man in the middle and other network based attacks.
+
+.TP
+Options
+\fB tokenfile - \fR Specify the file containing the access token to the Qrypt beacon
+
+.TP
+.B
 JITTER (jitter) [Index 5]
 Entropy gathered by measuring timing variance of operations on the local cpu
 .TP

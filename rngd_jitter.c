@@ -400,6 +400,8 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	int entflags = 0;
 	int ret;
 	int core_id = 0;
+	struct timespec base, now;
+	int rc;
 
 	signal(SIGUSR1, jitter_thread_exit_signal);
 
@@ -509,6 +511,10 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	CPU_FREE(cpus);
 	cpus = NULL;
 
+	flags = fcntl(pipefds[0], F_GETFL, 0);
+	flags |= O_NONBLOCK;
+	fcntl(pipefds[0], F_SETFL, flags);
+
 	if (ent_src->rng_options[JITTER_OPT_USE_AES].int_val) {
 		/*
 		 * Temporarily disable aes so we don't try to use it during init
@@ -517,34 +523,58 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Initializing AES buffer\n");
 		aes_buf = malloc(tdata[0].buf_sz);
 		ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 0;
-		if (xread_jitter(key, AES_BLOCK, ent_src)) {
-			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain AES key, disabling AES in JITTER source\n");
-		} else if (xread_jitter(iv_buf, CHUNK_SIZE, ent_src)) {
-			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain iv_buffer, disabling AES in JITTER source\n");
+		clock_gettime(CLOCK_REALTIME, &base);
+		do {
+			rc = xread_jitter(key, AES_BLOCK, ent_src);
+			clock_gettime(CLOCK_REALTIME, &now);
+		} while (rc && ((now.tv_sec - base.tv_sec) < 5));
+
+		if (rc) {
+			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain AES key, disabling JITTER source\n");
+			close_jitter_entropy_source(ent_src);
+			return 1;
+		}
+		do {
+			rc = xread_jitter(iv_buf, CHUNK_SIZE, ent_src);
+			clock_gettime(CLOCK_REALTIME, &now);
+		} while (rc && ((now.tv_sec - base.tv_sec) < 5));
+
+		if (rc) {
+			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain iv_buffer, disabling JITTER source\n");
+			close_jitter_entropy_source(ent_src);
+			return 1;
 		} else {
 			/* re-enable AES */
 			ent_src->rng_options[JITTER_OPT_USE_AES].int_val = 1;
 			ossl_ctx = ossl_aes_init(key, iv_buf);
 		}
-		xread_jitter(aes_buf, tdata[0].buf_sz, ent_src);
+
+		do {
+			rc = xread_jitter(aes_buf, tdata[0].buf_sz, ent_src);
+			clock_gettime(CLOCK_REALTIME, &now);
+		} while (rc && ((now.tv_sec - base.tv_sec) < 5));
+		if (rc) {
+			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain aes buffer, disabling JITTER source\n");
+			close_jitter_entropy_source(ent_src);
+			return 1;
+		}
+
 	} else {
 		/*
-		 * Make sure that an entropy gathering thread has generated
-		 * at least some entropy before setting O_NONBLOCK and finishing
-		 * the entropy source initialization.
-		 *
 		 * This avoids "Entropy Generation is slow" log spamming that
 		 * would otherwise happen until jent_read_entropy() has run
 		 * for the first time.
 		 */
-		xread_jitter(&i, 1, ent_src);
-	}
+		do {
+			rc = xread_jitter(&i, 1, ent_src);
+			clock_gettime(CLOCK_REALTIME, &now);
+		} while (rc && ((now.tv_sec - base.tv_sec) < 5));
+		if (rc) {
+			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to prime jitter source, disabling JITTER source\n");
+			close_jitter_entropy_source(ent_src);
+			return 1;
+		}
 
-	flags = fcntl(pipefds[0], F_GETFL, 0);
-	flags |= O_NONBLOCK;
-	if (fcntl(pipefds[0], F_SETFL, flags) == -1) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Failed to set pipe flag O_NONBLOCK: %s\n",
-			       size, strerror(errno));
 	}
 
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling JITTER rng support\n");

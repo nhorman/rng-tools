@@ -124,6 +124,14 @@ enum {
 	RTLSDR_OPT_MAX,
 };
 
+/*
+ * QRYPT options
+ */
+enum {
+	QRYPT_OPT_TOKEN_FILE = 0,
+	QRYPT_OPT_MAX,
+};
+
 enum option_val_type {
 	VAL_INT = 0,
 	VAL_STRING = 1,
