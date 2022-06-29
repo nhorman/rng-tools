@@ -1,7 +1,7 @@
 #!/bin/sh
 
 kill_rngd() {
-	sleep 15
+	sleep 30
 	echo "killing"
 	killall -9 rngd
 }
