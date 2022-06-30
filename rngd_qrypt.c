@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2022, Neil Horman 
+ * Copyright (c) 2022, Neil Horman
+ * Copyright (c) 2022, Qrypt Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -56,7 +57,10 @@ static size_t avail_ent = 0;
 
 static pthread_mutex_t ent_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t ent_cond = PTHREAD_COND_INITIALIZER;
+
 static bool refilling = false;
+static bool fatal_error = false;
+
 static struct rng *my_ent_src;
 static char *bearer;
 
@@ -191,24 +195,28 @@ static void extract_and_refill_entropy(struct body_buffer *buf)
 
 	if (!json) {
 		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "failed to parse returned json\n");
+		fatal_error = true;
 		goto out;
 	}
 
 	array = json_object_get(json, "random");
 	if (!array) {
 		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "failed to find random array\n");
+		fatal_error = true;
 		goto out;
 	}
 
 	bdata = json_array_get(array, 0);
 	if (!bdata) {
 		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "failed to find random array index\n");
+		fatal_error = true;
 		goto out;
 	}
 
 	decode_data = base64_decode(json_string_value(bdata), strlen(json_string_value(bdata)), &decode_len);	
 	if (!decode_data) {
 		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "failed to decode random data\n");
+		fatal_error = true;
 		goto out;
 	}
 	pthread_mutex_lock(&ent_lock);
@@ -240,6 +248,36 @@ static size_t write_callback(char *data, size_t size, size_t nmemb, void *userda
 	buf->size += realsize;
 	buf->response[buf->size] = 0;
 	return realsize;
+}
+
+/* Qrypt EaaS specific status codes and descriptions (from API docs) */
+static const char *get_api_error_for_code(unsigned int response_code)
+{
+	switch(response_code)
+	{
+		case 400:
+			return "The request was invalid (i.e., malformed or otherwise unacceptable). "
+			       "Please verify the format of the URL and the specified parameters.";
+		case 401:
+			return "The access token is either invalid or has expired.";
+		case 403:
+			return "The account associated with the specified access token has already "
+			       "retrieved the maximum allotment of entropy allowed for the current "
+			       "period. Please contact a Qrypt representative to request a change to "
+			       "your limit.";
+		case 429:
+			return "The access token used to pull random has exceeded the maximum number "
+			       "of requests (30) allowed for the designated time interval (10 "
+			       "seconds). Please wait and try again.";
+		case 500:
+			return "The Qrypt service has encountered an internal error. Please contact "
+			       "Qrypt support for further assistance.";
+		case 503:
+			return "Qrypt's supply of entropy is temporarily insufficient to fulfill the "
+			       "request. Please wait and try the request again.";
+	}
+
+	return "unknown error";
 }
 
 static void *refill_task(void *data __attribute__((unused)))
@@ -279,7 +317,14 @@ static void *refill_task(void *data __attribute__((unused)))
 
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
 	if (response_code != 200) {
-		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "qrypt server responds not ok: %lu\n", response_code);
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "qrypt server responds not ok: %lu (%s)\n", response_code,
+			get_api_error_for_code(response_code));
+
+		/* For any responses which are not going to fix themselves with
+		   retries or waiting some time, bail out... */
+		if (response_code == 400 || response_code == 401)
+			fatal_error = true;
+
 		goto out;
 	}
 	extract_and_refill_entropy(&response_data);
@@ -326,6 +371,11 @@ int xread_qrypt(void *buf, size_t size, struct rng *ent_src)
 	size_t oldsize = size;
 	int i;
 	do {
+		if (fatal_error) {
+			message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "fatal error encountered, disabling source\n");
+			ent_src->disabled = true;
+			return -1;
+		}
 		pthread_mutex_lock(&ent_lock);
 		to_copy = (size >= avail_ent) ? avail_ent : size;
 		if (to_copy) {
