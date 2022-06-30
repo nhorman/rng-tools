@@ -161,6 +161,9 @@ struct rng {
 	struct flags {
 		/* Slow sources - takes a long time to produce entropy */
 		unsigned int slow_source : 1;
+
+		/* Intermittent sources - may sometimes fail to produce entropy */
+		unsigned int intermittent_source : 1;
 	} flags;
 	int (*xread) (void *buf, size_t size, struct rng *ent_src);
 	int (*init) (struct rng *ent_src);
