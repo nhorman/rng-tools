@@ -129,6 +129,7 @@ enum {
  */
 enum {
 	QRYPT_OPT_TOKEN_FILE = 0,
+	QRYPT_OPT_MAX_ERROR_DELAY = 1,
 	QRYPT_OPT_MAX,
 };
 

@@ -301,6 +301,11 @@ static struct rng_option qrypt_options[] = {
 		.type = VAL_STRING,
 		.str_val = "/etc/qrypt.token",
 	},
+	[QRYPT_OPT_MAX_ERROR_DELAY] {
+		.key = "delay",
+		.type = VAL_INT,
+		.int_val = 28800, /* 8 hours */
+	},
 	{
 		.key = NULL,
 	}

@@ -206,7 +206,12 @@ guaranteed against man in the middle and other network based attacks.
 
 .TP
 Options
-\fB tokenfile - \fR Specify the file containing the access token to the Qrypt beacon
+\fBtokenfile - \fR Specify the file containing the access token to the Qrypt beacon
+
+\fBdelay - \fR Specify the maximum delay (in seconds) that the source will wait
+when there are temporary conditions preventing entropy retrieval before trying
+to fetch entropy again. The default maximum delay is eight hours, exponentially
+counting up from one second upwards, in powers of two.
 
 .TP
 .B

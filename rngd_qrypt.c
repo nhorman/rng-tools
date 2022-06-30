@@ -61,6 +61,11 @@ static pthread_cond_t ent_cond = PTHREAD_COND_INITIALIZER;
 static bool refilling = false;
 static bool fatal_error = false;
 
+/* Backoff for recoverable errors */
+static size_t backoff_iteration, backoff_delay, backoff_max;
+static bool   backoff_active;
+static struct timespec backoff_started;
+
 static struct rng *my_ent_src;
 static char *bearer;
 
@@ -225,7 +230,10 @@ static void extract_and_refill_entropy(struct body_buffer *buf)
 	ent_idx = 0;
 	avail_ent = decode_len;
 	pthread_mutex_unlock(&ent_lock);
-	
+
+	/* We should have valid data now, so reset the backoff counter */
+	backoff_iteration = 0;
+
 out:
 	if (decode_data)
 		free(decode_data);
@@ -287,6 +295,8 @@ static void *refill_task(void *data __attribute__((unused)))
 	CURLcode res;
 	long response_code;
 	struct body_buffer response_data;
+	bool recoverable_error = false;
+
 	pthread_mutex_lock(&ent_lock);
 	refilling = true;
 	pthread_cond_signal(&ent_cond);
@@ -312,6 +322,8 @@ static void *refill_task(void *data __attribute__((unused)))
 	res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
 		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "Failed to send curl: %d\n", res);
+
+		recoverable_error = true;
 		goto out;
 	}
 
@@ -324,12 +336,36 @@ static void *refill_task(void *data __attribute__((unused)))
 		   retries or waiting some time, bail out... */
 		if (response_code == 400 || response_code == 401)
 			fatal_error = true;
+		/* A 403 may be resolved immediately with the user upgrading
+		   their account allowances in the background. As such, limit
+		   the delay in this case to one minute instead of exponentially
+		   backing off... */
+		else if (response_code == 403)
+		{
+			backoff_delay  = 60; /* one minute */
+			backoff_active = true;
+			clock_gettime(CLOCK_MONOTONIC, &backoff_started);
+		} else {
+			recoverable_error = true;
+		}
 
 		goto out;
 	}
 	extract_and_refill_entropy(&response_data);
 	
 out:
+	/* Have we picked up a recoverable error? */
+	if (recoverable_error) {
+		/* These errors cause an increase in the backoff delay */
+		size_t backoff_power = backoff_iteration++;
+
+		/* Constrain to integer math to keep things simple */
+		backoff_power = MIN(backoff_power, 31);
+		backoff_delay = MIN(1 << backoff_power, backoff_max);
+		backoff_active = true;
+		clock_gettime(CLOCK_MONOTONIC, &backoff_started);
+	}
+
 	if (list)
 		curl_slist_free_all(list);
 	if (curl)
@@ -370,6 +406,24 @@ int xread_qrypt(void *buf, size_t size, struct rng *ent_src)
 	uint8_t *buf_ptr = buf;
 	size_t oldsize = size;
 	int i;
+
+	if (backoff_active)
+	{
+		/* Has the back-off delay expired? */
+		struct timespec tp;
+		clock_gettime(CLOCK_MONOTONIC, &tp);
+
+		/* Only care about second-level accuracy here */
+		if (difftime(tp.tv_sec, backoff_started.tv_sec) > backoff_delay)
+		{
+			/* Delay has expired, try again */
+			backoff_active = false;
+		} else {
+			/* Not yet ready... */
+			return -1;
+		}
+	}
+
 	do {
 		if (fatal_error) {
 			message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "fatal error encountered, disabling source\n");
@@ -446,7 +500,8 @@ int init_qrypt_entropy_source(struct rng *ent_src)
 	}
 	snprintf(bearer,tokstat.st_size + header_extra_size, "Authorization: Bearer %s", token);
 	bearer = strtok(bearer, "\r\n");
-	
+
+	backoff_max = ent_src->rng_options[QRYPT_OPT_MAX_ERROR_DELAY].int_val;
 	my_ent_src = ent_src;
 
 	refill_ent_buffer();
