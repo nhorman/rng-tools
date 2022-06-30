@@ -53,6 +53,7 @@
 #include <time.h>
 #include <pwd.h>
 #include <grp.h>
+#include <sched.h>
 
 #include "rngd.h"
 #include "fips.h"
@@ -948,6 +949,10 @@ continue_trying:
 				iter->disabled = true;
 			}
 		}
+
+		/* Don't hog the CPU if no sources have returned data */
+		if (!work_done)
+			sched_yield();
 	}
 
 	/*
