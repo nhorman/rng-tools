@@ -129,6 +129,7 @@ enum {
  */
 enum {
 	QRYPT_OPT_TOKEN_FILE = 0,
+	QRYPT_OPT_MAX_ERROR_DELAY = 1,
 	QRYPT_OPT_MAX,
 };
 
@@ -160,6 +161,9 @@ struct rng {
 	struct flags {
 		/* Slow sources - takes a long time to produce entropy */
 		unsigned int slow_source : 1;
+
+		/* Intermittent sources - may sometimes fail to produce entropy */
+		unsigned int intermittent_source : 1;
 	} flags;
 	int (*xread) (void *buf, size_t size, struct rng *ent_src);
 	int (*init) (struct rng *ent_src);

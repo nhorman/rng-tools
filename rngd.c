@@ -53,6 +53,7 @@
 #include <time.h>
 #include <pwd.h>
 #include <grp.h>
+#include <sched.h>
 
 #include "rngd.h"
 #include "fips.h"
@@ -301,6 +302,11 @@ static struct rng_option qrypt_options[] = {
 		.type = VAL_STRING,
 		.str_val = "/etc/qrypt.token",
 	},
+	[QRYPT_OPT_MAX_ERROR_DELAY] {
+		.key = "delay",
+		.type = VAL_INT,
+		.int_val = 28800, /* 8 hours */
+	},
 	{
 		.key = NULL,
 	}
@@ -375,6 +381,7 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_fd		= -1,
 		.flags		= {
 			.slow_source = 1,
+			.intermittent_source = 1,
 		},
 #ifdef HAVE_NISTBEACON
 		.xread		= xread_nist,
@@ -433,7 +440,9 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.rng_name	= "Qrypt quantum entropy beacon",
 		.rng_sname	= "qrypt",
 		.rng_fd		= -1,
-		.flags		= { 0 },
+		.flags		= {
+			.intermittent_source = 1,
+		},
 		.xread		= xread_qrypt,
 		.init		= init_qrypt_entropy_source,
 		.close		= close_qrypt_entropy_source,
@@ -940,17 +949,21 @@ continue_trying:
 				iter->disabled = true;
 			}
 		}
+
+		/* Don't hog the CPU if no sources have returned data */
+		if (!work_done)
+			sched_yield();
 	}
 
 	/*
 	 * No entropy source produced entropy in
 	 * 100 rounds, disable anything that isn't
-	 * flagged as a slow source
+	 * flagged as a slow / intermittent source
 	 */
 	sources_left = 0;
 	for (i = 0; i < ENT_MAX; ++i) {
 		iter = &entropy_sources[i];
-		if (!iter->flags.slow_source && !iter->disabled) {
+		if (!iter->flags.slow_source && !iter->flags.intermittent_source && !iter->disabled) {
 			message(LOG_DAEMON|LOG_WARNING, "Too Slow: Disabling %s\n",
 				iter->rng_name);
 			iter->disabled = 1;
