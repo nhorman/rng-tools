@@ -443,9 +443,11 @@ static struct rng entropy_sources[ENT_MAX] = {
 		.flags		= {
 			.intermittent_source = 1,
 		},
+#ifdef HAVE_QRYPT
 		.xread		= xread_qrypt,
 		.init		= init_qrypt_entropy_source,
 		.close		= close_qrypt_entropy_source,
+#endif
 		.disabled	= true,
 		.rng_options	= qrypt_options,
 	}
