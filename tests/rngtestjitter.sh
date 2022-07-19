@@ -8,6 +8,10 @@ kill_rngd() {
 
 kill_rngd &
 
-../rngd -f -o /dev/stdout -x hwrng -x rdrand -x tpm -O jitter:use_aes:1 | ../rngtest -c 100 --pipe > /dev/null
+if [ -n "$RNGD_JITTER_TIMEOUT" ]; then
+    TIMEOUT="-O jitter:timeout:$RNGD_JITTER_TIMEOUT"
+fi
+
+../rngd -f -o /dev/stdout -x hwrng -x rdrand -x tpm -O jitter:use_aes:1 $TIMEOUT | ../rngtest -c 100 --pipe > /dev/null
 
 

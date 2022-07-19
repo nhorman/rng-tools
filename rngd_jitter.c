@@ -355,6 +355,7 @@ int validate_jitter_options(struct rng *ent_src)
 #ifndef HAVE_JITTER_NOTIME
 	int soft_timer = ent_src->rng_options[JITTER_OPT_FORCE_INT_TIMER].int_val;
 #endif
+	int timeout = ent_src->rng_options[JITTER_OPT_TIMEOUT].int_val;
 
 	/* Need at least one thread to do this work */
 	if (!threads) {
@@ -384,6 +385,11 @@ int validate_jitter_options(struct rng *ent_src)
 		return 1;
 	}
 #endif
+	if (timeout <= 0) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "JITTER timeout must be greater than 0\n");
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -402,11 +408,15 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	int core_id = 0;
 	struct timespec base, now;
 	int rc;
+	int timeout;
 
 	signal(SIGUSR1, jitter_thread_exit_signal);
 
 	if (validate_jitter_options(ent_src))
 		return 1;
+
+	timeout = ent_src->rng_options[JITTER_OPT_TIMEOUT].int_val;
+	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "JITTER timeout set to %d sec\n", timeout);
 
 #ifdef HAVE_JITTER_NOTIME
 	ret = jent_entropy_switch_notime_impl(&rngd_notime_thread_builtin);
@@ -527,7 +537,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		do {
 			rc = xread_jitter(key, AES_BLOCK, ent_src);
 			clock_gettime(CLOCK_REALTIME, &now);
-		} while (rc && ((now.tv_sec - base.tv_sec) < 5));
+		} while (rc && ((now.tv_sec - base.tv_sec) < timeout));
 
 		if (rc) {
 			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain AES key, disabling JITTER source\n");
@@ -537,7 +547,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		do {
 			rc = xread_jitter(iv_buf, CHUNK_SIZE, ent_src);
 			clock_gettime(CLOCK_REALTIME, &now);
-		} while (rc && ((now.tv_sec - base.tv_sec) < 5));
+		} while (rc && ((now.tv_sec - base.tv_sec) < timeout));
 
 		if (rc) {
 			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain iv_buffer, disabling JITTER source\n");
@@ -552,7 +562,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		do {
 			rc = xread_jitter(aes_buf, tdata[0].buf_sz, ent_src);
 			clock_gettime(CLOCK_REALTIME, &now);
-		} while (rc && ((now.tv_sec - base.tv_sec) < 5));
+		} while (rc && ((now.tv_sec - base.tv_sec) < timeout));
 		if (rc) {
 			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to obtain aes buffer, disabling JITTER source\n");
 			close_jitter_entropy_source(ent_src);
@@ -568,7 +578,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		do {
 			rc = xread_jitter(&i, 1, ent_src);
 			clock_gettime(CLOCK_REALTIME, &now);
-		} while (rc && ((now.tv_sec - base.tv_sec) < 5));
+		} while (rc && ((now.tv_sec - base.tv_sec) < timeout));
 		if (rc) {
 			message_entsrc(ent_src,LOG_CONS|LOG_INFO, "Unable to prime jitter source, disabling JITTER source\n");
 			close_jitter_entropy_source(ent_src);
