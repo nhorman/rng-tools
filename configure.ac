@@ -76,14 +76,17 @@ AC_PROG_GCC_TRADITIONAL
 
 AX_PTHREAD
 
+dnl Checks for header files.
+AC_CHECK_HEADERS(sys/auxv.h)
+
 AM_CONDITIONAL([RDRAND], [test $host_cpu = x86_64 || test $host_cpu = i686])
 AS_IF([test $host_cpu = x86_64 || test $host_cpu = i686], [AC_DEFINE([HAVE_RDRAND],1,[Enable RDRAND])],[])
 
-AM_CONDITIONAL([DARN], [test $host_cpu = powerpc64le])
-AS_IF([test $host_cpu = powerpc64le], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
+AM_CONDITIONAL([DARN], [test $host_cpu = powerpc64le -a "$ac_cv_header_sys_auxv_h" = "yes"])
+AS_IF([test $host_cpu = powerpc64le -a "$ac_cv_header_sys_auxv_h" = "yes"], [AC_DEFINE([HAVE_DARN],1,[Enable DARN])],[])
 
-AM_CONDITIONAL([RNDR], [test $host_cpu = aarch64])
-AS_IF([test $host_cpu = aarch64], [AC_DEFINE([HAVE_RNDR],1,[Enable RNDR])],[])
+AM_CONDITIONAL([RNDR], [test $host_cpu = aarch64 -a "$ac_cv_header_sys_auxv_h" = "yes"])
+AS_IF([test $host_cpu = aarch64 -a "$ac_cv_header_sys_auxv_h" = "yes"], [AC_DEFINE([HAVE_RNDR],1,[Enable RNDR])],[])
 AM_CONDITIONAL([JITTER], [false])
 
 AC_ARG_ENABLE(jitterentropy,
