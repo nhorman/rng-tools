@@ -315,7 +315,7 @@ static void *refill_task(void *data __attribute__((unused)))
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
 
 	list = curl_slist_append(list, "Accept: application/json");
-	list = curl_slist_append(list, bearer); 
+	list = curl_slist_append(list, bearer);
 
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
 	
@@ -405,7 +405,6 @@ int xread_qrypt(void *buf, size_t size, struct rng *ent_src)
 	size_t to_copy;
 	uint8_t *buf_ptr = buf;
 	size_t oldsize = size;
-	int i;
 
 	if (backoff_active)
 	{
@@ -453,7 +452,7 @@ int xread_qrypt(void *buf, size_t size, struct rng *ent_src)
 
 
 /*
- * Init QRYPT 
+ * Init QRYPT
  */
 int init_qrypt_entropy_source(struct rng *ent_src)
 {
