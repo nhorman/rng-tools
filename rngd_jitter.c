@@ -575,6 +575,7 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		 * would otherwise happen until jent_read_entropy() has run
 		 * for the first time.
 		 */
+		clock_gettime(CLOCK_REALTIME, &base);
 		do {
 			rc = xread_jitter(&i, 1, ent_src);
 			clock_gettime(CLOCK_REALTIME, &now);

@@ -309,20 +309,46 @@ static void *refill_task(void *data __attribute__((unused)))
 		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "Unable to init curl\n");
 		goto out;
 	}
-	curl_easy_setopt(curl, CURLOPT_URL, QRYPT_URL);
-	curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+
+	res = curl_easy_setopt(curl, CURLOPT_URL, QRYPT_URL);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(URL) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
+	res = curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(HTTP_VER) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
+	res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(WRITEFUNC) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
+	res = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(WRITEDATA) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
 
 	list = curl_slist_append(list, "Accept: application/json");
 	list = curl_slist_append(list, bearer);
 
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
-	
+	res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(HTTPHEADER) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
+
 	res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
-		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "Failed to send curl: %d\n", res);
-
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"Failed to send curl: %s\n", curl_easy_strerror(res));
 		recoverable_error = true;
 		goto out;
 	}
@@ -456,48 +482,52 @@ int xread_qrypt(void *buf, size_t size, struct rng *ent_src)
  */
 int init_qrypt_entropy_source(struct rng *ent_src)
 {
-	char *tokfile = ent_src->rng_options[QRYPT_OPT_TOKEN_FILE].str_val;
-	FILE *tokdata;
-	char token[2048];
+	FILE *tokfile;
+	char *token, *tokfname = ent_src->rng_options[QRYPT_OPT_TOKEN_FILE].str_val;
 	size_t toksize;
 	struct stat tokstat;
 	size_t header_extra_size = strlen("Authorization: Bearer  ");
 
 	message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Initalizing qrypt beacon\n");
-	if (!tokfile) {
+	if (!tokfname) {
 		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "No qrypt token file\n");
 		return -1;
 	}
 
-	if (stat(tokfile, &tokstat) < 0) {
+	if (stat(tokfname, &tokstat) < 0) {
 		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Unable to stat qrypt token file\n");
 		return -1;
 	}
 
-	tokdata = alloca(tokstat.st_size);
-	if (!tokdata) {
+	token = alloca(tokstat.st_size + 1);
+	if (!token) {
 		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Unable to allocate token data\n");
 		return -1;
 	}
+
 	bearer = calloc(tokstat.st_size + header_extra_size, 1);
 	if (!bearer) {
 		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Unable to allocate Bearer space\n");
 		return -1;
 	}
-	tokdata = fopen(tokfile, "r");
-	if (!tokdata) {
+
+	tokfile = fopen(tokfname, "r");
+	if (!tokfile) {
 		free(bearer);
 		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "cant open token file\n");
 		return -1;
 	}
-	toksize = fread(token, 1, tokstat.st_size, tokdata);
-	fclose(tokdata);
+
+	toksize = fread(token, 1, tokstat.st_size, tokfile);
+	fclose(tokfile);
 	if (!toksize) {
 		free(bearer);
 		message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "empty token file\n");
 		return -1;
 	}
-	snprintf(bearer,tokstat.st_size + header_extra_size, "Authorization: Bearer %s", token);
+	token[toksize] = '\0';
+
+	snprintf(bearer, tokstat.st_size + header_extra_size, "Authorization: Bearer %s", token);
 	bearer = strtok(bearer, "\r\n");
 
 	backoff_max = ent_src->rng_options[QRYPT_OPT_MAX_ERROR_DELAY].int_val;
