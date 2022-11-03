@@ -309,20 +309,46 @@ static void *refill_task(void *data __attribute__((unused)))
 		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "Unable to init curl\n");
 		goto out;
 	}
-	curl_easy_setopt(curl, CURLOPT_URL, QRYPT_URL);
-	curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+
+	res = curl_easy_setopt(curl, CURLOPT_URL, QRYPT_URL);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(URL) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
+	res = curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(HTTP_VER) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
+	res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(WRITEFUNC) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
+	res = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(WRITEDATA) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
 
 	list = curl_slist_append(list, "Accept: application/json");
 	list = curl_slist_append(list, bearer);
 
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
-	
+	res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+	if (res != CURLE_OK) {
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"curl_easy_setopt(HTTPHEADER) failed: %s\n", curl_easy_strerror(res));
+		goto out;
+	}
+
 	res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
-		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "Failed to send curl: %d\n", res);
-
+		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO,
+			"Failed to send curl: %s\n", curl_easy_strerror(res));
 		recoverable_error = true;
 		goto out;
 	}
