@@ -144,20 +144,20 @@ The following entropy sources are currently defined in rngd
 
 .TP
 .B
-Hardware RNG (hwrng) [Index 0]
+Hardware RNG (hwrng) 
 The Hardware RNG is a generic entropy source that draws entropy from a hardware
 rng attached by default to /dev/hwrng
 
 .TP
 .B
-TPM (tpm) [Index 1]
+TPM (tpm) 
 Entropy drawn from on board TPM device.  Note this entropy source is deprecated
 and will be removed soon, as newer tpm devices export entropy via /dev/hwrng,
 which is collected by the hwrng source above
 
 .TP
 .B
-RDRAND/RDSEED (rdrand) [Index 2]
+RDRAND/RDSEED (rdrand) 
 Entropy drawn from the RDRAND and RDSEED instructions (x86 only)
 .TP
 Options
@@ -167,7 +167,7 @@ if all entropy is drawn directly from rdrand instruction (default 0)
 
 .TP
 .B
-DARN (darn) [Index 3]
+DARN (darn) 
 Entropy drawn from the DARN instruction (ppc64 only)
 .TP
 Options
@@ -178,7 +178,7 @@ the entropy poll, or if it is used as a periodic seed to an aes based cprng
 
 .TP
 .B
-RNDR (rndr) [Index 8]
+RNDR (rndr) 
 Entropy drawn from the RNDR instruction (aarch64 only)
 
 .TP
@@ -190,7 +190,7 @@ the entropy poll, or if it is used as a periodic seed to an aes based cprng
 
 .TP
 .B
-NIST Entropy Beacon (nist) [Index 4]
+NIST Entropy Beacon (nist) 
 Entropy gathered from the NIST network entropy beacon.  Note that this entropy
 source is disabled by default as it should never be used for cryptographic
 purposes, or any use case in which random data should be known only by a single
@@ -198,7 +198,7 @@ entity.
 
 .TP
 .B
-Qrypt Entropy Beacon (qrypt) [Index 9]
+Qrypt Entropy Beacon (qrypt) 
 Entropy gathered from the qrypt entropy beacon.  Note this beacon provides
 entropy to remote clients over a TLS connection.  As such this source should not
 be used for cryptographic operations unless the security of the network can be
@@ -215,7 +215,7 @@ counting up from one second upwards, in powers of two.
 
 .TP
 .B
-JITTER (jitter) [Index 5]
+JITTER (jitter) 
 Entropy gathered by measuring timing variance of operations on the local cpu
 .TP
 Options
@@ -233,7 +233,7 @@ Options
 
 .TP
 .B
-PKCS11 (pkcs11) [Index 6]
+PKCS11 (pkcs11) 
 Entropy gathered via the opensc openssl engine, which can extract entropy from
 various smart card readers
 .TP
@@ -246,7 +246,7 @@ smaller chunks to be satisfied
 
 .TP
 .B
-RTLSDR (rtlsdr) [Index 7]
+RTLSDR (rtlsdr) 
 Entropy gathered via the rtl software defined radio library, which can gather
 entropy using various usb software defined radios listening to random radio
 static
