@@ -454,7 +454,11 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		CPU_SET(0, cpus);
 	}
 
+#if defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_ARCH_7A__)
+	num_threads = CPU_COUNT_S(cpusize, cpus) - 1;
+#else
 	num_threads = CPU_COUNT_S(cpusize, cpus);
+#endif
 
 	if (num_threads >= ent_src->rng_options[JITTER_OPT_THREADS].int_val)
 		num_threads = ent_src->rng_options[JITTER_OPT_THREADS].int_val;
