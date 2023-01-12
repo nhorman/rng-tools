@@ -728,10 +728,11 @@ static int update_kernel_random(struct rng *rng, int random_step,
 	unsigned char *buf, fips_ctx_t *fipsctx_in)
 {
 	unsigned char *p;
-	int fips;
+	int fips = 0;
 	int rc;
 
-	fips = fips_run_rng_test(fipsctx_in, buf);
+	if (!arguments->ignorefail)
+		fips = fips_run_rng_test(fipsctx_in, buf);
 	if (fips && !arguments->ignorefail)
 		return 1;
 
