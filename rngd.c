@@ -624,7 +624,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		if (sscanf(arg, "%i", &arguments->random_step) == 0)
 			argp_usage(state);
 		if (arguments->random_step > FIPS_RNG_BUFFER_SIZE || arguments->random_step < 0)
-			arguments->random_step = FIPS_RNG_BUFFER_SIZE
+			arguments->random_step = FIPS_RNG_BUFFER_SIZE;
 		break;
 	case 'W': {
 		int n;
