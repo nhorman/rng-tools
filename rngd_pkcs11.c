@@ -67,19 +67,25 @@ int validate_pkcs11_options(struct rng *ent_src)
 	struct stat sbuf;
 
 	if (stat(ent_src->rng_options[PKCS11_OPT_ENGINE].str_val, &sbuf) == -1) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine %s Error: %s\n",
-			ent_src->rng_options[PKCS11_OPT_ENGINE].str_val,
-			strerror(errno));
+		if (errno == ENOENT) {
+			message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING,"No PKCS11 endpoint %s found\n",
+				ent_src->rng_options[PKCS11_OPT_ENGINE].str_val);
+			message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING,"Install opensc/opensc-pkcs11/etc"
+				" if you would like to gather smartcard entropy\n");
+		} else
+			message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine %s Error: %s\n",
+				ent_src->rng_options[PKCS11_OPT_ENGINE].str_val,
+				strerror(errno));
 		return 1;
 	}
 
 	if (!ent_src->rng_options[PKCS11_OPT_CHUNK].int_val) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine chunk size cannot be 0\n");
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine: chunk size cannot be 0\n");
 		return 1;
 	}
 	
 	if (ent_src->rng_options[PKCS11_OPT_CHUNK].int_val > FIPS_RNG_BUFFER_SIZE) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine chunk size cannot be larger than %d\n",
+		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine: chunk size cannot be larger than %d\n",
 			FIPS_RNG_BUFFER_SIZE);
 		return 1;
 	}

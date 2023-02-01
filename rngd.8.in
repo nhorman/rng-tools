@@ -134,7 +134,7 @@ Print program version
 .SH
 ENTROPY SOURCES
 .P
- Rngd is made up of multiple entropy sources, the data from which is
+Rngd is made up of multiple entropy sources, the data from which is
 aggregated and fed into the kernels entropy pool.  Note that not all entropy
 sources are available on all systems, and if an entropy source is enabled for a
 system on which it is not appropriate (or possible) to use, it may fail
@@ -235,7 +235,10 @@ Options
 .B
 PKCS11 (pkcs11) 
 Entropy gathered via the opensc openssl engine, which can extract entropy from
-various smart card readers
+various smart card readers. Install a package for your distribution containing
+pkcs11 endpoint library to gather smartcard entropy. This is \fBopensc\fR for
+Fedora, \fBopensc-pkcs11\fR for Debian/Ubuntu or another package containing
+opensc-pkcs11.so.
 .TP
 Options
 \fBengine_path - \fR Set the patch for the pkcs11 engine DSO to load
