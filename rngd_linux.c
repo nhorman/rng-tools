@@ -60,7 +60,7 @@ extern int kent_pool_size;
  * randomdev is the path to the random device
  */
 
-#define DEFAULT_WATERMARK_GUESS 4096
+#define DEFAULT_WATERMARK_GUESS 256
 
 void init_kernel_rng(const char* randomdev)
 {
