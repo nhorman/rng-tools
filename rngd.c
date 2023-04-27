@@ -120,7 +120,7 @@ static struct argp_option options[] = {
 	  "Number of bytes written to random-device at a time (default: 64)" },
 
 	{ "fill-watermark", 'W', "n", 0,
-	  "Do not stop feeding entropy to random-device until at least n bits of entropy are available in the pool (default: 3/4 of poolsize), 0 <= n <= 4096" },
+	  "Do not stop feeding entropy to random-device until at least n bits of entropy are available in the pool (default: 3/4 of poolsize), 0 <= n <= 256" },
 
 	{ "quiet", 'q', 0, 0, "Suppress all messages" },
 
@@ -628,7 +628,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 'W': {
 		int n;
-		if ((sscanf(arg, "%i", &n) == 0) || (n < 0) || (n > 4096))
+		if ((sscanf(arg, "%i", &n) == 0) || (n < 0) || (n > 256))
 			argp_usage(state);
 		else
 			arguments->fill_watermark = n;
