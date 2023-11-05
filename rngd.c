@@ -904,10 +904,12 @@ continue_trying:
 		 * entropy from the fast sources, then iff that fails, start including the slower
 		 * sources as well. Once we get some entropy, return to only using fast sources
 		 */
-		if (no_work)
+		if (no_work) {
+			message(LOG_DAEMON|LOG_DEBUG, "Couldn't get entropy in last loop, enabling slow sources\n");
 			try_slow_sources = true;
-		else
+		} else {
 			try_slow_sources = false;
+		}
 
 		for (i = 0; i < ENT_MAX; ++i)
 		{
@@ -948,12 +950,13 @@ continue_trying:
 			iter->failures++;
 			if (iter->failures <= MAX_RNG_FAILURES/4) {
 				/* FIPS tests have false positives */
+				message(LOG_DAEMON|LOG_DEBUG, "FIPS failure from %s, retrying\n", iter->rng_name);
 				goto retry_same;
 			}
 
 			if (iter->failures >= MAX_RNG_FAILURES && !ignorefail) {
 				message(LOG_DAEMON|LOG_ERR,
-				"too many FIPS failures, disabling entropy source\n");
+				"too many FIPS failures, disabling entropy source %s\n", iter->rng_name);
 				if (iter->close)
 					iter->close(iter);
 				iter->disabled = true;
