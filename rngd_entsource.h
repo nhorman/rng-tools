@@ -102,4 +102,7 @@ extern int xread_nist(void *buf, size_t size, struct rng *ent_src);
 
 extern int xread_tpm(void *buf, size_t size, struct rng *ent_src);
 
+extern int init_namedpipe_entropy_source(struct rng *ent_src);
+extern int xread_namedpipe(void *buf, size_t size, struct rng *ent_src);
+
 #endif /* RNGD_ENTSOURCE__H */

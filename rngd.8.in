@@ -266,6 +266,20 @@ device to use
 
 \fBsample_max - \fR The maximum sample rate of the radio
 
+.TP
+.B
+Named pipe (namedpipe) 
+Reads entropy from a named pipe (aka FIFO). Another program, for example a 
+driver reading and preparing data from an external hardware RNG, is expected
+to feed entropy into this named pipe. Should the named pipe be closed,
+rngd will try to reopen it.
+.TP
+Options
+\fBpath - \fR Path of the named pipe. Required.
+
+\fBtimeout - \fR Maximum time in seconds rngd waits until a full FIPS test buffer
+of entropy can be read. Defaults to 5.
+
 .SH AUTHORS
 Philipp Rumpf
 .br
