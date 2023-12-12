@@ -167,6 +167,7 @@ static enum {
 	ENT_PKCS11,
 	ENT_RTLSDR,
 	ENT_QRYPT,
+	ENT_NAMEDPIPE,
 	ENT_MAX
 } entropy_indexes __attribute__((used));
 
@@ -317,6 +318,22 @@ static struct rng_option qrypt_options[] = {
 	}
 };
 
+static struct rng_option namedpipe_options[] = {
+	[NAMEDPIPE_OPT_PATH] = {
+		.key = "path",
+		.type = VAL_STRING,
+		.str_val = "",
+	},
+	[NAMEDPIPE_OPT_TIMEOUT] {
+		.key = "timeout",
+		.type = VAL_INT,
+		.int_val = 5, /* 5 seconds */
+	},
+	{
+		.key = NULL,
+	}
+};
+
 static struct rng entropy_sources[ENT_MAX] = {
 	/* Note, the special char dev must be the first entry */
 	{
@@ -455,6 +472,15 @@ static struct rng entropy_sources[ENT_MAX] = {
 #endif
 		.disabled	= true,
 		.rng_options	= qrypt_options,
+	},
+	{
+		.rng_name	= "Named pipe entropy input",
+		.rng_sname	= "namedpipe",
+		.rng_fd	 = -1,
+		.flags		= { 0 },
+		.xread	  = xread_namedpipe,
+		.init	   = init_namedpipe_entropy_source,
+		.rng_options	= namedpipe_options,
 	}
 
 };

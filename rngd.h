@@ -134,6 +134,15 @@ enum {
 	QRYPT_OPT_MAX,
 };
 
+/*
+ * NAMEDPIPE options
+ */
+enum {
+	NAMEDPIPE_OPT_PATH = 0,
+	NAMEDPIPE_OPT_TIMEOUT = 1,
+	NAMEDPIPE_OPT_MAX,
+};
+
 enum option_val_type {
 	VAL_INT = 0,
 	VAL_STRING = 1,
