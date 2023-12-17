@@ -231,6 +231,9 @@ Options
 
 \fBforce_soft_timer - \fR on platforms with a hardware timer that is too coarse to sample jitter, we can instead use a software based timer loop.  Detection and use of this mechanism is automatic, but this can be useful for testing purposes
 
+\fBforce_as_fast_source - \fR by default the jitter entropy source is considered a "slow" source, meaning it's output is only used
+when no "fast" sources are available or able to provide sufficient random data. When setting this option to 1 jitter will be considered as a "fast" source too and it's output will always be considered (default 0).
+
 .TP
 .B
 PKCS11 (pkcs11) 

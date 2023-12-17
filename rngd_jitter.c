@@ -588,6 +588,11 @@ int init_jitter_entropy_source(struct rng *ent_src)
 
 	}
 
+	if (ent_src->rng_options[JITTER_OPT_FORCE_AS_FAST_SOURCE].int_val) {
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Forcing JITTER to be considered as a fast source\n");
+		ent_src->flags.slow_source = 0;
+	}
+
 	message_entsrc(ent_src,LOG_DAEMON|LOG_INFO, "Enabling JITTER rng support\n");
 	return 0;
 }

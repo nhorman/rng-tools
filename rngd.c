@@ -235,6 +235,11 @@ static struct rng_option jitter_options[] = {
 		.type = VAL_INT,
 		.int_val = 5,
 	},
+	[JITTER_OPT_FORCE_AS_FAST_SOURCE] = {
+		.key = "force_as_fast_source",
+		.type = VAL_INT,
+		.int_val = 0,
+	},
 	{
 		.key = NULL,
 	}
