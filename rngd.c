@@ -130,6 +130,8 @@ static struct argp_option options[] = {
 
 	{ "force-reseed", 'R', "n", 0, "Time in seconds to force adding entropy to the random device" },
 
+	{ "use-slow-sources", 'u', 0, 0, "Always gather entropy from sources considered as \"slow\" too" },
+
 	{ "drop-privileges", 'D', "user:group", 0, "Drop privileges to a user and group specified" },
 
 	{ 0 },
@@ -146,6 +148,7 @@ static struct arguments default_arguments = {
 	.ignorefail	= false,
 	.entropy_count	= 8,
 	.force_reseed	= 60 * 5,
+	.use_slow_sources = false,
 	.drop_privs = false,
 };
 struct arguments *arguments = &default_arguments;
@@ -683,6 +686,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			arguments->force_reseed = R;
 		break;
 	}
+	case 'u': {
+		arguments->use_slow_sources = true;
+		break;
+	}
 	case 'D': {
 		struct passwd *usrent;
 		struct group *grpent;
@@ -942,7 +949,7 @@ continue_trying:
 			int rc;
 			/*message(LOG_CONS|LOG_INFO, "I is %d\n", i);*/
 			iter = &entropy_sources[i];
-			if (!try_slow_sources && iter->flags.slow_source)
+			if (!try_slow_sources && !arguments->use_slow_sources && iter->flags.slow_source)
 				continue;
 
 		retry_same:

@@ -22,6 +22,7 @@ rngd \- Check and feed random data from hardware device to kernel random device
 [\fB\-t\fR, \fB\-\-test\fR]
 [\fB\-W\fR, \fB\-\-fill-watermark=\fInnn\fR]
 [\fB\-R\fR, \fB\-\-force-reseed=\fInnn\fR]
+[\fB\-u\fR, \fB\-\-use-slow-sources\fR]
 [\fB\-D\fR, \fB\-\-drop-privileges=\fIuser:group\fR]
 [\fB\-q\fR, \fB\-\-quiet\fR]
 [\fB\-?\fR, \fB\-\-help\fR]
@@ -116,6 +117,11 @@ For newer kernels which support non-blocking entropy pools, it is still
 beneficial to periodically add fresh entropy as a reseeding event.
 --force-reseed defines the number of seconds between which fresh entropy is
 added to the kernel entropy pool.  Defaults to 5 minutes.
+.TP
+\fB\-u\fR, \fB\-\-use-slow-sources\fR
+The entropy sources nist, jitter and pkcs11 are considered to be slow in providing entropy.
+By default their data is only used after all other sources failed to provide valid entropy 
+a 100 times over. With this option rngd always tries to gather entropy from these sources too.
 .TP
 \fB\-D\fR, \fB\-\-drop-privileges=\fIuser:group\fR
 Drop privileges to a user and a group specified after initialization. A user
