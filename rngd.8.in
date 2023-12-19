@@ -237,6 +237,8 @@ Options
 
 \fBforce_soft_timer - \fR on platforms with a hardware timer that is too coarse to sample jitter, we can instead use a software based timer loop.  Detection and use of this mechanism is automatic, but this can be useful for testing purposes
 
+\fBtimeout - \fR maximum time in seconds to wait until the source must have delivered a block of entropy. On slower hardware it may be necessary to increase this value to ensure jitter can reliably be initialized (default 10)
+
 .TP
 .B
 PKCS11 (pkcs11) 
