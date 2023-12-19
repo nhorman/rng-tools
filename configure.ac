@@ -196,7 +196,7 @@ AS_IF(
 		AC_LINK_IFELSE(
 			[AC_LANG_PROGRAM(
 				[#include <argp.h>],
-				[int argc=1; char *argv[]={"test"}; argp_parse(0,argc,argv,0,0,0); return 0;]
+				[[int argc=1; char *argv[]={"test"}; argp_parse(0,argc,argv,0,0,0); return 0;]]
 				)],
 			[need_libargp=no],
 			[need_libargp=yes
