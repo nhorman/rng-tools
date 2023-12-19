@@ -59,6 +59,7 @@ struct arguments {
 	bool enable_tpm;
 	int entropy_count;
 	int force_reseed;
+	bool use_slow_sources;
 
 	bool drop_privs;
 	uid_t drop_uid;
