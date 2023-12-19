@@ -236,7 +236,7 @@ static struct rng_option jitter_options[] = {
 	[JITTER_OPT_TIMEOUT] = {
 		.key = "timeout",
 		.type = VAL_INT,
-		.int_val = 5,
+		.int_val = 10,
 	},
 	{
 		.key = NULL,
