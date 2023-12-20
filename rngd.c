@@ -759,46 +759,77 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 static struct argp argp = { options, parse_opt, NULL, doc };
 
 
-static int update_kernel_random(struct rng *rng, int random_step,
-	unsigned char *buf, fips_ctx_t *fipsctx_in)
+static int update_kernel_random(int random_step)
 {
-	unsigned char *p;
-	int fips = 0;
+	unsigned char buf[FIPS_RNG_BUFFER_SIZE]; /* random_step was checked to be <= FIPS_RNG_BUFFER_SIZE */
 	int rc;
+	struct rng *iter;
 
-	if (!arguments->ignorefail)
-		fips = fips_run_rng_test(fipsctx_in, buf);
-	if (fips && !arguments->ignorefail)
-		return 1;
+	message(LOG_DAEMON|LOG_DEBUG, "entropy successfully gathered, preparing it for the kernel\n");
 
-	for (p = buf; p + random_step <= &buf[FIPS_RNG_BUFFER_SIZE];
-		 p += random_step) {
+	while(true) {
 		if (!server_running)
 			return 0;
 		if (do_reseed) {
 			do_reseed = false;
 			alarm(arguments->force_reseed);
 		}
-		rc = random_add_entropy(p, random_step);
-		if (rc == -1)
-			return 1;
+
+		/* mix the sources on byte-level: ensure we always feed data from all available sources to the kernel
+		 * helps to mitigate problems should a source not be as random as expected */
+		int p = 0;
+		while(p < random_step) {
+			int progress = p;
+			for (int i = 0; i < ENT_MAX; ++i) {
+				iter = &entropy_sources[i];
+				if (!iter->entropy_buf.valid)
+					continue;
+
+				buf[p++] = iter->entropy_buf.entropy[iter->entropy_buf.used_pos++];
+
+				if (iter->entropy_buf.used_pos == FIPS_RNG_BUFFER_SIZE)
+					iter->entropy_buf.valid = false;
+
+				if(p >= random_step)
+					break;
+			}
+
+			/* abort data preparation when no data was added to the buffer in one loop = no valid sources left
+			 * this wastes a few bytes when FIPS_RNG_BUFFER_SIZE is not a multiple of random_step
+			 * but it makes the logic easier to implement and read */
+			if (p == progress)
+				return 0;
+		}
+
+		rc = random_add_entropy(buf, random_step);
+		if (rc == -1) {
+			/* feeding the entropy to the kernel failed, not much we can do, wait and try again later */
+			random_sleep();
+			continue;
+		}
 		message(LOG_DAEMON|LOG_DEBUG, "Added %d/%d bits entropy\n", rc, kent_pool_size);
+
 		if (rc >= kent_pool_size-64) {
 			message(LOG_DAEMON|LOG_DEBUG, "Pool full at %d, sleeping!\n",
 				kent_pool_size);
 			random_sleep();
 		}
 	}
-
-	return 0;
 }
 
-static int random_test_sink(struct rng *rng, int random_step,
-	unsigned char *buf, fips_ctx_t *fipsctx_in)
+static int random_test_sink(int random_step)
 {
+	struct rng *iter;
+
 	if (!ent_gathered)
 		alarm(1);
-	ent_gathered += FIPS_RNG_BUFFER_SIZE;
+
+	for (int i = 0; i < ENT_MAX; ++i) {
+		iter = &entropy_sources[i];
+		if (iter->entropy_buf.valid)
+			ent_gathered += FIPS_RNG_BUFFER_SIZE;
+	}
+
 	return 0;
 }
 
@@ -909,7 +940,7 @@ static int drop_privileges(uid_t drop_uid, gid_t drop_gid)
 
 static void do_loop(int random_step)
 {
-	unsigned char buf[FIPS_RNG_BUFFER_SIZE];
+	int buffers_filled;
 	int no_work;
 	bool work_done;
 	int sources_left;
@@ -918,8 +949,7 @@ static void do_loop(int random_step)
 	struct rng *iter;
 	bool try_slow_sources = false;
 
-	int (*random_add_fn)(struct rng *rng, int random_step,
-		unsigned char *buf, fips_ctx_t *fipsctx_in);
+	int (*random_add_fn)(int random_step);
 
 	random_add_fn = arguments->test ? random_test_sink : update_kernel_random;
 
@@ -927,6 +957,7 @@ continue_trying:
 	for (no_work = 0; no_work < 100; no_work = (work_done ? 0 : no_work+1)) {
 
 		work_done = false;
+		buffers_filled = 0;
 
 		/*
 		 * Exclude slow sources when faster sources are working well
@@ -944,11 +975,14 @@ continue_trying:
 			try_slow_sources = false;
 		}
 
-		for (i = 0; i < ENT_MAX; ++i)
-		{
-			int rc;
+		for (i = 0; i < ENT_MAX; ++i) {
 			/*message(LOG_CONS|LOG_INFO, "I is %d\n", i);*/
 			iter = &entropy_sources[i];
+
+			/* empty the buffer for each source before gathering new entropy, even when some bytes are left */
+			iter->entropy_buf.valid = false;
+			iter->entropy_buf.used_pos = 0;
+
 			if (!try_slow_sources && !arguments->use_slow_sources && iter->flags.slow_source)
 				continue;
 
@@ -961,16 +995,26 @@ continue_trying:
 
 			message(LOG_DAEMON|LOG_DEBUG, "Reading entropy from %s\n", iter->rng_name);
 
-			retval = iter->xread(buf, sizeof buf, iter);
+			retval = iter->xread(iter->entropy_buf.entropy, sizeof(iter->entropy_buf.entropy), iter);
 			if (retval)
 				continue;	/* failed, no work */
 
 			work_done = true;
 
-			rc = random_add_fn(iter, random_step, buf, iter->fipsctx);
+			if (arguments->ignorefail || arguments->test) {
+				iter->entropy_buf.valid = true;
+			} else {
+				message(LOG_DAEMON|LOG_DEBUG, "Running FIPS test on entropy\n");
+				int fipsret = fips_run_rng_test(iter->fipsctx, iter->entropy_buf.entropy);
+				if (fipsret)
+					message(LOG_DAEMON|LOG_DEBUG, "FIPS test failed (return code %d)\n", fipsret);
+				else
+					iter->entropy_buf.valid = true;
+			}
 
-			if (rc == 0) {
+			if (iter->entropy_buf.valid) {
 				iter->success++;
+				buffers_filled++;
 				if (iter->success >= RNG_OK_CREDIT) {
 					if (iter->failures)
 						iter->failures--;
@@ -994,6 +1038,11 @@ continue_trying:
 					iter->close(iter);
 				iter->disabled = true;
 			}
+		}
+
+		if (buffers_filled) {
+			/* we got some entropy, now mix it and feed it to the kernel */
+			random_add_fn(random_step);
 		}
 
 		/* Don't hog the CPU if no sources have returned data */

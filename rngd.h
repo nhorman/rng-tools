@@ -176,6 +176,12 @@ struct rng {
 		/* Intermittent sources - may sometimes fail to produce entropy */
 		unsigned int intermittent_source : 1;
 	} flags;
+	struct entropy_buf {
+		/* structure to store entropy from a source before mixing it with other sources */
+		unsigned char entropy[FIPS_RNG_BUFFER_SIZE];
+		bool valid;
+		int used_pos;
+	} entropy_buf;
 	int (*xread) (void *buf, size_t size, struct rng *ent_src);
 	int (*init) (struct rng *ent_src);
 	void (*close) (struct rng *end_src);
