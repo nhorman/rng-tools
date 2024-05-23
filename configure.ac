@@ -17,7 +17,7 @@ dnl You should have received a copy of the GNU General Public License
 dnl along with this program; if not, write to the Free Software
 dnl Foundation, Inc., 51 Franklin Street, Suite 500, Boston, MA  02110-1335  USA
 
-AC_INIT(rng-tools, 6.16, [Neil Horman <nhorman@tuxdriver.com>])
+AC_INIT(rng-tools, 6.17, [Neil Horman <nhorman@tuxdriver.com>])
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR([rngd.c])
 AC_CANONICAL_HOST
