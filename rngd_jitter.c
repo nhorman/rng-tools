@@ -61,6 +61,9 @@ static int rngd_notime_start(void *ctx,
 	 * the soft timer function should affine to all cpus
 	 */
 	i = sysconf(_SC_NPROCESSORS_ONLN);
+	if (i == -1)
+		return -errno;
+
 	cpus = CPU_ALLOC(i);
 	cpusize = CPU_ALLOC_SIZE(i);
 	CPU_ZERO_S(cpusize, cpus);
@@ -68,7 +71,7 @@ static int rngd_notime_start(void *ctx,
 		CPU_SET(i, cpus);
 	}
 
-        /*
+	/*
 	 * Note that only one of:
 	 * HAVE_PTHREAD_ATTR_SETAFFINITY
 	 * and
@@ -446,6 +449,13 @@ int init_jitter_entropy_source(struct rng *ent_src)
 	 * 4 threads for four or more cpus
 	 */
 	i = sysconf(_SC_NPROCESSORS_ONLN);
+	if (i == -1) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Failed to get a number of CPUs: %s\n", strerror(errno));
+		close(pipefds[1]);
+		close(pipefds[0]);
+		return 1;
+	}
+
 	cpus = CPU_ALLOC(i);
 	cpusize = CPU_ALLOC_SIZE(i);
 	CPU_ZERO_S(cpusize, cpus);
