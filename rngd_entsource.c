@@ -76,8 +76,8 @@ int xread(void *buf, size_t size, struct rng *ent_src)
 int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 {
 	size_t bytes_read = 0;
-	ssize_t r;
-	int retval;
+	ssize_t r, r2;
+	int retval = 0;
 	unsigned char *temp_buf = NULL;
 	unsigned char rng_cmd[] = {
 		0, 193,            /* TPM_TAG_RQU_COMMAND */
@@ -110,17 +110,17 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 	while (bytes_read < size) {
 		r=0;
 		while (r < sizeof(rng_cmd)) {
-			retval = write(ent_src->rng_fd,
+			r2 = write(ent_src->rng_fd,
 				       rng_cmd + r,
 				       sizeof(rng_cmd) - r);
-			if (retval < 0) {
+			if (r2 < 0) {
 				message_entsrc(ent_src,LOG_ERR|LOG_INFO,
 					"Error writing %s\n",
 					ent_src->rng_name);
 				retval = -1;
 				goto error_out;
 			}
-			r += retval;
+			r += r2;
 		}
 		if (r < sizeof(rng_cmd)) {
 			message_entsrc(ent_src,LOG_ERR|LOG_INFO,
@@ -129,13 +129,13 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 			goto error_out;
 		}
 		r = read(ent_src->rng_fd, temp_buf,size);
-		r = (r - TPM_GET_RNG_OVERHEAD);
-		if(r <= 0) {
+		if (r <= TPM_GET_RNG_OVERHEAD) {
 			message_entsrc(ent_src,LOG_ERR|LOG_INFO,
 			"Error reading from TPM, no entropy gathered\n");
 			retval = -1;
 			goto error_out;
 		}
+		r -= TPM_GET_RNG_OVERHEAD;
 		bytes_read = bytes_read + r;
 		if (bytes_read > size) {
 			memcpy(offset,temp_buf + TPM_GET_RNG_OVERHEAD,
@@ -145,9 +145,9 @@ int xread_tpm(void *buf, size_t size, struct rng *ent_src)
 		memcpy(offset, temp_buf + TPM_GET_RNG_OVERHEAD, r);
 		offset = offset + r;
 	}
-	retval = 0;
+
 error_out:
-    close(ent_src->rng_fd);
+	close(ent_src->rng_fd);
 	free(temp_buf);
 	return retval;
 }
