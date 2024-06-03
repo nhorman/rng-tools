@@ -258,6 +258,8 @@ void jitter_thread_exit_signal(int signum)
 	}
 }
 
+#define MAX_ERRORS_RW 7
+
 static void *thread_entropy_task(void *data)
 {
 	sigset_t blockset;
@@ -268,8 +270,9 @@ static void *thread_entropy_task(void *data)
 	char *tmpbuf;
 	struct timespec start, end;
 	int written;
-	/* STARTUP */
+	int maxerr = MAX_ERRORS_RW;
 
+	/* STARTUP */
 	sigemptyset(&blockset);
 	sigaddset(&blockset, SIGINT);
 	sigaddset(&blockset, SIGTERM);
@@ -294,7 +297,7 @@ static void *thread_entropy_task(void *data)
 
 	tmpbuf = malloc(me->buf_sz);
 	if (!tmpbuf) {
-		message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to allocate temp buffer on cpu %d\n", me->core_id);
+		message_entsrc(me->ent_src, LOG_DAEMON|LOG_DEBUG, "Unable to allocate temp buffer on cpu %d\n", me->core_id);
 		goto out;
 	}
 
@@ -312,30 +315,49 @@ static void *thread_entropy_task(void *data)
 
 	/* Now go to sleep until there is more work to do */
 	for(;;) {
-		message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "JITTER thread on cpu %d wakes up for refill\n", me->core_id);
+		message_entsrc(me->ent_src, LOG_DAEMON|LOG_DEBUG, "JITTER thread on cpu %d wakes up for refill\n", me->core_id);
 
 		/* We are awake because we need to refil the buffer */
 		clock_gettime(CLOCK_REALTIME, &start);
 		ret = jent_read_entropy(me->ec, tmpbuf, me->buf_sz);
 		clock_gettime(CLOCK_REALTIME, &end);
-		message_entsrc(me->ent_src,LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
-			me->core_id, elapsed_time(&start, &end));
-		if (ret < 0)
-			message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "JITTER THREAD_FAILS TO GATHER ENTROPY\n");
 		/* Need to hold the mutex to update the sleep time */
 		update_sleep_time(me, &start, &end);
+		message_entsrc(me->ent_src, LOG_DEBUG|LOG_ERR, "jent_read_entropy time on cpu %d is %.12e sec\n",
+			me->core_id, elapsed_time(&start, &end));
+		if (ret < 0) {
+			message_entsrc(me->ent_src, LOG_DAEMON|LOG_DEBUG, "JITTER THREAD FAILS TO GATHER ENTROPY\n");
+			if (maxerr-- == 0) {
+				message_entsrc(me->ent_src, LOG_DAEMON|LOG_ERR, "Too many jitter read errors, bailing out\n");
+				goto out_interrupt;
+			} else
+				/* Read unsuccessful, nothing to write out */
+				continue;
+		}
+		/* Read successful, reset error counter */
+		maxerr = MAX_ERRORS_RW;
 
 		/* Write to pipe */
 		written = 0;
 		while(written != me->buf_sz) {
-			message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "Writing to pipe\n");
+			message_entsrc(me->ent_src, LOG_DAEMON|LOG_DEBUG, "Writing to pipe\n");
 			ret = write(me->pipe_fd, &tmpbuf[written], me->buf_sz - written);
-                        if ((ret < 0) && (errno != EBADF))
-				message_entsrc(me->ent_src,LOG_DAEMON|LOG_WARNING, "Error on pipe write: %s\n", strerror(errno));
-			message_entsrc(me->ent_src,LOG_DAEMON|LOG_DEBUG, "DONE Writing to pipe with return %ld\n", ret);
-			written += ret;
+			/* Suppress EBADF errors, as those indicate the pipe is closed and we are exiting */
+			if ((ret < 0) && (errno != EBADF)) {
+				message_entsrc(me->ent_src, LOG_DAEMON|LOG_WARNING, "Error on pipe write: %s\n", strerror(errno));
+				if (maxerr-- == 0) {
+					message_entsrc(me->ent_src, LOG_DAEMON|LOG_ERR, "Too many pipe errors, bailing out\n");
+					goto out_interrupt;
+				}
+			} else {
+				/* Branch ret >= 0 || errno == EBADF */
+				if (ret > 0) {
+					message_entsrc(me->ent_src, LOG_DAEMON|LOG_DEBUG, "DONE Writing to pipe with return %ld\n", ret);
+					written += ret;
+					maxerr = MAX_ERRORS_RW;
+				}
+			}
 		}
-
 	}
 
 out_interrupt:
