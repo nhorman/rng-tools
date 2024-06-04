@@ -502,9 +502,19 @@ int init_jitter_entropy_source(struct rng *ent_src)
 		CPU_FREE(cpus);
 		return 1;
 	}
-	
+
 	tdata = calloc(num_threads, sizeof(struct thread_data));
 	threads = calloc(num_threads, sizeof(pthread_t));
+	if (!tdata || !threads) {
+		message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG, "Failed to allocate memory for %d threads: %s\n",
+			num_threads, strerror(errno));
+		close(pipefds[0]);
+		close(pipefds[1]);
+		free(tdata);
+		free(threads);
+		CPU_FREE(cpus);
+		return 1;
+	}
 
 	message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "JITTER attempting to start %d threads\n", num_threads);
 
