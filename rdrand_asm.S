@@ -386,7 +386,7 @@ aes_round_keys:
  * This is necessary to inform a linker that this code has IBT (Indirect
  * Branch Tracking) feature of the Intel CET (Control-flow Enforcement
  * Technology) enabled.
- * See: https://sourceware.org/annobin/annobin.html/Test-cf-protection.html
+ * See: https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-fcf-protection
  */
 #if defined __CET__ && (__CET__ & 1)
 	.section	.note.gnu.property,"a"
