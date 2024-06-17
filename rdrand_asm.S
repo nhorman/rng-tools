@@ -19,10 +19,27 @@
  *
  */
 
-#define ENTRY(x)	  \
-	.balign	64	; \
-	.globl	x	; \
-x:
+/* Add Intel CET IBT instrumentation */
+#if defined __CET__ && (__CET__ & 1)
+#ifdef __x86_64__
+	#define ENTRY(x)	  \
+		.balign	64	; \
+		.globl	x	; \
+	x:			  \
+		endbr64
+#elif defined(__i386__)
+	#define ENTRY(x)	  \
+		.balign	64	; \
+		.globl	x	; \
+	x:			  \
+		endbr32
+#endif /* __x86_64__ */
+#else /* __CET__ */
+	#define ENTRY(x)	  \
+		.balign	64	; \
+		.globl	x	; \
+	x:
+#endif /* __CET__ */
 
 #define ENDPROC(x)		  \
 	.size	x, .-x		; \
@@ -375,7 +392,35 @@ aes_round_keys:
 	.size	aes_round_keys, .-aes_round_keys
 
 /*
+ * This is necessary to inform a linker that this code has IBT (Indirect
+ * Branch Tracking) feature of the Intel CET (Control-flow Enforcement
+ * Technology) enabled.
+ * See: https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-fcf-protection
+ */
+#if defined __CET__ && (__CET__ & 1)
+	.section	.note.gnu.property,"a"
+	.align	8
+	.long	1f - 0f		/* name length */
+	.long	4f - 1f		/* data length */
+	/* NT_GNU_PROPERTY_TYPE_0 */
+	.long	5		/* note type */
+0:
+	.string	"GNU"		/* vendor name */
+1:
+	.align	8
+	/* GNU_PROPERTY_X86_FEATURE_1_AND */
+	.long	0xc0000002	/* pr_type */
+	.long	3f - 2f		/* pr_datasz */
+2:
+	/* GNU_PROPERTY_X86_FEATURE_1_XXX */
+	.long	0x3
+3:
+	.align	8
+4:
+#endif
+
+/*
  * This is necessary to keep the whole executable
  * from needing a writable stack.
  */
-                .section        .note.GNU-stack,"",%progbits
+	.section	.note.GNU-stack,"",%progbits
