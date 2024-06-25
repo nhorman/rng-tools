@@ -20,6 +20,7 @@
 /rng-tools-config.h.in
 /rngd
 /rngd.8
+/rngd.service
 /rngtest
 /rngtest.1
 /stamp-h1
