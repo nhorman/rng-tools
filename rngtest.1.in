@@ -23,7 +23,7 @@ It takes input from \fIstdin\fR, and outputs statistics to \fIstderr\fR,
 optionally echoing blocks that passed the FIPS tests to \fIstdout\fR
 (when operating in \fIpipe mode\fR).  Errors are sent to \fIstderr\fR.
 .PP
-At startup, \fIrngtest\fR will trow away the first 32 bits of data when
+At startup, \fIrngtest\fR will throw away the first 32 bits of data when
 operating in \fIpipe mode\fR.  It will use the next 32 bits of data to
 bootstrap the FIPS tests (even when not operating in \fIpipe mode\fR).
 These bits are not tested for randomness.
