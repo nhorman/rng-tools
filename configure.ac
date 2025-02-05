@@ -231,5 +231,5 @@ dnl --------------------------
 dnl autoconf output generation
 dnl --------------------------
 
-AC_CONFIG_FILES([Makefile contrib/Makefile tests/Makefile rngd.8 rngtest.1])
+AC_CONFIG_FILES([Makefile contrib/Makefile tests/Makefile rngd.8 rngd.service rngtest.1])
 AC_OUTPUT
