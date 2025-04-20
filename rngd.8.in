@@ -141,11 +141,11 @@ Print program version
 ENTROPY SOURCES
 .P
 Rngd is made up of multiple entropy sources, the data from which is
-aggregated and fed into the kernels entropy pool.  Note that not all entropy
+aggregated and fed into the kernel's entropy pool.  Note that not all entropy
 sources are available on all systems, and if an entropy source is enabled for a
 system on which it is not appropriate (or possible) to use, it may fail
 initialization.  It is not fatal to rngd for any single entropy source to fail
-during startup.  Only a single entropy sources is needed for rngd to operate.
+during startup.  Only a single entropy source is needed for rngd to operate.
 The following entropy sources are currently defined in rngd
 
 .TP
