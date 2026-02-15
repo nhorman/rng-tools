@@ -5,7 +5,8 @@ ConditionVirtualization=!container
 # The "-f" option is required for the systemd service rngd to work with Type=simple
 [Service]
 Type=simple
-ExecStart=@prefix@/sbin/rngd -f
+EnvironmentFile=/etc/conf.d/rngd
+ExecStart=@prefix@/sbin/rngd -f $RNGD_ARGS
 
 [Install]
 WantedBy=multi-user.target
