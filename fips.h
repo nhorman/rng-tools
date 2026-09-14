@@ -44,7 +44,7 @@ extern void fips_init(fips_ctx_t *ctx, unsigned int last32);
 #define FIPS_RNG_POKER		0x0002 /* FIPS 140-2 2001-10-10 poker */
 #define FIPS_RNG_RUNS		0x0004 /* FIPS 140-2 2001-10-10 runs */
 #define FIPS_RNG_LONGRUN	0x0008 /* FIPS 140-2 2001-10-10 long run */
-#define FIPS_RNG_CONTINUOUS_RUN 0x0010 /* FIPS 140-2 continuous run */
+#define FIPS_RNG_CONTINUOUS_RUN	0x0010 /* FIPS 140-2 continuous run */
 
 /*
  * Names for the FIPS tests, and bitmask

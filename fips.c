@@ -77,7 +77,7 @@ const unsigned int fips_test_mask[N_FIPS_TESTS] = {
 
 /*
  * fips_test_store - store 8 bits of entropy in FIPS
- * 			 internal test data pool
+ *			internal test data pool
  */
 static void fips_test_store(fips_ctx_t *ctx, unsigned int rng_data)
 {
@@ -197,4 +197,3 @@ void fips_init(fips_ctx_t *ctx, unsigned int last32)
 		ctx->last32 = last32;
 	}
 }
-

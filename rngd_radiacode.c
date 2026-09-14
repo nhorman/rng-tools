@@ -285,30 +285,30 @@ static int radiacode_get_data(float *count_rate, float *dose_rate)
 	/* Capture timestamp */
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	uint64_t current_ns = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
-	
+
 	ret = radiacode_read_request(RADIACODE_VS_DATA_BUF, &data, &data_len);
 	if (ret < 0) {
 		return ret;
 	}
 
 	poll_count++;
-	
+
 	/* Calculate interval since last poll */
 	uint64_t interval_ns = 0;
 	if (last_poll_ns != 0) {
 		interval_ns = current_ns - last_poll_ns;
 	}
 	last_poll_ns = current_ns;
-	
+
 	/* Track buffer state transitions */
 	if (data_len > 0) {
 		nonempty_count++;
-		
+
 		/* Hash the event data */
 		for (size_t i = 0; i < data_len; i++) {
 			event_hash = (event_hash * 31) + data[i];
 		}
-		
+
 		/* Check for new events */
 		if (data_len != last_data_len) {
 			event_hash ^= (uint32_t)data_len;
@@ -317,15 +317,15 @@ static int radiacode_get_data(float *count_rate, float *dose_rate)
 		empty_count++;
 	}
 	last_data_len = data_len;
-	
+
 	/* Mix entropy: event hash, decay intervals, timestamps, buffer state */
-	uint32_t entropy_mix = event_hash ^ 
+	uint32_t entropy_mix = event_hash ^
 	                       (uint32_t)(interval_ns & 0xFFFFFFFF) ^
 	                       (uint32_t)(interval_ns >> 32) ^
 	                       (uint32_t)(ts.tv_nsec) ^
 	                       (empty_count << 16) ^
 	                       nonempty_count;
-	
+
 	/* Generate measurements */
 	*count_rate = (float)((entropy_mix & 0xFFFF) + poll_count) / 100.0f;
 	*dose_rate = (float)(((entropy_mix >> 16) & 0xFFFF) + (uint32_t)(interval_ns & 0xFFFF)) / 10000.0f;
@@ -437,14 +437,14 @@ static void mix_spectrum_entropy(unsigned char *buf, size_t buf_size)
 	for (size_t i = 0; i < radiacode_state.spectrum_channels && i < 256; i++) {
 		if (radiacode_state.spectrum_counts[i] > 0) {
 			/* Calculate energy for this channel: E = a0 + a1*ch + a2*ch^2 */
-			float energy = radiacode_state.a0 + 
-			              radiacode_state.a1 * i + 
+			float energy = radiacode_state.a0 +
+			              radiacode_state.a1 * i +
 			              radiacode_state.a2 * i * i;
-			
+
 			/* Use energy and count to generate entropy */
-			uint32_t entropy_val = (uint32_t)(energy * 1000.0f) ^ 
+			uint32_t entropy_val = (uint32_t)(energy * 1000.0f) ^
 			                      radiacode_state.spectrum_counts[i];
-			
+
 			/* Mix into buffer */
 			if (i < buf_size) {
 				buf[i] ^= (entropy_val >> 0) & 0xFF;
@@ -487,14 +487,14 @@ int init_radiacode_entropy_source(struct rng *ent_src)
 	/* Validate user input */
 	devid = ent_src->rng_options[RADIACODE_OPT_DEVID].int_val;
 	requested_serial = ent_src->rng_options[RADIACODE_OPT_SERIAL].str_val;
-	
+
 	/* Validate device_id range */
 	if (devid < 0 || devid > 99) {
 		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
 		              "Invalid device_id: %d (must be 0-99)\n", devid);
 		return 1;
 	}
-	
+
 	/* Validate poll_delay range */
 	int poll_delay = ent_src->rng_options[RADIACODE_OPT_POLL_DELAY].int_val;
 	if (poll_delay < 1 || poll_delay > 10000) {
@@ -502,7 +502,7 @@ int init_radiacode_entropy_source(struct rng *ent_src)
 		              "Invalid poll_delay: %d (must be 1-10000 ms)\n", poll_delay);
 		return 1;
 	}
-	
+
 	/* Validate use_spectrum is boolean */
 	int use_spectrum = ent_src->rng_options[RADIACODE_OPT_USE_SPECTRUM].int_val;
 	if (use_spectrum != 0 && use_spectrum != 1) {
@@ -510,25 +510,25 @@ int init_radiacode_entropy_source(struct rng *ent_src)
 		              "Invalid use_spectrum: %d (must be 0 or 1)\n", use_spectrum);
 		return 1;
 	}
-	
+
 	/* Validate serial number format if provided */
 	if (requested_serial != NULL && strlen(requested_serial) > 0) {
 		size_t serial_len = strlen(requested_serial);
-		
+
 		/* Check length */
 		if (serial_len > 64) {
 			message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
 			              "Serial number too long: %zu characters (max 64)\n", serial_len);
 			return 1;
 		}
-		
+
 		/* Check for null bytes */
 		if (memchr(requested_serial, '\0', serial_len) != requested_serial + serial_len) {
 			message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
 			              "Serial number contains embedded null bytes\n");
 			return 1;
 		}
-		
+
 		/* Check for printable ASCII only */
 		for (size_t i = 0; i < serial_len; i++) {
 			unsigned char c = requested_serial[i];
@@ -561,25 +561,25 @@ int init_radiacode_entropy_source(struct rng *ent_src)
 
 	/* List all Radiacode devices found */
 	message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, "Radiacode devices found:\n");
-	
+
 	for (ssize_t i = 0; i < cnt; i++) {
 		struct libusb_device_descriptor desc;
 		unsigned char serial[256];
-		
+
 		ret = libusb_get_device_descriptor(devs[i], &desc);
-		if (ret != 0 || 
-		    desc.idVendor != RADIACODE_VID || 
+		if (ret != 0 ||
+		    desc.idVendor != RADIACODE_VID ||
 		    desc.idProduct != RADIACODE_PID) {
 			continue;
 		}
-		
+
 		/* Get serial number if device has one */
 		serial[0] = '\0';
 		bool device_in_use = false;
 		if (desc.iSerialNumber > 0) {
 			ret = libusb_open(devs[i], &handle);
 			if (ret == 0) {
-				ret = libusb_get_string_descriptor_ascii(handle, 
+				ret = libusb_get_string_descriptor_ascii(handle,
 				                                         desc.iSerialNumber,
 				                                         serial, sizeof(serial));
 				if (ret < 0) {
@@ -592,14 +592,14 @@ int init_radiacode_entropy_source(struct rng *ent_src)
 				device_in_use = true;
 			}
 		}
-		
+
 		/* Display device info */
 		if (device_in_use) {
-			message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, 
+			message_entsrc(ent_src, LOG_DAEMON|LOG_INFO,
 			              "%d: VID:%04x PID:%04x (in use?)\n",
 			              matching_devices, RADIACODE_VID, RADIACODE_PID);
 		} else if (serial[0] != '\0') {
-			message_entsrc(ent_src, LOG_DAEMON|LOG_INFO, 
+			message_entsrc(ent_src, LOG_DAEMON|LOG_INFO,
 			              "%d: VID:%04x PID:%04x Serial:%s\n",
 			              matching_devices, RADIACODE_VID, RADIACODE_PID, serial);
 		} else {
@@ -607,11 +607,11 @@ int init_radiacode_entropy_source(struct rng *ent_src)
 			              "%d: VID:%04x PID:%04x (no serial)\n",
 			              matching_devices, RADIACODE_VID, RADIACODE_PID);
 		}
-		
+
 		/* Check if this is the device we want */
 		if (requested_serial != NULL && strlen(requested_serial) > 0) {
 			/* Match by serial */
-			if (!device_in_use && serial[0] != '\0' && 
+			if (!device_in_use && serial[0] != '\0' &&
 			    strcmp((char *)serial, requested_serial) == 0) {
 				device_index = matching_devices;
 			}
@@ -621,7 +621,7 @@ int init_radiacode_entropy_source(struct rng *ent_src)
 				device_index = matching_devices;
 			}
 		}
-		
+
 		matching_devices++;
 	}
 
@@ -657,7 +657,7 @@ int init_radiacode_entropy_source(struct rng *ent_src)
 	}
 
 	/* Store configuration options for later use */
-	radiacode_state.use_spectrum = 
+	radiacode_state.use_spectrum =
 		ent_src->rng_options[RADIACODE_OPT_USE_SPECTRUM].int_val;
 	radiacode_state.device_index = device_index;
 	radiacode_state.initialized = false;
@@ -753,7 +753,7 @@ int xread_radiacode(void *buf, size_t size, struct rng *ent_src)
 					/* Match by serial number */
 					libusb_device_handle *tmp_handle = NULL;
 					serial[0] = '\0';
-					
+
 					ret = libusb_open(devlist[i], &tmp_handle);
 					if (ret == 0 && desc.iSerialNumber > 0) {
 						ret = libusb_get_string_descriptor_ascii(tmp_handle,
@@ -763,8 +763,8 @@ int xread_radiacode(void *buf, size_t size, struct rng *ent_src)
 							serial[0] = '\0';
 						}
 					}
-					
-					if (tmp_handle && serial[0] != '\0' && 
+
+					if (tmp_handle && serial[0] != '\0' &&
 					    strcmp((char *)serial, requested_serial) == 0) {
 						radiacode_state.handle = tmp_handle;
 						message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG,
@@ -772,7 +772,7 @@ int xread_radiacode(void *buf, size_t size, struct rng *ent_src)
 						              requested_serial);
 						break;
 					}
-					
+
 					if (tmp_handle) {
 						libusb_close(tmp_handle);
 					}
@@ -874,7 +874,7 @@ int xread_radiacode(void *buf, size_t size, struct rng *ent_src)
 		if (ret < 0) {
 			message_entsrc(ent_src, LOG_DAEMON|LOG_DEBUG,
 			              "Failed to get radiation data: %d\n", ret);
-			
+
 			/* Try to continue on intermittent failures */
 			usleep(poll_delay_us);
 			continue;
@@ -896,8 +896,8 @@ int xread_radiacode(void *buf, size_t size, struct rng *ent_src)
 		size_t offset = 2 * sizeof(float) + sizeof(struct timespec);
 		for (size_t i = offset; i < RAW_BUF_SIZE; i++) {
 			/* Mix timestamp, count rate, and dose rate */
-			uint32_t mixed_value = (uint32_t)(count_rate * 1000) + 
-			                       (uint32_t)(dose_rate * 10000) + 
+			uint32_t mixed_value = (uint32_t)(count_rate * 1000) +
+			                       (uint32_t)(dose_rate * 10000) +
 			                       ts.tv_nsec + i;
 			radiacode_state.raw_buffer[i] = (uint8_t)(mixed_value & 0xFF);
 		}
@@ -907,7 +907,7 @@ int xread_radiacode(void *buf, size_t size, struct rng *ent_src)
 			uint32_t *new_spectrum = NULL;
 			size_t new_channels = 0;
 			float a0, a1, a2;
-			
+
 			ret = radiacode_get_spectrum(&new_spectrum, &new_channels, &a0, &a1, &a2);
 			if (ret == 0) {
 				if (radiacode_state.spectrum_counts) {

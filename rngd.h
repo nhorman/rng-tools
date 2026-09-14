@@ -160,7 +160,7 @@ enum option_val_type {
 	VAL_STRING = 1,
 };
 
-struct rng_option { 
+struct rng_option {
 	char *key;
 	enum option_val_type type;
 	union {
@@ -239,4 +239,3 @@ extern bool do_reseed;
 extern volatile bool server_running;
 extern int write_pid_file(const char *pid_fn);
 #endif /* RNGD__H */
-

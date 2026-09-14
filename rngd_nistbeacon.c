@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Neil Horman 
+ * Copyright (c) 2017, Neil Horman
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -60,7 +60,7 @@
 
 #define NIST_RECORD_URL "https://beacon.nist.gov/beacon/2.0/pulse/last"
 #define NIST_CERT_BASE_URL "https://beacon.nist.gov/beacon/2.0/certificate/"
-#define NIST_BUF_SIZE 64 
+#define NIST_BUF_SIZE 64
 #define NIST_CERT "/home/nhorman/Downloads/beacon.cer"
 
 #ifdef CLOCK_MONOTONIC_COARSE
@@ -80,8 +80,8 @@ int cfp;
 
 /*
  * Built from https://beacon.nist.gov/ns/beacon/pulse/2.0/beacon-2.0.xsd
- * Note all values are big endian and must remain so for the purposes 
- * of hashing, but must be converted to local endianess for the purpose of 
+ * Note all values are big endian and must remain so for the purposes
+ * of hashing, but must be converted to local endianess for the purpose of
  * copying to the hash library
  */
 struct nist_data_block {
@@ -120,7 +120,7 @@ struct nist_data_block {
         char *preCommitValue; /* hex decoded array of bytes */
         uint32_t statusCode; /* 32 bit big endian integer */
         char *signatureValue; /* hex encoded byte array */
-        uint32_t signatureValueLen; /* length of signatureValue */ 
+        uint32_t signatureValueLen; /* length of signatureValue */
         char *outputValue; /* expected sha 512 hex buffer */
         uint32_t outputValueLen; /* Len of sha512 hex string */
 };
@@ -248,20 +248,20 @@ static int get_json_byte_array(json_t *parent, char *key, char **val, uint32_t *
         rawlen = strlen(rawstring);
         if (rawlen%2)
                 message(LOG_DAEMON|LOG_ERR, "Byte array isn't of even length!\n");
- 
+
         newval = malloc(rawlen/2);
 	if (!newval)
 		return -1;
 
         unibble = true;
- 
+
         for(i=j=0;i<rawlen;i++) {
                 char nibble = rawstring[i];
                 if (isalpha(nibble)) {
                         nibble = toupper(nibble);
                         nibble = nibble - 0x37; /*convert to hex val*/
                 } else
-                        nibble = nibble - 0x30; /* convert to hex val*/                        
+                        nibble = nibble - 0x30; /* convert to hex val*/
                 if (unibble) {
                         tmpval = nibble << 4;
                         unibble = false;
@@ -271,10 +271,10 @@ static int get_json_byte_array(json_t *parent, char *key, char **val, uint32_t *
                         unibble = true;
                         j++;
                 }
-        } 
-        *len = htobe32(rawlen/2); 
+        }
+        *len = htobe32(rawlen/2);
         *val = newval;
-        return 0; 
+        return 0;
 }
 
 /*
@@ -344,7 +344,7 @@ static size_t parse_nist_json_block(char *ptr, size_t size, size_t nemb, void *u
                 const char *type = json_string_value(tobj);
 
                 if (!strncmp("previous", type, strlen("previous"))) {
-                        CURL_ABRT_IF_FAIL(get_json_byte_array, jidx, "value", &block.prevValue, &block.prevValueLen); 
+                        CURL_ABRT_IF_FAIL(get_json_byte_array, jidx, "value", &block.prevValue, &block.prevValueLen);
                 } else if (!strncmp("hour", type, strlen("hour"))) {
                         CURL_ABRT_IF_FAIL(get_json_byte_array, jidx, "value", &block.hourValue, &block.hourValueLen);
                 } else if (!strncmp("day", type, strlen("day"))) {
@@ -579,7 +579,7 @@ static size_t copy_nist_certificate(char *ptr, size_t size, size_t nemb, void *u
         }
         bfp = BIO_new_mem_buf(activeCert, -1);
         cert = PEM_read_bio_X509(bfp, NULL, NULL,  NULL);
-        pubkey = X509_get_pubkey(cert); 
+        pubkey = X509_get_pubkey(cert);
         BIO_free(bfp);
         bfp = NULL;
         return size * nemb;
@@ -718,10 +718,10 @@ int init_nist_entropy_source(struct rng *ent_src)
 		ossl_aes_random_key(mangle_key, NULL);
 		for (i = 0, p = mangle_iv_buf; i < 8; i++, p += AES_BLOCK)
 			ossl_aes_random_key(p, NULL);
-			
+
 		ossl_ctx = ossl_aes_init(mangle_key, mangle_iv_buf);
 	}
-	
+
 	rc = refill_rand(ent_src);
 	if (!rc) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "WARNING: NIST Randomness beacon "

@@ -1,4 +1,3 @@
-
 Version 5 (April 1, 2014):
 * Support RDRAND capable systems that don't have AES-NI
 * Man page spelling fixes
@@ -37,4 +36,3 @@ Version 1.1 (April 6, 2004):
 * add new rngtest program
 * various minor cleanups
 * much better FIPS testing
-

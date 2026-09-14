@@ -130,7 +130,7 @@ int init_rtlsdr_entropy_source(struct rng *ent_src)
 		return 1;
 	}
 
-	gain = nearest_gain(radio, ent_src, gain); 
+	gain = nearest_gain(radio, ent_src, gain);
 	message_entsrc(ent_src, LOG_DAEMON, "Setting gain to %d\n", gain);
 	if (rtlsdr_set_tuner_gain(radio, gain)) {
 		message_entsrc(ent_src, LOG_DAEMON, "Failed to set gain\n");
@@ -203,4 +203,3 @@ int xread_rtlsdr(void *buf, size_t size, struct rng *ent_src)
 	}
 	return 0;
 }
-

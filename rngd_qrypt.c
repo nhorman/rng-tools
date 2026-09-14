@@ -184,7 +184,7 @@ uint8_t *base64_decode(const char *     data,
 	/* Return the decoded data */
 	*output_length = rawlen;
 
-	return newstr;	
+	return newstr;
 }
 
 static void extract_and_refill_entropy(struct body_buffer *buf)
@@ -218,7 +218,7 @@ static void extract_and_refill_entropy(struct body_buffer *buf)
 		goto out;
 	}
 
-	decode_data = base64_decode(json_string_value(bdata), strlen(json_string_value(bdata)), &decode_len);	
+	decode_data = base64_decode(json_string_value(bdata), strlen(json_string_value(bdata)), &decode_len);
 	if (!decode_data) {
 		message_entsrc(my_ent_src, LOG_DAEMON|LOG_INFO, "failed to decode random data\n");
 		fatal_error = true;
@@ -378,7 +378,7 @@ static void *refill_task(void *data __attribute__((unused)))
 		goto out;
 	}
 	extract_and_refill_entropy(&response_data);
-	
+
 out:
 	/* Have we picked up a recoverable error? */
 	if (recoverable_error) {
@@ -473,7 +473,7 @@ int xread_qrypt(void *buf, size_t size, struct rng *ent_src)
 	} while(size && (oldsize > size));
 
 	return size ? -1 : 0;
-	
+
 }
 
 

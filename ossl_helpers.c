@@ -75,7 +75,7 @@ struct ossl_aes_ctx *ossl_aes_init(const unsigned char *key,
 	ctx = malloc(sizeof(*ctx));
 	if (!ctx)
 		return NULL;
-	
+
 	ctx->c = EVP_CIPHER_CTX_new();
 	if (!ctx->c) {
 		free(ctx);
@@ -98,7 +98,7 @@ int ossl_aes_encrypt(struct ossl_aes_ctx *ctx,
 {
         int len, ciphertext_len;
 
- 	if(1 != EVP_EncryptInit_ex(ctx->c, EVP_aes_128_cbc(), NULL, ctx->key, ctx->iv))
+	if(1 != EVP_EncryptInit_ex(ctx->c, EVP_aes_128_cbc(), NULL, ctx->key, ctx->iv))
 		return 0;
 
 	/*
@@ -120,4 +120,3 @@ int ossl_aes_encrypt(struct ossl_aes_ctx *ctx,
 
 	return ciphertext_len;
 }
-

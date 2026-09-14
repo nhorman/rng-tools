@@ -169,8 +169,8 @@ int init_entropy_source(struct rng *ent_src)
 	}
 
 	/* Try to read some data from the entropy source.  If it doesn't return
- 	 * an error, assume its ok to use
- 	 */
+	 * an error, assume its ok to use
+	 */
 	if (ent_src->xread(buf, sizeof(buf), ent_src) == 0)
 		goto source_valid;
 
@@ -210,7 +210,7 @@ int init_tpm_entropy_source(struct rng *ent_src)
 {
 	message_entsrc(ent_src,LOG_CONS|LOG_INFO, "The TPM entropy source only supports TPM1.2 hardware and is "
 		"deprecated.  TPM2.0 and later hardware exports entropy via /dev/hwrng, which "
-		"can be collected via the hwrng entropy source in rngd\n"); 
+		"can be collected via the hwrng entropy source in rngd\n");
 	ent_src->rng_fd = open(ent_src->rng_fname, O_RDWR);
 	if (ent_src->rng_fd == -1) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG,"Unable to open file: %s\n",ent_src->rng_fname);

@@ -151,4 +151,3 @@ char *dump_stat_bw(char *buf, int size,
 
 	return buf;
 }
-
