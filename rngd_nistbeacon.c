@@ -282,38 +282,57 @@ static int get_json_byte_array(json_t *parent, char *key, char **val, uint32_t *
  * stuff in parse_nist_json_block that can fail, and because as a side effect we
  * alter the global nist data block, we need a way to inform the code that
  * reads random data that the block is invalid if something goes sideways.  To
- * do that we need to return 0 from parse_nist_data_block, so the curl library
- * knows to abort the operation and fail in the call to curl_easy_perform.  That
- * in turn means checking a ton of return code when parsing out individual
- * elements.  To do that, we codify the individual element parse call, rc check,
- * and return here in this macro.  Yes, it means returning from a function in a
- * macro, which is ugly, but thats why I'm writing this huge comment here, so
- * you won't be caught off guard.  You've been warned.
+ * do that we need to return 1 from parse_nist_json_block, which means checking
+ * a ton of return code when parsing out individual elements.  To do that, we
+ * codify the individual element parse call, rc check, and bail out here in
+ * this macro.  Yes, it means jumping out of a function in a macro, which is
+ * ugly, but thats why I'm writing this huge comment here, so you won't be
+ * caught off guard.  You've been warned.
  */
 #define CURL_ABRT_IF_FAIL(call, args...) do {\
 int ____rc = call(args);\
 if(____rc == -1) {\
 	message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Out of memory in %s\n", #call);\
-	return 0;\
+	goto out;\
 }} while(0)
 
 /*
- * Note, I'm making the assumption that the entire xml block gets returned
- * in a single call here, which I should fix
+ * Buffer used to accumulate an http response body, which curl may hand
+ * to us in several chunks
  */
-static size_t parse_nist_json_block(char *ptr, size_t size, size_t nemb, void *userdata)
+struct curl_buf {
+	char *data;
+	size_t len;
+};
+
+static size_t append_curl_data(char *ptr, size_t size, size_t nemb, void *userdata)
+{
+	struct curl_buf *buf = userdata;
+	size_t realsize = size * nemb;
+	char *tmp;
+
+	tmp = realloc(buf->data, buf->len + realsize + 1);
+	if (!tmp)
+		return 0;
+	memcpy(&tmp[buf->len], ptr, realsize);
+	buf->data = tmp;
+	buf->len += realsize;
+	buf->data[buf->len] = '\0';
+	return realsize;
+}
+
+static int parse_nist_json_block(struct rng *ent_src, const char *data, size_t len)
 {
         size_t idx;
         json_t *jidx;
-        size_t realsize = size * nemb;
         json_t *json, *pulse, *obj;
         json_error_t jsonerror;
-        struct rng *ent_src = userdata;
+        int rc = 1;
 
-        json = json_loads(ptr, size, &jsonerror);
+        json = json_loadb(data, len, 0, &jsonerror);
         if (!json) {
-                message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unparseable JSON\n");
-                return 0;
+                message_entsrc(ent_src,LOG_DAEMON|LOG_ERR, "Unparseable JSON: %s\n", jsonerror.text);
+                return 1;
         }
         pulse = json_object_get(json, "pulse");
 
@@ -362,9 +381,10 @@ static size_t parse_nist_json_block(char *ptr, size_t size, size_t nemb, void *u
 
         CURL_ABRT_IF_FAIL(get_json_byte_array, pulse, "signatureValue", &block.signatureValue, &block.signatureValueLen);
         CURL_ABRT_IF_FAIL(get_json_byte_array, pulse, "outputValue", &block.outputValue, &block.outputValueLen);
+        rc = 0;
+out:
         json_decref(json);
-
-        return realsize;
+        return rc;
 }
 
 static int validate_nist_block(struct rng *ent_src)
@@ -569,9 +589,9 @@ out:
 
 }
 
-static size_t copy_nist_certificate(char *ptr, size_t size, size_t nemb, void *userdata)
+static void load_nist_certificate(char *pem)
 {
-        activeCert = strdup(ptr);
+        activeCert = pem;
 
         if (cert) {
                 X509_free(cert);
@@ -582,7 +602,6 @@ static size_t copy_nist_certificate(char *ptr, size_t size, size_t nemb, void *u
         pubkey = X509_get_pubkey(cert); 
         BIO_free(bfp);
         bfp = NULL;
-        return size * nemb;
 }
 
 static void update_active_cert(struct rng *ent_src)
@@ -590,6 +609,7 @@ static void update_active_cert(struct rng *ent_src)
         CURL *curl;
         CURLcode res;
         char *certurl;
+        struct curl_buf resp = { NULL, 0 };
         size_t urlsize = strlen(NIST_CERT_BASE_URL) + be32toh(block.certificateIdStringLen) + 1;
 
         free(activeCert);
@@ -618,10 +638,17 @@ static void update_active_cert(struct rng *ent_src)
                         curl_easy_strerror(res));
                 goto out_curl;
         }
-        res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, copy_nist_certificate);
+        res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, append_curl_data);
         if (res != CURLE_OK) {
                 message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
                         "update_active_cert(): curl_easy_setopt(WRITEFUNC) failed: %s\n",
+                        curl_easy_strerror(res));
+                goto out_curl;
+        }
+        res = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &resp);
+        if (res != CURLE_OK) {
+                message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
+                        "update_active_cert(): curl_easy_setopt(WRITEDATA) failed: %s\n",
                         curl_easy_strerror(res));
                 goto out_curl;
         }
@@ -631,9 +658,16 @@ static void update_active_cert(struct rng *ent_src)
                 message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
                         "update_active_cert(): curl_easy_perform() failed: %s\n",
                         curl_easy_strerror(res));
+                goto out_curl;
+        }
+
+        if (resp.data) {
+                load_nist_certificate(resp.data);
+                resp.data = NULL;
         }
 
 out_curl:
+        free(resp.data);
         curl_easy_cleanup(curl);
         return;
 }
@@ -642,6 +676,7 @@ static int get_nist_record(struct rng *ent_src)
 {
 	CURL *curl;
 	CURLcode res;
+	struct curl_buf resp = { NULL, 0 };
 	int rc = 1;
 
 	curl = curl_easy_init();
@@ -658,14 +693,14 @@ static int get_nist_record(struct rng *ent_src)
 			curl_easy_strerror(res));
 		goto out_curl;
 	}
-	res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, parse_nist_json_block);
+	res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, append_curl_data);
 	if (res != CURLE_OK) {
 		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
 			"get_nist_record(): curl_easy_setopt(WRITEFUNC) failed: %s\n",
 			curl_easy_strerror(res));
 		goto out_curl;
 	}
-	res = curl_easy_setopt(curl, CURLOPT_WRITEDATA, ent_src);
+	res = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &resp);
 	if (res != CURLE_OK) {
 		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
 			"get_nist_record(): curl_easy_setopt(WRITEDATA) failed: %s\n",
@@ -673,7 +708,6 @@ static int get_nist_record(struct rng *ent_src)
 		goto out_curl;
 	}
 
-	/* parse_nist_json_block() runs here as a callback */
 	res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
 		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR,
@@ -681,6 +715,9 @@ static int get_nist_record(struct rng *ent_src)
 			curl_easy_strerror(res));
 		goto out_curl;
 	}
+
+	if (parse_nist_json_block(ent_src, resp.data, resp.len))
+		goto out_curl;
 
         lastpulse = block.pulseIndex;
 
@@ -698,6 +735,7 @@ static int get_nist_record(struct rng *ent_src)
 	rc = 0;
 
 out_curl:
+	free(resp.data);
 	curl_easy_cleanup(curl);
 out:
 	return rc;
