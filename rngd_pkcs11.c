@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Neil Horman 
+ * Copyright (c) 2017, Neil Horman
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -83,13 +83,13 @@ int validate_pkcs11_options(struct rng *ent_src)
 		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine: chunk size cannot be 0\n");
 		return 1;
 	}
-	
+
 	if (ent_src->rng_options[PKCS11_OPT_CHUNK].int_val > FIPS_RNG_BUFFER_SIZE) {
 		message_entsrc(ent_src,LOG_DAEMON|LOG_WARNING, "PKCS11 Engine: chunk size cannot be larger than %d\n",
 			FIPS_RNG_BUFFER_SIZE);
 		return 1;
 	}
-	
+
 	return 0;
 }
 
@@ -158,4 +158,3 @@ void close_pkcs11_entropy_source(struct rng *ent_src)
 	PKCS11_CTX_free(ctx);
 	return;
 }
-

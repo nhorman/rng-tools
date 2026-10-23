@@ -57,7 +57,7 @@ when told to by \fIblockstats\fR or \fItimedstats\fR.
 .PP
 \fBFIPS 140-2 successes\fR and \fBFIPS 140-2 failures\fR counts the number of
 20000-bit blocks either accepted or rejected by the FIPS 140-2 tests.  The
-other statistics show a breakdown of the FIPS 140-2 failures by FIPS 
+other statistics show a breakdown of the FIPS 140-2 failures by FIPS
 140-2 test.  See the FIPS 140-2 document for more information (note that these
 tests are defined on FIPS 140-1 and FIPS 140-2 errata of 2001-10-10. They
 were removed in FIPS 140-2 errata of 2002-12-03).
@@ -80,9 +80,8 @@ processed.
 .SH SEE ALSO
 random(4), rngd(8)
 .TP
-FIPS PUB 140-2 Security Requirements for Cryptographic Modules, NIST, 
+FIPS PUB 140-2 Security Requirements for Cryptographic Modules, NIST,
 http://csrc.nist.gov/groups/STM/cmvp/standards.html
 
 .SH AUTHORS
 Henrique de Moraes Holschuh <hmh@debian.org>
-

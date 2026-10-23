@@ -1,5 +1,3 @@
-
-
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/poll.h>
@@ -26,4 +24,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-

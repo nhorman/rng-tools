@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2009 Red Hat, Inc.
  *
@@ -101,4 +100,3 @@ err_out:
 	close(fd);
 	return -err;
 }
-

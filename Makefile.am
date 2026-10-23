@@ -68,4 +68,3 @@ librngd_a_SOURCES = fips.h fips.c
 
 
 EXTRA_DIST	= autogen.sh
-

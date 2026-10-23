@@ -51,7 +51,7 @@ int xread_namedpipe(void *buf, size_t size, struct rng *ent_src)
 	size_t off = 0;
 	ssize_t r;
 	int sr;
-	
+
 	fd_set readfds;
 	int maxfds;
 
@@ -59,7 +59,7 @@ int xread_namedpipe(void *buf, size_t size, struct rng *ent_src)
 	struct timeval tval;
 	tval.tv_sec = ent_src->rng_options[NAMEDPIPE_OPT_TIMEOUT].int_val;
 	tval.tv_usec = 0;
-    
+
 	while (size > 0) {
 		// prepare fd set for select
 		FD_ZERO(&readfds);
@@ -74,7 +74,7 @@ int xread_namedpipe(void *buf, size_t size, struct rng *ent_src)
 		if (sr == 1) {
 			// our fd has something to read
 			r = read(ent_src->rng_fd, buf + off, size);
-			
+
 			if (r > 0) {
 				// we could read something
 				off += r;
@@ -86,7 +86,7 @@ int xread_namedpipe(void *buf, size_t size, struct rng *ent_src)
 				close(ent_src->rng_fd);
 				ent_src->rng_fd = open(ent_src->rng_options[NAMEDPIPE_OPT_PATH].str_val, O_RDONLY | O_NOCTTY | O_NONBLOCK);
 				if (ent_src->rng_fd == -1) {
-						message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to open named pipe (%i): %s\n", errno, 
+						message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to open named pipe (%i): %s\n", errno,
 								ent_src->rng_options[NAMEDPIPE_OPT_PATH].str_val);
 					ent_src->disabled = true;
 					return -1;
@@ -106,7 +106,7 @@ int xread_namedpipe(void *buf, size_t size, struct rng *ent_src)
 			// select error
 			if (errno == EINTR)
 				continue;
-			
+
 			message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "select error %i\n", errno);
 			return -1;
 		}
@@ -120,7 +120,7 @@ int xread_namedpipe(void *buf, size_t size, struct rng *ent_src)
 int init_namedpipe_entropy_source(struct rng *ent_src)
 {
 	char buf[16];
-    
+
 	if (!ent_src->rng_options[NAMEDPIPE_OPT_PATH].str_val ||
 		strlen(ent_src->rng_options[NAMEDPIPE_OPT_PATH].str_val) == 0)
 	{
@@ -130,7 +130,7 @@ int init_namedpipe_entropy_source(struct rng *ent_src)
 
 	ent_src->rng_fd = open(ent_src->rng_options[NAMEDPIPE_OPT_PATH].str_val, O_RDONLY | O_NOCTTY | O_NONBLOCK);
 	if (ent_src->rng_fd == -1) {
-		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to open named pipe (%i): %s\n", errno, 
+		message_entsrc(ent_src,LOG_DAEMON|LOG_DEBUG, "Unable to open named pipe (%i): %s\n", errno,
 			       ent_src->rng_options[NAMEDPIPE_OPT_PATH].str_val);
 		return 1;
 	}
@@ -140,9 +140,8 @@ int init_namedpipe_entropy_source(struct rng *ent_src)
 		return -1;
 
 	/* the read didn't return an error -> assume its ok to use */
-	
+
 	/* Bootstrap FIPS tests */
 	ent_src->fipsctx = malloc(sizeof(fips_ctx_t));
 	return 0;
 }
-

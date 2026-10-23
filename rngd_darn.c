@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Neil Horman 
+ * Copyright (c) 2017, Neil Horman
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -72,7 +72,7 @@ static int init_openssl(struct rng *ent_src)
 	if (darn_val == ULONG_MAX)
 		return 1;
 	memcpy(&iv_buf[0], &darn_val, sizeof(uint64_t));
-	
+
 	darn_val = get_darn();
 	if (darn_val == ULONG_MAX)
 		return 1;
@@ -89,7 +89,7 @@ static int init_openssl(struct rng *ent_src)
 	if (copy_avail_rand_to_buf((unsigned char *)&rekey_thresh, sizeof(size_t), 0) < sizeof(size_t))
 		return 1;
 	rekey_thresh &= ((1 << THRESH_BITS)-1);
-	
+
 	return 0;
 }
 

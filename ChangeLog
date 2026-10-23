@@ -19,7 +19,7 @@ Tue Apr  6 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	  when input drains before the first block is tested.
 	* rngtest.1.in: Minor text change.
 
-	Preparatory cleanup for merging the multithreaded 
+	Preparatory cleanup for merging the multithreaded
 	code later:
 	* rngd.c: split globals to rngd.h; split linux
 	  /dev/random functionality to rngd_linux.c;
@@ -51,7 +51,7 @@ Fri Apr  5 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	  compilation if build env. is incomplete
 	* fips.c, fips.h: s/FIPS_TESTS/N_FIPS_TESTS/ and
 	  remove unneeded includes
-	* fips.c: reword error message when build env. is 
+	* fips.c: reword error message when build env. is
 	  incomplete, and also reorder some includes
 	* AUTHORS, configure.ac, fips.c, fips.h, rngd.c,
 	  rngd.8.in: Update Jeff Garzik's email address, remove
@@ -64,8 +64,8 @@ Fri Apr  4 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 	* Makefile.am: Add header and CVS Id tag; Do some cosmetic
 	  reformatting; Add rngd_SOURCES.
 	* rngd.c: move all FIPS test code to fips.h/fips.c
-	* fips.h, fips.c: add.  
-	  + Update comments with more FIPS 140-2 trivia. 
+	* fips.h, fips.c: add.
+	  + Update comments with more FIPS 140-2 trivia.
 	  + Use a context structure to hold the FIPS test data.
 	  + Implement FIPS 140-2 4.9 Continuous Run test.
 	  + Add constants with the test names and bitmask for
@@ -74,7 +74,7 @@ Fri Apr  4 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 Fri Apr  3 2004  Henrique de Moraes Holschuh <hmh@debian.org>
 
 	* autogen.sh: Add comments with the required versions
-	  of the tools.  Call aclocal before autoheader.  
+	  of the tools.  Call aclocal before autoheader.
 	  Use --copy for automake invocation.
 	  Identify as version 1.1-devel.
 	* configure.in: rename to configure.ac
@@ -99,7 +99,7 @@ Sat Jul  5 2003  Sami Farin  <safari@users.sourceforge.net>
 
 	also a bugfix:
 	checks for EINTR in xread (maybe not necessary with
-	i810 driver?) 
+	i810 driver?)
 
 Sat Jul  5 2003  Jeff Garzik  <jgarzik@pobox.com>
 
@@ -157,4 +157,3 @@ Fri Mar 23 2001  Jeff Garzik  <jgarzik@mandrakesoft.com>
 	* Makefile.am, configure.in, contrib/Makefile.am,
 	  autogen.sh, NEWS, ChangeLog, AUTHORS, README,
 	  contrib/Makefile.am: Add autoconf/automake support.
-

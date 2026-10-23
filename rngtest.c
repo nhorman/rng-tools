@@ -150,7 +150,7 @@ struct {
 	/* simple counters */
 	uint64_t bad_fips_blocks;	/* Blocks reproved by FIPS 140-2 */
 	uint64_t good_fips_blocks;	/* Blocks approved by FIPS 140-2 */
-	uint64_t fips_failures[N_FIPS_TESTS]; 	/* Breakdown of block
+	uint64_t fips_failures[N_FIPS_TESTS];	/* Breakdown of block
 					   failures per FIPS test */
 
 	uint64_t bytes_received;	/* Bytes read from input */

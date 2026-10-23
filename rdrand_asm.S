@@ -221,7 +221,7 @@ ENTRY(x86_aes_mangle)
 	INIT_PIC()
 #endif
 	movl	$512, CTR3	/* Number of rounds */
-	
+
 	movdqa	(0*16)(PTR1), %xmm0
 	movdqa	(1*16)(PTR1), %xmm1
 	movdqa	(2*16)(PTR1), %xmm2
@@ -298,7 +298,7 @@ offset = offset + 16
 #endif
 	sub	$1, CTR3
 	jnz	1b
-	
+
 	movdqa	%xmm0, (0*16)(PTR1)
 	movdqa	%xmm1, (1*16)(PTR1)
 	movdqa	%xmm2, (2*16)(PTR1)

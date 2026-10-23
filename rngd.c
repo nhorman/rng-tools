@@ -595,14 +595,14 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			*search = '\0';
 			restore = true;
 		}
-	
+
 		idx = find_ent_src_idx(arg);
 		if (idx < 0)
 			return idx;
-	
+
 		if (restore == true)
 			*search = ':';
-	
+
 		if (*search == '\0') {
 			message(LOG_CONS|LOG_INFO, "Available options for %s (%s)\n",
 				entropy_sources[idx].rng_name, entropy_sources[idx].rng_sname);
