@@ -88,7 +88,7 @@ struct nist_data_block {
         uint32_t urilen; /* strlen(uri) */
         char *uri; /* UTF-8 seq of chars */
         uint32_t verlen; /* strlen(version) */
-	char *version; /* UTF-8 seq of chars */
+        char *version; /* UTF-8 seq of chars */
         uint32_t cipherSuite; /* Big endian 32 bit value */
         uint32_t period; /* Big endian 32 bit value */
         uint32_t certificateIdLen; /* length of certificateid array */
@@ -120,7 +120,7 @@ struct nist_data_block {
         char *preCommitValue; /* hex decoded array of bytes */
         uint32_t statusCode; /* 32 bit big endian integer */
         char *signatureValue; /* hex encoded byte array */
-        uint32_t signatureValueLen; /* length of signatureValue */ 
+        uint32_t signatureValueLen; /* length of signatureValue */
         char *outputValue; /* expected sha 512 hex buffer */
         uint32_t outputValueLen; /* Len of sha512 hex string */
 };
@@ -128,6 +128,7 @@ struct nist_data_block {
 static struct nist_data_block block;
 
 char *activeCertId = NULL;
+uint32_t activeCertIdLen = 0;
 char *activeCert = NULL;
 BIO *bfp = NULL;
 X509 *cert = NULL;
@@ -719,16 +720,24 @@ static int get_nist_record(struct rng *ent_src)
 	if (parse_nist_json_block(ent_src, resp.data, resp.len))
 		goto out_curl;
 
-        lastpulse = block.pulseIndex;
+	lastpulse = block.pulseIndex;
 
-        if (!activeCertId || memcmp(activeCertId, block.certificateId, be32toh(block.certificateIdLen))) {
-                free(activeCertId);
-                activeCertId = strndup(block.certificateId, be32toh(block.certificateIdLen));
-                update_active_cert(ent_src);
-        }
+	if (!activeCertId || activeCertIdLen != be32toh(block.certificateIdLen) ||
+	    memcmp(activeCertId, block.certificateId, be32toh(block.certificateIdLen))) {
+		free(activeCertId);
+		activeCertId = malloc(be32toh(block.certificateIdLen));
+		if (!activeCertId) {
+			activeCertIdLen = 0;
+			message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "get_nist_record(): malloc(): out of memory\n");
+			goto out_curl;
+		}
+		memcpy(activeCertId, block.certificateId, be32toh(block.certificateIdLen));
+		activeCertIdLen = be32toh(block.certificateIdLen);
+		update_active_cert(ent_src);
+	}
 
 	if (validate_nist_block(ent_src)) {
-		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "Received block failed validation\n");
+		message_entsrc(ent_src, LOG_DAEMON|LOG_ERR, "get_nist_record(): Received block failed validation\n");
 		goto out_curl;
 	}
 
